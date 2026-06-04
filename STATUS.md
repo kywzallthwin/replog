@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Planning / pre-scaffold setup
+- Client scaffold completed / Tailwind setup next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -10,9 +10,10 @@
 - Build plan confirmed: `AtomicMoore-Build-Plan.pdf`
 - Root npm workspace config already exists in `package.json`
 - Declared workspaces in root config: `client`, `server`
-- `client/` has not been created yet
+- `client/` now exists with a Vite React + TypeScript scaffold
 - `server/` has not been created yet
 - Root `package-lock.json` and `node_modules/` already exist
+- Tailwind has not been set up in `client/` yet
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -20,12 +21,13 @@
 - Confirmed repo root and reference files
 - Confirmed root workspace setup is partially in place
 - Created persistent handoff docs: `AGENTS.md` and `STATUS.md`
+- Scaffolded the Vite React + TypeScript client in `client/`
 
 ## Next Actions
-1. Review and execute the Step 0 commands.
-2. Verify the resulting root workspace and dependency state.
-3. Scaffold the Vite client in `client/`.
-4. Configure Tailwind in the client.
+1. Commit the current project state, including `AGENTS.md`, `STATUS.md`, and the scaffolded `client/` app.
+2. Configure Tailwind in `client/`.
+3. Install the client libraries from Step 3 (`react-router-dom`, `@tanstack/react-query`, `axios`).
+4. Scaffold the `server/` workspace.
 
 ## Open Questions
 - None recorded right now.
@@ -34,4 +36,5 @@
 - None.
 
 ## Session Notes
-- 2026-06-04: Added `AGENTS.md` for stable repo instructions and `STATUS.md` for session-to-session handoff. Current immediate next step is still Step 0.
+- 2026-06-04: Added `AGENTS.md` for stable repo instructions and `STATUS.md` for session-to-session handoff. Current immediate next step was Step 0.
+- 2026-06-05: Reconciled the checkpoint after detecting that `client/` had already been scaffolded with Vite. The next implementation step is Tailwind setup in the client.
