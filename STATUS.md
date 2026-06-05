@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Tailwind v4 wired into client / starter UI replacement next
+- First real client screen implemented / commit checkpoint next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -15,8 +15,8 @@
 - Root `package-lock.json` and `node_modules/` already exist
 - Tailwind v4 is wired into `client/` via the Vite plugin and global CSS import
 - Tailwind v4 is the chosen path; do not use the older `tailwindcss init -p` flow from the PDF
-- The default Vite starter app content is still present in `client/src/App.tsx`
-- The default Vite starter `App.css` is still being imported and should be removed when replacing the starter UI
+- `client/src/App.tsx` now renders the first real mockup-based screen as a static Tailwind login view
+- The old starter `App.css` import is gone, and the starter CSS/assets were removed from `client/src/`
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -26,11 +26,12 @@
 - Created persistent handoff docs: `AGENTS.md` and `STATUS.md`
 - Scaffolded the Vite React + TypeScript client in `client/`
 - Wired Tailwind v4 into the Vite client and verified the client build succeeds
+- Replaced the default Vite starter screen with a static Tailwind login screen in `client/src/App.tsx`
 
 ## Next Actions
-1. Commit the current project state, including `AGENTS.md`, `STATUS.md`, and the scaffolded `client/` app.
-2. Replace the default Vite starter UI in `client/src/App.tsx` and remove `import './App.css'`.
-3. Install the client libraries from Step 3 (`react-router-dom`, `@tanstack/react-query`, `axios`).
+1. Commit the current project state, including the Tailwind setup and the first real `client/src/App.tsx` screen.
+2. Install the client libraries from Step 3 (`react-router-dom`, `@tanstack/react-query`, `axios`).
+3. Add the register screen and decide whether to introduce routing immediately after the library install.
 4. Scaffold the `server/` workspace.
 
 ## Open Questions
@@ -44,3 +45,4 @@
 - 2026-06-05: Reconciled the checkpoint after detecting that `client/` had already been scaffolded with Vite. The next implementation step is Tailwind setup in the client.
 - 2026-06-05: Wired Tailwind v4 into the client by adding the Vite plugin and replacing `client/src/index.css` with the Tailwind import. Verified with `npm run build -w client`.
 - 2026-06-05: Confirmed Tailwind v4 is the chosen approach instead of the older PDF `init -p` flow. The next resume step is to replace the Vite starter `App.tsx` and stop importing `App.css`.
+- 2026-06-05: Rebuilt `client/src/App.tsx` from scratch as a static Tailwind login screen based on the mockup after the starter file was cleared. Verified again with `npm run build -w client`.
