@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- First real client screen implemented / commit checkpoint next
+- Client libraries installed / routing and auth page split next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -17,6 +17,7 @@
 - Tailwind v4 is the chosen path; do not use the older `tailwindcss init -p` flow from the PDF
 - `client/src/App.tsx` now renders the first real mockup-based screen as a static Tailwind login view
 - The old starter `App.css` import is gone, and the starter CSS/assets were removed from `client/src/`
+- Client dependencies now include `react-router-dom`, `@tanstack/react-query`, and `axios`
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -27,11 +28,12 @@
 - Scaffolded the Vite React + TypeScript client in `client/`
 - Wired Tailwind v4 into the Vite client and verified the client build succeeds
 - Replaced the default Vite starter screen with a static Tailwind login screen in `client/src/App.tsx`
+- Installed `react-router-dom`, `@tanstack/react-query`, and `axios` in `client/` and verified the client build still succeeds
 
 ## Next Actions
-1. Commit the current project state, including the Tailwind setup and the first real `client/src/App.tsx` screen.
-2. Install the client libraries from Step 3 (`react-router-dom`, `@tanstack/react-query`, `axios`).
-3. Add the register screen and decide whether to introduce routing immediately after the library install.
+1. Commit the current project state, including the `client` library install in `client/package.json` and `package-lock.json`.
+2. Introduce routing and split the auth UI into real `/login` and `/register` pages.
+3. Add the shared client scaffolding for `src/lib/api.ts` and `src/lib/queryClient.ts`.
 4. Scaffold the `server/` workspace.
 
 ## Open Questions
@@ -46,3 +48,4 @@
 - 2026-06-05: Wired Tailwind v4 into the client by adding the Vite plugin and replacing `client/src/index.css` with the Tailwind import. Verified with `npm run build -w client`.
 - 2026-06-05: Confirmed Tailwind v4 is the chosen approach instead of the older PDF `init -p` flow. The next resume step is to replace the Vite starter `App.tsx` and stop importing `App.css`.
 - 2026-06-05: Rebuilt `client/src/App.tsx` from scratch as a static Tailwind login screen based on the mockup after the starter file was cleared. Verified again with `npm run build -w client`.
+- 2026-06-06: Installed the Step 3 client libraries (`react-router-dom`, `@tanstack/react-query`, `axios`) and re-verified the client with `npm run build -w client`. The next resume step is to commit the dependency checkpoint, then introduce routing and split `/login` and `/register` into separate pages.
