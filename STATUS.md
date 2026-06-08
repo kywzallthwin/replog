@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Prisma migration and seed path complete / backend auth next
+- Backend email/password auth complete / client auth wiring next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -30,6 +30,9 @@
 - Prisma seed wiring is configured in `server/prisma.config.ts` and implemented in `server/prisma/seed.ts`
 - `server/prisma/seed.ts` creates a demo user, 17 global exercises, and the 5-day example routine structure
 - `npm exec -w server -- prisma generate` and `npm exec -w server -- prisma db seed` were verified
+- Backend auth routes now exist under `/auth` for register, login, current user, and logout
+- Auth uses bcrypt password hashing, JWT in an `httpOnly` cookie, Zod request validation, and Prisma user persistence
+- Server env validation now reads `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL`, and `PORT`
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -45,11 +48,12 @@
 - Scaffolded the `server/` workspace with Express + TypeScript, added `server/src/index.ts`, and verified the server via `/health`
 - Initialized Prisma + SQLite in `server/` and wrote the full first MVP schema with validation passing
 - Ran the first Prisma migration, generated the Prisma client, and added a verified seed path for demo starter data
+- Added backend email/password auth routes and verified register, login, `/auth/me`, logout, and post-logout 401 behavior
 
 ## Next Actions
-1. Start the auth backend flow with environment scaffolding, shared Prisma client setup, and the initial `/auth` routes.
-2. Connect the client auth forms to the backend flow and protected auth bootstrap.
-3. Add profile and password-management backend routes after email/password auth works.
+1. Connect the client login and register forms to the backend auth flow.
+2. Add protected auth bootstrap on the client using `/auth/me`.
+3. Add profile and password-management backend routes after the client auth flow works end-to-end.
 4. Add Google OAuth after the email/password auth flow is verified end-to-end.
 
 ## Open Questions
@@ -70,3 +74,5 @@
 - 2026-06-07: Reconciled `STATUS.md` after confirming the server scaffold commit already exists. The next resume step is now Prisma + SQLite, followed by the initial schema, seed path, and auth routes.
 - 2026-06-07: Initialized Prisma + SQLite in `server/`, wrote the full first MVP schema in `server/prisma/schema.prisma`, and verified it with `npm exec -w server -- prisma validate`. The next resume step is to run the first migration, then add the initial seed path.
 - 2026-06-07: Confirmed the first migration exists, added Prisma seed wiring/data, installed `@prisma/adapter-better-sqlite3` and `dotenv`, generated the Prisma client, and verified `npm exec -w server -- prisma db seed` twice. The next resume step is backend auth scaffolding.
+- 2026-06-08: Added server env validation, a shared Prisma client, and `/auth/register`, `/auth/login`, `/auth/me`, and `/auth/logout`. Verified `npm exec -w server -- tsc --noEmit`, `npm exec -w server -- prisma validate`, `npm exec -w server -- prisma generate`, `npm exec -w server -- prisma db seed`, and live auth smoke tests for register/login/me/logout.
+- 2026-06-08: Recreated missing untracked auth source files under `server/src/` after confirming `index.ts` still imported them. Re-verified `npm exec -w server -- tsc --noEmit`, `npm exec -w server -- prisma validate`, `npm exec -w server -- prisma generate`, and live auth smoke tests for register/login/me/logout.
