@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { GuestOnly } from './components/auth/GuestOnly'
 import { RequireAuth } from './components/auth/RequireAuth'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
@@ -11,11 +12,19 @@ export const router = createBrowserRouter([
   },
   {
     path: '/login',
-    element: <LoginPage />,
+    element: (
+      <GuestOnly>
+        <LoginPage />
+      </GuestOnly>
+    ),
   },
   {
     path: '/register',
-    element: <RegisterPage />,
+    element: (
+      <GuestOnly>
+        <RegisterPage />
+      </GuestOnly>
+    ),
   },
   {
     path: '/dashboard',

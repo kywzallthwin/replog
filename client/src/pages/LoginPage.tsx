@@ -1,10 +1,12 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { AuthShell } from '../components/auth/AuthShell'
 import { GoogleButton } from '../components/auth/GoogleButton'
 import { api } from '../lib/api'
+import { authMeQueryKey, type AuthResponse } from '../lib/auth'
 
 type ApiErrorResponse = {
   error?: string
@@ -12,6 +14,7 @@ type ApiErrorResponse = {
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -23,11 +26,12 @@ export function LoginPage() {
     setIsSubmitting(true)
 
     try {
-      await api.post('/auth/login', {
+      const response = await api.post<AuthResponse>('/auth/login', {
         email,
         password,
       })
 
+      queryClient.setQueryData(authMeQueryKey, response.data.user)
       navigate('/dashboard')
     } catch (err) {
       if (axios.isAxiosError<ApiErrorResponse>(err)) {

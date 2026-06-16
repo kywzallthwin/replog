@@ -8,14 +8,14 @@ export type AuthUser = {
   createdAt: string
 }
 
-type AuthMeResponse = {
+export type AuthResponse = {
   user: AuthUser
 }
 
 export const authMeQueryKey = ['auth', 'me'] as const
 
 export async function getCurrentUser() {
-  const response = await api.get<AuthMeResponse>('/auth/me')
+  const response = await api.get<AuthResponse>('/auth/me')
 
   return response.data.user
 }
