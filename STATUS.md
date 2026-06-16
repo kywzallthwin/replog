@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Backend email/password auth complete / client auth wiring next
+- Client email/password auth flow wired / browser smoke test next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -33,6 +33,11 @@
 - Backend auth routes now exist under `/auth` for register, login, current user, and logout
 - Auth uses bcrypt password hashing, JWT in an `httpOnly` cookie, Zod request validation, and Prisma user persistence
 - Server env validation now reads `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL`, and `PORT`
+- `client/src/lib/api.ts` now targets `http://localhost:4000` with credentials enabled
+- `client/src/pages/LoginPage.tsx` now submits to `/auth/login`, shows loading/errors, and redirects to `/dashboard` on success
+- `client/src/pages/RegisterPage.tsx` now submits to `/auth/register`, shows loading/errors, and redirects to `/dashboard` on success
+- `client/src/pages/DashboardPage.tsx` now provides a temporary `/dashboard` destination for successful auth redirects
+- Client `/dashboard` is now protected by a React Query `/auth/me` bootstrap guard
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -49,10 +54,14 @@
 - Initialized Prisma + SQLite in `server/` and wrote the full first MVP schema with validation passing
 - Ran the first Prisma migration, generated the Prisma client, and added a verified seed path for demo starter data
 - Added backend email/password auth routes and verified register, login, `/auth/me`, logout, and post-logout 401 behavior
+- Wired the client login form to the backend auth endpoint and verified the client build succeeds
+- Added a temporary `/dashboard` route and verified the client build succeeds
+- Wired the client register form to the backend auth endpoint and verified the client build succeeds
+- Added client `/auth/me` bootstrap for protected `/dashboard` routing and verified the client build succeeds
 
 ## Next Actions
-1. Connect the client login and register forms to the backend auth flow.
-2. Add protected auth bootstrap on the client using `/auth/me`.
+1. Manually smoke test browser login/register redirects with the server running.
+2. Add logout UI/client handling for the protected dashboard.
 3. Add profile and password-management backend routes after the client auth flow works end-to-end.
 4. Add Google OAuth after the email/password auth flow is verified end-to-end.
 
@@ -76,3 +85,7 @@
 - 2026-06-07: Confirmed the first migration exists, added Prisma seed wiring/data, installed `@prisma/adapter-better-sqlite3` and `dotenv`, generated the Prisma client, and verified `npm exec -w server -- prisma db seed` twice. The next resume step is backend auth scaffolding.
 - 2026-06-08: Added server env validation, a shared Prisma client, and `/auth/register`, `/auth/login`, `/auth/me`, and `/auth/logout`. Verified `npm exec -w server -- tsc --noEmit`, `npm exec -w server -- prisma validate`, `npm exec -w server -- prisma generate`, `npm exec -w server -- prisma db seed`, and live auth smoke tests for register/login/me/logout.
 - 2026-06-08: Recreated missing untracked auth source files under `server/src/` after confirming `index.ts` still imported them. Re-verified `npm exec -w server -- tsc --noEmit`, `npm exec -w server -- prisma validate`, `npm exec -w server -- prisma generate`, and live auth smoke tests for register/login/me/logout.
+- 2026-06-15: Wired `client/src/pages/LoginPage.tsx` with controlled email/password fields, `/auth/login` submit handling, loading/error states, and a success redirect to `/dashboard`. Verified with `npm run build -w client`. The next resume step is to add a valid `/dashboard` destination, then wire register and `/auth/me` bootstrap.
+- 2026-06-15: Added `client/src/pages/DashboardPage.tsx` and registered `/dashboard` in `client/src/router.tsx` so successful login has a valid destination. Verified with `npm run build -w client`. The next resume step is to wire `RegisterPage.tsx` to `/auth/register`.
+- 2026-06-15: Wired `client/src/pages/RegisterPage.tsx` with controlled username/email/password fields, `/auth/register` submit handling, loading/error states, and a success redirect to `/dashboard`. Verified with `npm run build -w client`. The next resume step is to add `/auth/me` bootstrap/protected route behavior.
+- 2026-06-15: Added `client/src/lib/auth.ts` and `client/src/components/auth/RequireAuth.tsx`, then wrapped `/dashboard` with the guard so it checks `/auth/me` before rendering and redirects unauthenticated users to `/login`. Verified with `npm run build -w client`. The next resume step is a browser smoke test with both workspaces running, then logout UI/client handling.
