@@ -19,3 +19,7 @@ export async function getCurrentUser() {
 
   return response.data.user
 }
+
+export async function logoutUser() {
+  await api.post('/auth/logout')
+}
