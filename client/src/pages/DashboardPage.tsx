@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
 
 export function DashboardPage() {
@@ -28,14 +28,25 @@ export function DashboardPage() {
               Dashboard
             </h1>
           </div>
-          <button
-            type="button"
-            disabled={logoutMutation.isPending}
-            onClick={() => logoutMutation.mutate()}
-            className="rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-          >
-            {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                {user?.avatarInitial ?? 'U'}
+              </span>
+              <span className="hidden sm:inline">{user?.username ?? 'Profile'}</span>
+            </Link>
+            <button
+              type="button"
+              disabled={logoutMutation.isPending}
+              onClick={() => logoutMutation.mutate()}
+              className="rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+            >
+              {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+            </button>
+          </div>
         </header>
 
         <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">

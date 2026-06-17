@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Client email/password auth routing wired / browser smoke test next
+- Client profile/account UI wired / browser smoke test next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -41,6 +41,13 @@
 - `client/src/pages/DashboardPage.tsx` now includes logout UI that calls `/auth/logout`, clears the auth query cache, and redirects to `/login`
 - Client `/login` and `/register` are now guest-only routes that redirect authenticated users to `/dashboard`
 - Login and register success handlers now cache the returned auth user for the `/auth/me` query key before redirecting
+- Existing email/password auth API flow was smoke tested with a live server: register, `/auth/me`, logout, post-logout 401, login, and `/auth/me` after login all passed
+- Backend user account routes now exist under `/users`: `PATCH /users/me` for username/email updates and `POST /users/me/password` for password changes
+- User account routes are protected by the existing JWT cookie auth middleware, validate request bodies with Zod, check email conflicts, and use bcrypt for password verification/hashing
+- New account-route smoke tests passed for unauthenticated 401, profile update persistence, wrong-current-password 401, password-change 204, old-password login rejection, and new-password login success
+- Client account helpers now include `updateCurrentUser()` and `changePassword()` in `client/src/lib/auth.ts`
+- Protected client account routes now exist for `/profile`, `/profile/edit`, and `/profile/password`
+- Dashboard now links the user chip/avatar to `/profile`
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -63,12 +70,14 @@
 - Added client `/auth/me` bootstrap for protected `/dashboard` routing and verified the client build succeeds
 - Added dashboard logout UI/client handling and verified the client build succeeds
 - Added guest-only route guarding for `/login` and `/register` and verified the client build succeeds
+- Added backend profile and password-management routes and verified them with live API smoke tests
+- Added protected client profile, edit-profile, and change-password pages wired to the account endpoints and verified the client build succeeds
 
 ## Next Actions
-1. Manually smoke test browser register/login/logout redirects with the server running.
-2. Manually smoke test authenticated users are redirected from `/login` and `/register` to `/dashboard`.
-3. Add profile and password-management backend routes after the client auth flow works end-to-end.
-4. Add Google OAuth after the email/password auth flow is verified end-to-end.
+1. Manually smoke test browser register/login/logout redirects with both workspaces running.
+2. Manually smoke test profile edit and password-change pages from the browser.
+3. Manually smoke test authenticated users are redirected from `/login` and `/register` to `/dashboard` and unauthenticated users are blocked from `/profile` routes.
+4. Add Google OAuth after the email/password auth and account-management flow is verified end-to-end.
 
 ## Open Questions
 - None recorded right now.
@@ -96,3 +105,5 @@
 - 2026-06-15: Added `client/src/lib/auth.ts` and `client/src/components/auth/RequireAuth.tsx`, then wrapped `/dashboard` with the guard so it checks `/auth/me` before rendering and redirects unauthenticated users to `/login`. Verified with `npm run build -w client`. The next resume step is a browser smoke test with both workspaces running, then logout UI/client handling.
 - 2026-06-17: Added `logoutUser()` in `client/src/lib/auth.ts` and a logout button in `client/src/pages/DashboardPage.tsx`. Logout calls `/auth/logout`, removes the cached `/auth/me` query, and redirects to `/login`. Verified with `npm run build -w client`. The next resume step is browser smoke testing login/register/logout with both workspaces running.
 - 2026-06-17: Added `client/src/components/auth/GuestOnly.tsx`, wrapped `/login` and `/register`, and updated login/register success handlers to cache the returned user under `authMeQueryKey` before redirecting. Verified with `npm run build -w client`. The next resume step is browser smoke testing the full auth route behavior.
+- 2026-06-17: Smoke tested the existing auth API flow with a live server, then added `server/src/modules/users/users.routes.ts` and `server/src/modules/users/users.schemas.ts`. Mounted `/users` in `server/src/index.ts`. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, `npm exec -w server -- prisma validate`, and live account-route smoke tests for profile update and password change.
+- 2026-06-17: Added client profile/account UI: `/profile`, `/profile/edit`, `/profile/password`, account API helpers in `client/src/lib/auth.ts`, protected router entries, and a dashboard profile chip link. Verified `npm run build -w client` and `npm exec -w server -- tsc --noEmit`. Next resume step is browser smoke testing the account flow with both workspaces running.
