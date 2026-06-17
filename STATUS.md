@@ -48,6 +48,7 @@
 - Client account helpers now include `updateCurrentUser()` and `changePassword()` in `client/src/lib/auth.ts`
 - Protected client account routes now exist for `/profile`, `/profile/edit`, and `/profile/password`
 - Dashboard now links the user chip/avatar to `/profile`
+- `client/src/pages/ChangePasswordPage.tsx` now uses a real inline lock icon instead of the temporary `*` placeholder
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -72,6 +73,7 @@
 - Added guest-only route guarding for `/login` and `/register` and verified the client build succeeds
 - Added backend profile and password-management routes and verified them with live API smoke tests
 - Added protected client profile, edit-profile, and change-password pages wired to the account endpoints and verified the client build succeeds
+- Polished the change-password page lock icon and verified the client build succeeds
 
 ## Next Actions
 1. Manually smoke test browser register/login/logout redirects with both workspaces running.
@@ -107,3 +109,4 @@
 - 2026-06-17: Added `client/src/components/auth/GuestOnly.tsx`, wrapped `/login` and `/register`, and updated login/register success handlers to cache the returned user under `authMeQueryKey` before redirecting. Verified with `npm run build -w client`. The next resume step is browser smoke testing the full auth route behavior.
 - 2026-06-17: Smoke tested the existing auth API flow with a live server, then added `server/src/modules/users/users.routes.ts` and `server/src/modules/users/users.schemas.ts`. Mounted `/users` in `server/src/index.ts`. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, `npm exec -w server -- prisma validate`, and live account-route smoke tests for profile update and password change.
 - 2026-06-17: Added client profile/account UI: `/profile`, `/profile/edit`, `/profile/password`, account API helpers in `client/src/lib/auth.ts`, protected router entries, and a dashboard profile chip link. Verified `npm run build -w client` and `npm exec -w server -- tsc --noEmit`. Next resume step is browser smoke testing the account flow with both workspaces running.
+- 2026-06-17: Replaced the temporary `*` placeholder on `/profile/password` with an inline lock SVG matching the mockup intent. Verified with `npm run build -w client`.
