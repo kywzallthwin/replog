@@ -24,31 +24,31 @@ const globalExercises = [
 const exampleDays = [
   {
     name: 'PUSH',
-    badgeColor: 'bg-rose-100 text-rose-700',
+    badgeColor: 'bg-amber-100 text-amber-800',
     order: 1,
     exercises: ['Bench Press', 'Incline Dumbbell Press', 'Overhead Press', 'Lateral Raise', 'Triceps Pushdown'],
   },
   {
     name: 'PULL',
-    badgeColor: 'bg-sky-100 text-sky-700',
+    badgeColor: 'bg-blue-100 text-blue-800',
     order: 2,
     exercises: ['Lat Pulldown', 'Barbell Row', 'Seated Cable Row', 'Barbell Curl'],
   },
   {
     name: 'LEGS',
-    badgeColor: 'bg-emerald-100 text-emerald-700',
+    badgeColor: 'bg-pink-100 text-pink-800',
     order: 3,
     exercises: ['Squat', 'Romanian Deadlift', 'Leg Press', 'Cable Crunch'],
   },
   {
     name: 'TORSO A',
-    badgeColor: 'bg-violet-100 text-violet-700',
+    badgeColor: 'bg-indigo-100 text-indigo-800',
     order: 4,
     exercises: ['Bench Press', 'Lat Pulldown', 'Lateral Raise', 'Barbell Curl'],
   },
   {
     name: 'LOWER+ARMS B',
-    badgeColor: 'bg-amber-100 text-amber-700',
+    badgeColor: 'bg-green-100 text-green-800',
     order: 5,
     exercises: ['Squat', 'Romanian Deadlift', 'Triceps Pushdown', 'Hammer Curl'],
   },

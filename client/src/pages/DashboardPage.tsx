@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { dashboardQueryKey, getDashboard, type DashboardDay } from '../lib/dashboard'
+import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
 import { startSession } from '../lib/sessions'
 
@@ -49,18 +49,6 @@ function formatVolume(totalVolumeKg: number) {
   }
 
   return Math.round(totalVolumeKg).toString()
-}
-
-function getBadgeClass(day: Pick<DashboardDay, 'badgeColor' | 'name'>) {
-  const badgeClasses: Record<string, string> = {
-    'bg-rose-100 text-rose-700': 'bg-rose-100 text-rose-700',
-    'bg-sky-100 text-sky-700': 'bg-sky-100 text-sky-700',
-    'bg-emerald-100 text-emerald-700': 'bg-emerald-100 text-emerald-700',
-    'bg-violet-100 text-violet-700': 'bg-violet-100 text-violet-700',
-    'bg-amber-100 text-amber-700': 'bg-amber-100 text-amber-700',
-  }
-
-  return badgeClasses[day.badgeColor] ?? 'bg-slate-100 text-slate-700'
 }
 
 export function DashboardPage() {
@@ -186,7 +174,7 @@ export function DashboardPage() {
                       key={day.id}
                       disabled={startSessionMutation.isPending}
                       onClick={() => startSessionMutation.mutate(day.id)}
-                      className={`rounded-full px-4 py-2 text-xs font-bold shadow-[0_1px_2px_rgba(15,23,42,0.05)] ${getBadgeClass(day)}`}
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition hover:border-slate-900 hover:bg-slate-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {day.name}
                     </button>
@@ -206,7 +194,7 @@ export function DashboardPage() {
                         <div>
                           <p className="text-sm font-bold text-slate-900">
                             {formatSessionDate(session.startedAt)}{' '}
-                            <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${getBadgeClass({ name: session.dayName, badgeColor: session.badgeColor })}`}>
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
                               {session.dayName}
                             </span>
                           </p>
