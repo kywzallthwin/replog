@@ -4,6 +4,7 @@ import express from 'express'
 import { env } from './env.js'
 import { authRouter } from './modules/auth/auth.routes.js'
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js'
+import { sessionsRouter } from './modules/sessions/sessions.routes.js'
 import { usersRouter } from './modules/users/users.routes.js'
 
 const app = express()
@@ -23,6 +24,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/auth', authRouter)
 app.use('/dashboard', dashboardRouter)
+app.use('/sessions', sessionsRouter)
 app.use('/users', usersRouter)
 
 app.listen(env.PORT, () => {

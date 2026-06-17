@@ -7,6 +7,7 @@ import { EditProfilePage } from './pages/EditProfilePage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
+import { WorkoutPage } from './pages/WorkoutPage'
 
 export const router = createBrowserRouter([
   {
@@ -58,6 +59,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <ChangePasswordPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/workout/:sessionId',
+    element: (
+      <RequireAuth>
+        <WorkoutPage />
       </RequireAuth>
     ),
   },

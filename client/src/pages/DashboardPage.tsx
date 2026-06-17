@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { dashboardQueryKey, getDashboard, type DashboardDay } from '../lib/dashboard'
 import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
+import { startSession } from '../lib/sessions'
 
 function getGreeting() {
   const hour = new Date().getHours()
@@ -82,6 +83,13 @@ export function DashboardPage() {
       navigate('/login', { replace: true })
     },
   })
+  const startSessionMutation = useMutation({
+    mutationFn: startSession,
+    onSuccess: (session) => {
+      queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+      navigate(`/workout/${session.id}`)
+    },
+  })
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
@@ -153,9 +161,15 @@ export function DashboardPage() {
                     </p>
                     <button
                       type="button"
+                      disabled={startSessionMutation.isPending}
+                      onClick={() => {
+                        if (dashboard.suggestedDay) {
+                          startSessionMutation.mutate(dashboard.suggestedDay.id)
+                        }
+                      }}
                       className="mt-5 w-full rounded-[13px] bg-slate-900 px-5 py-[15px] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:bg-slate-800"
                     >
-                      Start Workout
+                      {startSessionMutation.isPending ? 'Starting...' : 'Start Workout'}
                     </button>
                   </>
                 ) : (
@@ -170,6 +184,8 @@ export function DashboardPage() {
                     <button
                       type="button"
                       key={day.id}
+                      disabled={startSessionMutation.isPending}
+                      onClick={() => startSessionMutation.mutate(day.id)}
                       className={`rounded-full px-4 py-2 text-xs font-bold shadow-[0_1px_2px_rgba(15,23,42,0.05)] ${getBadgeClass(day)}`}
                     >
                       {day.name}
@@ -233,6 +249,11 @@ export function DashboardPage() {
         {logoutMutation.isError ? (
           <p className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             Unable to log out. Please try again.
+          </p>
+        ) : null}
+        {startSessionMutation.isError ? (
+          <p className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            Unable to start workout. Please try again.
           </p>
         ) : null}
       </div>

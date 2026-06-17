@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Client profile/account UI wired / browser smoke test next
+- Start-workout session shell wired / browser smoke test next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -49,6 +49,13 @@
 - Protected client account routes now exist for `/profile`, `/profile/edit`, and `/profile/password`
 - Dashboard now links the user chip/avatar to `/profile`
 - `client/src/pages/ChangePasswordPage.tsx` now uses a real inline lock icon instead of the temporary `*` placeholder
+- Backend dashboard route now exists at `GET /dashboard`, protected by cookie auth, and returns active starter program days, suggested day, recent sessions, and stats
+- New registered users now receive the 5-day starter program automatically through shared starter-program creation logic
+- Client dashboard now loads real `/dashboard` data, shows suggested day, routine day pills, recent sessions, and stats
+- Backend sessions routes now exist under `/sessions`: `POST /sessions` starts a session from a day and snapshots day/exercise names, `GET /sessions/:sessionId` loads the session shell
+- Client session helpers now exist in `client/src/lib/sessions.ts`
+- Protected `/workout/:sessionId` client route now exists and displays the active workout shell with session exercises
+- Dashboard `Start Workout` and day pills now create a session and redirect to `/workout/:sessionId`
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -74,12 +81,14 @@
 - Added backend profile and password-management routes and verified them with live API smoke tests
 - Added protected client profile, edit-profile, and change-password pages wired to the account endpoints and verified the client build succeeds
 - Polished the change-password page lock icon and verified the client build succeeds
+- Added seeded dashboard data flow and verified the client build, server typecheck, and live dashboard API smoke test
+- Added start-workout session creation/detail flow and verified the client build, server typecheck, and live session API smoke test
 
 ## Next Actions
 1. Manually smoke test browser register/login/logout redirects with both workspaces running.
-2. Manually smoke test profile edit and password-change pages from the browser.
-3. Manually smoke test authenticated users are redirected from `/login` and `/register` to `/dashboard` and unauthenticated users are blocked from `/profile` routes.
-4. Add Google OAuth after the email/password auth and account-management flow is verified end-to-end.
+2. Manually smoke test dashboard data loading, `Start Workout`, day-pill session creation, and `/workout/:sessionId` rendering from the browser.
+3. Manually smoke test profile edit and password-change pages from the browser.
+4. Add set logging to the active workout shell after the browser start-workout flow is verified.
 
 ## Open Questions
 - None recorded right now.
@@ -110,3 +119,5 @@
 - 2026-06-17: Smoke tested the existing auth API flow with a live server, then added `server/src/modules/users/users.routes.ts` and `server/src/modules/users/users.schemas.ts`. Mounted `/users` in `server/src/index.ts`. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, `npm exec -w server -- prisma validate`, and live account-route smoke tests for profile update and password change.
 - 2026-06-17: Added client profile/account UI: `/profile`, `/profile/edit`, `/profile/password`, account API helpers in `client/src/lib/auth.ts`, protected router entries, and a dashboard profile chip link. Verified `npm run build -w client` and `npm exec -w server -- tsc --noEmit`. Next resume step is browser smoke testing the account flow with both workspaces running.
 - 2026-06-17: Replaced the temporary `*` placeholder on `/profile/password` with an inline lock SVG matching the mockup intent. Verified with `npm run build -w client`.
+- 2026-06-17: Added `server/src/modules/programs/starterProgram.ts`, `server/src/modules/dashboard/dashboard.routes.ts`, and `client/src/lib/dashboard.ts`. New users now get the starter program, `/dashboard` returns suggested day/routine/stats, and `client/src/pages/DashboardPage.tsx` renders real dashboard data. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, and a live register + `GET /dashboard` smoke test.
+- 2026-06-17: Added `server/src/modules/sessions/`, mounted `/sessions`, added `client/src/lib/sessions.ts`, registered protected `/workout/:sessionId`, and wired dashboard Start Workout/day pills to create a session and navigate to the workout shell. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, and live register + dashboard + start-session + get-session smoke tests.
