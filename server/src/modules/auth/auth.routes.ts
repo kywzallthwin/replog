@@ -2,6 +2,7 @@ import { compare, hash } from 'bcryptjs'
 import { Router } from 'express'
 import type { User } from '../../generated/prisma/client.js'
 import { prisma } from '../../prisma.js'
+import { createStarterProgramForUser } from '../programs/starterProgram.js'
 import { requireAuth } from './auth.middleware.js'
 import { loginSchema, registerSchema } from './auth.schemas.js'
 import { clearAuthCookie, setAuthCookie } from './auth.tokens.js'
@@ -52,6 +53,8 @@ authRouter.post('/register', async (req, res) => {
       avatarInitial: getAvatarInitial(username, email),
     },
   })
+
+  await createStarterProgramForUser(user.id)
 
   setAuthCookie(res, user.id)
   res.status(201).json({ user: toPublicUser(user) })
