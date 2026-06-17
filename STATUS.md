@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Start-workout session shell wired / browser smoke test next
+- Active workout set logging wired / browser smoke test next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -58,6 +58,10 @@
 - Dashboard `Start Workout` and day pills now create a session and redirect to `/workout/:sessionId`
 - Starter program and seed day badge values match the mockup palette, but dashboard day labels now render with neutral styling
 - Dashboard day-picker pills and recent-session day labels now use neutral styling instead of color-coded badges
+- Backend set logging now exists at `POST /sessions/:sessionId/exercises/:sessionExerciseId/sets`, protected by cookie auth and scoped to the authenticated user's session
+- Add-set validation accepts `kind` (`WARMUP`, `NORMAL`, `DROP`), `weightKg`, and `reps`; the server auto-assigns the next set order
+- Client `client/src/lib/sessions.ts` now includes `addSet()` and typed set kinds
+- `client/src/pages/WorkoutPage.tsx` now opens an inline Add Set form per exercise, displays logged sets, and refreshes the session query after saving
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -86,12 +90,13 @@
 - Added seeded dashboard data flow and verified the client build, server typecheck, and live dashboard API smoke test
 - Added start-workout session creation/detail flow and verified the client build, server typecheck, and live session API smoke test
 - Aligned starter routine badge colors and dashboard pill styling with the mockup, then verified the client build and server typecheck
+- Added active-workout set logging and verified the client build, server typecheck, and live add-set API smoke test
 
 ## Next Actions
 1. Manually smoke test browser register/login/logout redirects with both workspaces running.
-2. Manually smoke test dashboard data loading, `Start Workout`, day-pill session creation, and `/workout/:sessionId` rendering from the browser.
+2. Manually smoke test dashboard data loading, `Start Workout`, day-pill session creation, `/workout/:sessionId`, and adding sets from the browser.
 3. Manually smoke test profile edit and password-change pages from the browser.
-4. Add set logging to the active workout shell after the browser start-workout flow is verified.
+4. Add set edit/delete behavior, then workout finish behavior.
 
 ## Open Questions
 - None recorded right now.
@@ -125,3 +130,4 @@
 - 2026-06-17: Added `server/src/modules/programs/starterProgram.ts`, `server/src/modules/dashboard/dashboard.routes.ts`, and `client/src/lib/dashboard.ts`. New users now get the starter program, `/dashboard` returns suggested day/routine/stats, and `client/src/pages/DashboardPage.tsx` renders real dashboard data. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, and a live register + `GET /dashboard` smoke test.
 - 2026-06-17: Added `server/src/modules/sessions/`, mounted `/sessions`, added `client/src/lib/sessions.ts`, registered protected `/workout/:sessionId`, and wired dashboard Start Workout/day pills to create a session and navigate to the workout shell. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, and live register + dashboard + start-session + get-session smoke tests.
 - 2026-06-17: Updated `server/src/modules/programs/starterProgram.ts` and `server/prisma/seed.ts` to use the mockup badge palette. Updated `client/src/pages/DashboardPage.tsx` so badge colors are derived from day names and dashboard day-picker pills remain neutral like the mockup. Verified `npm exec -w server -- tsc --noEmit` and `npm run build -w client`.
+- 2026-06-17: Added `POST /sessions/:sessionId/exercises/:sessionExerciseId/sets` with Zod validation and authenticated session-exercise ownership checks. Added `addSet()` to `client/src/lib/sessions.ts` and inline add-set forms/set display to `client/src/pages/WorkoutPage.tsx`. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, and live register + dashboard + start-session + add-set + get-session smoke tests.
