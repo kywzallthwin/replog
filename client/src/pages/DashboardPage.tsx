@@ -187,8 +187,9 @@ export function DashboardPage() {
                 <div className="space-y-3">
                   {dashboard.recentSessions.length ? (
                     dashboard.recentSessions.map((session) => (
-                      <article
+                      <Link
                         key={session.id}
+                        to={`/workout/${session.id}`}
                         className="flex items-center justify-between rounded-[16px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
                       >
                         <div>
@@ -203,7 +204,7 @@ export function DashboardPage() {
                           </p>
                         </div>
                         <span className="text-lg text-slate-300">{String.fromCharCode(0x203a)}</span>
-                      </article>
+                      </Link>
                     ))
                   ) : (
                     <div className="rounded-[16px] bg-white p-4 text-sm text-slate-500 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
