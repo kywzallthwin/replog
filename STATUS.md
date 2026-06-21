@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Workout set edit/delete and finish UI wired / browser smoke testing next
+- History page wired / browser smoke testing history next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -70,6 +70,11 @@
 - Dashboard recent-session cards now link to `/workout/:sessionId` so an in-progress session can be reopened
 - Dashboard recent-session cards now label completed workouts as `Finished · Duration: X min` while active workouts still show `In progress`
 - Client API base URL is configurable with `VITE_API_URL`; use `client/.env.example` plus `server/.env.example` as references for same-Wi-Fi mobile testing
+- Browser smoke tests passed for auth redirects, dashboard/workout flow, full set/session lifecycle, and account pages
+- Backend history endpoint now exists at `GET /sessions/history`, protected by cookie auth, and returns finished sessions with exercise/set counts
+- Client `/history` route now exists and displays finished workouts grouped by month, with cards linking to the existing read-only workout detail
+- Dashboard Recent Sessions now links to `/history` through a `View all` action
+- `server/package.json` now includes `typecheck`, so server verification can use `npm run typecheck -w server`
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -106,12 +111,13 @@
 - Added client set/session mutation helpers and the full workout page UI for adding, editing, deleting, and finishing a workout
 - Added environment examples and configurable client API base URL for mobile LAN testing; verified the client build succeeds
 - Updated dashboard recent-session labels so completed workouts explicitly show finished status and duration
+- Browser smoke tested auth redirects, dashboard/workout flow, full set/session lifecycle, and account pages successfully
+- Added the first History implementation with a backend finished-session list endpoint, typed client helper, protected `/history` page, and dashboard link; verified the client build and server typecheck
+- Added a server `typecheck` script and verified it with `npm run typecheck -w server`
 
 ## Next Actions
-1. Manually smoke test browser register/login/logout redirects with both workspaces running.
-2. Manually smoke test dashboard data loading, `Start Workout`, day-pill session creation, `/workout/:sessionId`, adding sets, and reopening a recent session from the browser.
-3. Manually smoke test the full set/session lifecycle: add, edit, delete, and finish.
-4. Manually smoke test profile edit and password-change pages from the browser.
+1. Manually smoke test `/history`: finished workouts load, sessions are grouped by month, cards link to read-only `/workout/:sessionId`, and empty state works for a new account.
+2. Start the Progress feature after History smoke testing: exercise selector, personal best, top-set history, and trend stats.
 
 ## Open Questions
 - None recorded right now.
@@ -153,3 +159,5 @@
 - 2026-06-21: Updated dashboard recent-session copy so completed workouts read `Finished · Duration: X min` instead of only showing the minute count.
 - 2026-06-21: Added accessible Show/Hide toggles to the current, new, and confirm password fields on the change-password page.
 - 2026-06-21: Updated the change-password Show/Hide toggles so clicking them preserves focus and cursor selection in the active password input.
+- 2026-06-21: Browser smoke tests passed for auth redirects, dashboard/workout flow, full set/session lifecycle, and account pages. Added `GET /sessions/history`, `getSessionHistory()`, protected `/history`, month-grouped history cards, and a dashboard `View all` link. Verified with `npm run build -w client` and `npm exec -w server -- tsc --noEmit`.
+- 2026-06-21: Added `typecheck` to `server/package.json`, replacing the long server verification command with `npm run typecheck -w server`. Verified the new script passes.
