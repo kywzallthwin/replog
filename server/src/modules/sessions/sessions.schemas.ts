@@ -9,3 +9,10 @@ export const addSetSchema = z.object({
   weightKg: z.coerce.number().min(0).max(1000),
   reps: z.coerce.number().int().min(1).max(1000),
 })
+
+export const updateSetSchema = z.object({
+  kind: z.enum(['WARMUP', 'NORMAL', 'DROP']).optional(),
+  weightKg: z.coerce.number().min(0).max(1000).optional(),
+  reps: z.coerce.number().int().min(1).max(1000).optional(),
+})
+

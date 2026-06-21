@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
-import { addSetSchema, startSessionSchema } from './sessions.schemas.js'
+import { addSetSchema, startSessionSchema, updateSetSchema } from './sessions.schemas.js'
 
 export const sessionsRouter = Router()
 
@@ -180,10 +180,16 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets', requireAuth
       sessionId,
       session: { userId },
     },
+    include: { session: true },
   })
 
   if (!sessionExercise) {
     res.status(404).json({ error: 'Session exercise not found' })
+    return
+  }
+
+  if (sessionExercise.session.endedAt) {
+    res.status(409).json({ error: 'Finished workouts cannot be edited' })
     return
   }
 
@@ -210,4 +216,215 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets', requireAuth
       order: setLog.order,
     },
   })
+})
+
+sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/sets/:setId', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+  const sessionExerciseId = typeof req.params.sessionExerciseId === 'string' ? req.params.sessionExerciseId : null
+  const setId = typeof req.params.setId === 'string' ? req.params.setId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId || !sessionExerciseId || !setId) {
+    res.status(400).json({ error: 'Invalid session, exercise, or set id' })
+    return
+  }
+
+  const parsedBody = updateSetSchema.safeParse(req.body)
+
+  if (!parsedBody.success) {
+    res.status(400).json({ error: 'Invalid request body', fields: parsedBody.error.flatten().fieldErrors })
+    return
+  }
+
+  const sessionExercise = await prisma.sessionExercise.findFirst({
+    where: {
+      id: sessionExerciseId,
+      sessionId,
+      session: { userId },
+    },
+    include: { session: true },
+  })
+
+  if (!sessionExercise) {
+    res.status(404).json({ error: 'Session exercise not found' })
+    return
+  }
+
+  if (sessionExercise.session.endedAt) {
+    res.status(409).json({ error: 'Finished workouts cannot be edited' })
+    return
+  }
+
+  const existingSet = await prisma.setLog.findFirst({
+    where: {
+      id: setId,
+      sessionExerciseId,
+    },
+  })
+
+  if (!existingSet) {
+    res.status(404).json({ error: 'Set not found' })
+    return
+  }
+
+   const updateData: { kind?: 'WARMUP' | 'NORMAL' | 'DROP', weightKg?: number, reps?: number } = {};
+   if (parsedBody.data.kind) {
+    updateData.kind = parsedBody.data.kind;
+    }
+   if (parsedBody.data.weightKg !== undefined) {
+    updateData.weightKg = parsedBody.data.weightKg;
+    }
+   if (parsedBody.data.reps !== undefined) {
+    updateData.reps = parsedBody.data.reps;
+    }
+
+  const setLog = await prisma.setLog.update({
+    where: { id: setId },
+    data: updateData
+  })
+
+
+
+  res.json({
+    set: {
+      id: setLog.id,
+      kind: setLog.kind,
+      weightKg: setLog.weightKg,
+      reps: setLog.reps,
+      order: setLog.order,
+    },
+  })
+})
+
+sessionsRouter.delete('/:sessionId/exercises/:sessionExerciseId/sets/:setId', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+  const sessionExerciseId = typeof req.params.sessionExerciseId === 'string' ? req.params.sessionExerciseId : null
+  const setId = typeof req.params.setId === 'string' ? req.params.setId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId || !sessionExerciseId || !setId) {
+    res.status(400).json({ error: 'Invalid session, exercise, or set id' })
+    return
+  }
+
+  const sessionExercise = await prisma.sessionExercise.findFirst({
+    where: {
+      id: sessionExerciseId,
+      sessionId,
+      session: { userId },
+    },
+    include: { session: true },
+  })
+
+  if (!sessionExercise) {
+    res.status(404).json({ error: 'Session exercise not found' })
+    return
+  }
+
+  if (sessionExercise.session.endedAt) {
+    res.status(409).json({ error: 'Finished workouts cannot be edited' })
+    return
+  }
+
+  const existingSet = await prisma.setLog.findFirst({
+    where: {
+      id: setId,
+      sessionExerciseId,
+    },
+  })
+
+  if (!existingSet) {
+    res.status(404).json({ error: 'Set not found' })
+    return
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.setLog.delete({
+      where: { id: setId },
+    })
+
+    const remainingSets = await tx.setLog.findMany({
+      where: {
+        sessionExerciseId,
+        order: { gt: existingSet.order },
+      },
+      orderBy: { order: 'asc' },
+    })
+
+    for (const [index, setLog] of remainingSets.entries()) {
+      await tx.setLog.update({
+        where: { id: setLog.id },
+        data: { order: existingSet.order + index },
+      })
+    }
+  })
+
+  res.status(204).send()
+})
+
+sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId) {
+    res.status(400).json({ error: 'Invalid session id' })
+    return
+  }
+
+  const session = await prisma.session.findFirst({
+    where: {
+      id: sessionId,
+      userId,
+    },
+  })
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' })
+    return
+  }
+
+  if (session.endedAt) {
+    res.status(409).json({ error: 'Workout has already been finished' })
+    return
+  }
+
+  const endedAt = new Date()
+  const durationSec = Math.floor((endedAt.getTime() - session.startedAt.getTime()) / 1000)
+
+  const updatedSession = await prisma.session.update({
+    where: {
+      id: sessionId,
+    },
+    data: {
+      endedAt,
+      durationSec,
+    },
+    include: {
+      sessionExercises: {
+        orderBy: { order: 'asc' },
+        include: {
+          setLogs: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      },
+    },
+  })
+
+  res.json({ session: toSessionPayload(updatedSession) })
 })
