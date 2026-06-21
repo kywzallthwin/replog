@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- Active workout set logging wired / browser smoke test next
+- Workout set edit/delete and finish UI wired / browser smoke testing next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -60,9 +60,13 @@
 - Dashboard day-picker pills and recent-session day labels now use neutral styling instead of color-coded badges
 - Backend set logging now exists at `POST /sessions/:sessionId/exercises/:sessionExerciseId/sets`, protected by cookie auth and scoped to the authenticated user's session
 - Add-set validation accepts `kind` (`WARMUP`, `NORMAL`, `DROP`), `weightKg`, and `reps`; the server auto-assigns the next set order
-- Client `client/src/lib/sessions.ts` now includes `addSet()` and typed set kinds
+- Backend set edit/delete now exists at `PATCH /sessions/:sessionId/exercises/:sessionExerciseId/sets/:setId` and `DELETE /sessions/:sessionId/exercises/:sessionExerciseId/sets/:setId`, protected by cookie auth and scoped to the authenticated user's session
+- Set mutations now reject finished sessions, and set delete renumbers later sets for that exercise to keep order contiguous
+- Client `client/src/lib/sessions.ts` now includes `addSet()`, `updateSet()`, `deleteSet()`, and `finishSession()`
 - `client/src/pages/WorkoutPage.tsx` now opens an inline Add Set form per exercise, displays logged sets, and refreshes the session query after saving
+- `client/src/pages/WorkoutPage.tsx` now includes inline set edit/delete and a page-level finish-workout action, all wired to the API and protected from mutation if the workout is already finished
 - Dashboard recent-session cards now link to `/workout/:sessionId` so an in-progress session can be reopened
+- Client API base URL is configurable with `VITE_API_URL`; use `client/.env.example` plus `server/.env.example` as references for same-Wi-Fi mobile testing
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -93,12 +97,15 @@
 - Aligned starter routine badge colors and dashboard pill styling with the mockup, then verified the client build and server typecheck
 - Added active-workout set logging and verified the client build, server typecheck, and live add-set API smoke test
 - Made dashboard recent sessions reopen the workout route and verified the client build/server typecheck
+- Added backend set edit/delete routes and verified the server typecheck plus live add/patch/delete/order smoke test on port 4001
+- Added client set/session mutation helpers and the full workout page UI for adding, editing, deleting, and finishing a workout
+- Added environment examples and configurable client API base URL for mobile LAN testing; verified the client build succeeds
 
 ## Next Actions
 1. Manually smoke test browser register/login/logout redirects with both workspaces running.
 2. Manually smoke test dashboard data loading, `Start Workout`, day-pill session creation, `/workout/:sessionId`, adding sets, and reopening a recent session from the browser.
-3. Manually smoke test profile edit and password-change pages from the browser.
-4. Add set edit/delete behavior, then workout finish behavior.
+3. Manually smoke test the full set/session lifecycle: add, edit, delete, and finish.
+4. Manually smoke test profile edit and password-change pages from the browser.
 
 ## Open Questions
 - None recorded right now.
@@ -134,3 +141,6 @@
 - 2026-06-17: Updated `server/src/modules/programs/starterProgram.ts` and `server/prisma/seed.ts` to use the mockup badge palette. Updated `client/src/pages/DashboardPage.tsx` so badge colors are derived from day names and dashboard day-picker pills remain neutral like the mockup. Verified `npm exec -w server -- tsc --noEmit` and `npm run build -w client`.
 - 2026-06-17: Added `POST /sessions/:sessionId/exercises/:sessionExerciseId/sets` with Zod validation and authenticated session-exercise ownership checks. Added `addSet()` to `client/src/lib/sessions.ts` and inline add-set forms/set display to `client/src/pages/WorkoutPage.tsx`. Verified `npm exec -w server -- tsc --noEmit`, `npm run build -w client`, and live register + dashboard + start-session + add-set + get-session smoke tests.
 - 2026-06-17: Changed dashboard recent-session cards from static cards to links targeting `/workout/:sessionId`, allowing in-progress sessions with logged sets to be reopened from the dashboard. Verified `npm run build -w client` and `npm exec -w server -- tsc --noEmit`.
+- 2026-06-18: Added backend `PATCH`/`DELETE` set-log routes with auth ownership checks, finished-session mutation guards, and delete-order compaction. Verified `npm exec -w server -- tsc --noEmit` and a live add/patch/delete/order smoke test against a temporary updated server on port 4001. A pre-existing port 4000 server did not include the new routes, so it was left untouched.
+- 2026-06-21: Confirmed `WorkoutPage.tsx` was still missing the visible edit/delete controls, then wired set pencil/trash actions, inline edit form, finish-workout button, and completed-workout read-only state. Verified with `npm run build -w client` and `npm exec -w server -- tsc --noEmit`.
+- 2026-06-21: Added `VITE_API_URL` support in `client/src/lib/api.ts`, plus `client/.env.example` and `server/.env.example` with LAN testing notes. Verified with `npm run build -w client`.
