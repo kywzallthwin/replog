@@ -1,5 +1,5 @@
-import type { FormEvent } from 'react'
-import { useState } from 'react'
+import type { Dispatch, FormEvent, SetStateAction } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
@@ -13,6 +13,12 @@ export function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const currentPasswordInputRef = useRef<HTMLInputElement>(null)
+  const newPasswordInputRef = useRef<HTMLInputElement>(null)
+  const confirmPasswordInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const passwordMutation = useMutation({
@@ -44,6 +50,24 @@ export function ChangePasswordPage() {
     }
 
     passwordMutation.mutate({ currentPassword, newPassword })
+  }
+
+  function togglePasswordVisibility(
+    input: HTMLInputElement | null,
+    setIsShown: Dispatch<SetStateAction<boolean>>,
+  ) {
+    const selectionStart = input?.selectionStart ?? null
+    const selectionEnd = input?.selectionEnd ?? null
+
+    setIsShown((isShown) => !isShown)
+
+    window.requestAnimationFrame(() => {
+      input?.focus()
+
+      if (selectionStart !== null && selectionEnd !== null) {
+        input?.setSelectionRange(selectionStart, selectionEnd)
+      }
+    })
   }
 
   return (
@@ -79,38 +103,77 @@ export function ChangePasswordPage() {
 
           <div className="mb-4">
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Current Password</label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              required
-              className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-            />
+            <div className="relative">
+              <input
+                ref={currentPasswordInputRef}
+                type={showCurrentPassword ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                required
+                className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 pr-16 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
+              />
+              <button
+                type="button"
+                aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+                aria-pressed={showCurrentPassword}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => togglePasswordVisibility(currentPasswordInputRef.current, setShowCurrentPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              >
+                {showCurrentPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
 
           <div className="mb-4">
             <label className="mb-1.5 block text-sm font-medium text-slate-700">New Password</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              required
-              minLength={8}
-              className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-            />
+            <div className="relative">
+              <input
+                ref={newPasswordInputRef}
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                required
+                minLength={8}
+                className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 pr-16 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
+              />
+              <button
+                type="button"
+                aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                aria-pressed={showNewPassword}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => togglePasswordVisibility(newPasswordInputRef.current, setShowNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              >
+                {showNewPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
             <p className="mt-1 text-xs text-slate-400">Min. 8 characters</p>
           </div>
 
           <div className="mb-4">
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirm New Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              minLength={8}
-              className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-            />
+            <div className="relative">
+              <input
+                ref={confirmPasswordInputRef}
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                required
+                minLength={8}
+                className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 pr-16 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
+              />
+              <button
+                type="button"
+                aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                aria-pressed={showConfirmPassword}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => togglePasswordVisibility(confirmPasswordInputRef.current, setShowConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              >
+                {showConfirmPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
 
           {error ? (

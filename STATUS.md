@@ -49,6 +49,8 @@
 - Protected client account routes now exist for `/profile`, `/profile/edit`, and `/profile/password`
 - Dashboard now links the user chip/avatar to `/profile`
 - `client/src/pages/ChangePasswordPage.tsx` now uses a real inline lock icon instead of the temporary `*` placeholder
+- `client/src/pages/ChangePasswordPage.tsx` now includes Show/Hide controls for all password fields
+- Password Show/Hide controls keep the focused input cursor in place after toggling visibility
 - Backend dashboard route now exists at `GET /dashboard`, protected by cookie auth, and returns active starter program days, suggested day, recent sessions, and stats
 - New registered users now receive the 5-day starter program automatically through shared starter-program creation logic
 - Client dashboard now loads real `/dashboard` data, shows suggested day, routine day pills, recent sessions, and stats
@@ -66,6 +68,7 @@
 - `client/src/pages/WorkoutPage.tsx` now opens an inline Add Set form per exercise, displays logged sets, and refreshes the session query after saving
 - `client/src/pages/WorkoutPage.tsx` now includes inline set edit/delete and a page-level finish-workout action, all wired to the API and protected from mutation if the workout is already finished
 - Dashboard recent-session cards now link to `/workout/:sessionId` so an in-progress session can be reopened
+- Dashboard recent-session cards now label completed workouts as `Finished · Duration: X min` while active workouts still show `In progress`
 - Client API base URL is configurable with `VITE_API_URL`; use `client/.env.example` plus `server/.env.example` as references for same-Wi-Fi mobile testing
 - Last verified Node version: `v25.6.1`
 
@@ -92,6 +95,8 @@
 - Added backend profile and password-management routes and verified them with live API smoke tests
 - Added protected client profile, edit-profile, and change-password pages wired to the account endpoints and verified the client build succeeds
 - Polished the change-password page lock icon and verified the client build succeeds
+- Added Show/Hide controls to the change-password form fields
+- Kept the change-password input cursor focused after clicking Show/Hide controls
 - Added seeded dashboard data flow and verified the client build, server typecheck, and live dashboard API smoke test
 - Added start-workout session creation/detail flow and verified the client build, server typecheck, and live session API smoke test
 - Aligned starter routine badge colors and dashboard pill styling with the mockup, then verified the client build and server typecheck
@@ -100,6 +105,7 @@
 - Added backend set edit/delete routes and verified the server typecheck plus live add/patch/delete/order smoke test on port 4001
 - Added client set/session mutation helpers and the full workout page UI for adding, editing, deleting, and finishing a workout
 - Added environment examples and configurable client API base URL for mobile LAN testing; verified the client build succeeds
+- Updated dashboard recent-session labels so completed workouts explicitly show finished status and duration
 
 ## Next Actions
 1. Manually smoke test browser register/login/logout redirects with both workspaces running.
@@ -144,3 +150,6 @@
 - 2026-06-18: Added backend `PATCH`/`DELETE` set-log routes with auth ownership checks, finished-session mutation guards, and delete-order compaction. Verified `npm exec -w server -- tsc --noEmit` and a live add/patch/delete/order smoke test against a temporary updated server on port 4001. A pre-existing port 4000 server did not include the new routes, so it was left untouched.
 - 2026-06-21: Confirmed `WorkoutPage.tsx` was still missing the visible edit/delete controls, then wired set pencil/trash actions, inline edit form, finish-workout button, and completed-workout read-only state. Verified with `npm run build -w client` and `npm exec -w server -- tsc --noEmit`.
 - 2026-06-21: Added `VITE_API_URL` support in `client/src/lib/api.ts`, plus `client/.env.example` and `server/.env.example` with LAN testing notes. Verified with `npm run build -w client`.
+- 2026-06-21: Updated dashboard recent-session copy so completed workouts read `Finished · Duration: X min` instead of only showing the minute count.
+- 2026-06-21: Added accessible Show/Hide toggles to the current, new, and confirm password fields on the change-password page.
+- 2026-06-21: Updated the change-password Show/Hide toggles so clicking them preserves focus and cursor selection in the active password input.

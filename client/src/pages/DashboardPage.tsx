@@ -40,7 +40,7 @@ function formatDuration(durationSec: number | null) {
     return 'In progress'
   }
 
-  return `${Math.round(durationSec / 60)} min`
+  return `Finished · Duration: ${Math.round(durationSec / 60)} min`
 }
 
 function formatVolume(totalVolumeKg: number) {
