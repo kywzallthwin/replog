@@ -29,8 +29,23 @@ export type WorkoutSession = {
   exercises: WorkoutExercise[]
 }
 
+export type WorkoutHistorySession = {
+  id: string
+  dayName: string
+  badgeColor: string
+  startedAt: string
+  endedAt: string
+  durationSec: number | null
+  exerciseCount: number
+  setCount: number
+}
+
 type SessionResponse = {
   session: WorkoutSession
+}
+
+type SessionHistoryResponse = {
+  sessions: WorkoutHistorySession[]
 }
 
 type SetResponse = {
@@ -64,6 +79,8 @@ export function sessionQueryKey(sessionId: string) {
   return ['sessions', sessionId] as const
 }
 
+export const sessionHistoryQueryKey = ['sessions', 'history'] as const
+
 export async function startSession(dayId: string) {
   const response = await api.post<SessionResponse>('/sessions', { dayId })
 
@@ -74,6 +91,12 @@ export async function getSession(sessionId: string) {
   const response = await api.get<SessionResponse>(`/sessions/${sessionId}`)
 
   return response.data.session
+}
+
+export async function getSessionHistory() {
+  const response = await api.get<SessionHistoryResponse>('/sessions/history')
+
+  return response.data.sessions
 }
 
 export async function addSet(input: AddSetInput) {

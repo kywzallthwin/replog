@@ -4,6 +4,7 @@ import { RequireAuth } from './components/auth/RequireAuth'
 import { DashboardPage } from './pages/DashboardPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { EditProfilePage } from './pages/EditProfilePage'
+import { HistoryPage } from './pages/HistoryPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -35,6 +36,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <DashboardPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/history',
+    element: (
+      <RequireAuth>
+        <HistoryPage />
       </RequireAuth>
     ),
   },

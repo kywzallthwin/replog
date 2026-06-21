@@ -113,6 +113,46 @@ sessionsRouter.post('/', requireAuth, async (req, res) => {
   res.status(201).json({ session: toSessionPayload(session) })
 })
 
+sessionsRouter.get('/history', requireAuth, async (req, res) => {
+  const userId = req.userId
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  const sessions = await prisma.session.findMany({
+    where: {
+      userId,
+      endedAt: { not: null },
+    },
+    orderBy: { startedAt: 'desc' },
+    include: {
+      sessionExercises: {
+        include: {
+          setLogs: true,
+        },
+      },
+    },
+  })
+
+  res.json({
+    sessions: sessions.map((session) => ({
+      id: session.id,
+      dayName: session.dayNameSnapshot,
+      badgeColor: session.badgeColorSnapshot,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      durationSec: session.durationSec,
+      exerciseCount: session.sessionExercises.length,
+      setCount: session.sessionExercises.reduce(
+        (total, sessionExercise) => total + sessionExercise.setLogs.length,
+        0,
+      ),
+    })),
+  })
+})
+
 sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
   const userId = req.userId
   const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null

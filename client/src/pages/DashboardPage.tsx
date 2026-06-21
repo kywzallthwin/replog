@@ -183,7 +183,12 @@ export function DashboardPage() {
               </section>
 
               <section>
-                <h3 className="mb-3 text-[13px] font-bold uppercase tracking-[0.1em] text-slate-400">Recent Sessions</h3>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] text-slate-400">Recent Sessions</h3>
+                  <Link to="/history" className="text-xs font-bold text-slate-900 transition hover:text-slate-600">
+                    View all
+                  </Link>
+                </div>
                 <div className="space-y-3">
                   {dashboard.recentSessions.length ? (
                     dashboard.recentSessions.map((session) => (
