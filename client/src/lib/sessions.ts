@@ -45,6 +45,21 @@ export type AddSetInput = {
   reps: number
 }
 
+export type UpdateSetInput = {
+  sessionId: string
+  sessionExerciseId: string
+  setId: string
+  kind: SetKind
+  weightKg: number
+  reps: number
+}
+
+export type DeleteSetInput = {
+  sessionId: string
+  sessionExerciseId: string
+  setId: string
+}
+
 export function sessionQueryKey(sessionId: string) {
   return ['sessions', sessionId] as const
 }
@@ -72,4 +87,27 @@ export async function addSet(input: AddSetInput) {
   )
 
   return response.data.set
+}
+
+export async function updateSet(input: UpdateSetInput) {
+  const response = await api.patch<SetResponse>(
+    `/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}/sets/${input.setId}`,
+    {
+      kind: input.kind,
+      weightKg: input.weightKg,
+      reps: input.reps,
+    },
+  )
+
+  return response.data.set
+}
+
+export async function deleteSet(input: DeleteSetInput) {
+  await api.delete(`/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}/sets/${input.setId}`)
+}
+
+export async function finishSession(sessionId: string) {
+  const response = await api.patch<SessionResponse>(`/sessions/${sessionId}/finish`)
+
+  return response.data.session
 }
