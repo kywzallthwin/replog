@@ -1,7 +1,7 @@
 # STATUS.md
 
 ## Current Phase
-- History page wired / browser smoke testing history next
+- Active workout exercise management wired / browser smoke testing history, progress, and exercise management next
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
@@ -74,7 +74,18 @@
 - Backend history endpoint now exists at `GET /sessions/history`, protected by cookie auth, and returns finished sessions with exercise/set counts
 - Client `/history` route now exists and displays finished workouts grouped by month, with cards linking to the existing read-only workout detail
 - Dashboard Recent Sessions now links to `/history` through a `View all` action
+- Workout detail header navigation now respects `?from=dashboard` and `?from=history`, defaulting to Dashboard for direct links
 - `server/package.json` now includes `typecheck`, so server verification can use `npm run typecheck -w server`
+- Backend progress endpoint now exists at `GET /progress`, protected by cookie auth, and returns finished-session exercise options, estimated 1RM personal best, top-set history, and trend stats
+- Progress strength metrics use finished-session `NORMAL` sets only; warm-up and drop sets are excluded from the estimated 1RM PB calculation
+- Client `/progress` route now exists with an exercise selector, estimated-1RM personal-best card, stats cards, session-history table, trend row, and dashboard stats link
+- Backend exercise lookup now exists at `GET /exercises`, protected by cookie auth, returning global exercises plus user-owned exercises grouped client-side by category
+- Backend active-session exercise mutation routes now exist under `/sessions`: `POST /sessions/:sessionId/exercises`, `PATCH /sessions/:sessionId/exercises/:sessionExerciseId`, and `DELETE /sessions/:sessionId/exercises/:sessionExerciseId`
+- Session exercise mutations are scoped to the authenticated user's session, reject finished workouts, validate target exercises, append new exercises at the next order, swap exercise snapshots, and remove exercises with their set logs while renumbering later exercises
+- Client exercise helpers now exist in `client/src/lib/exercises.ts`, and session exercise helpers now exist in `client/src/lib/sessions.ts`
+- `client/src/pages/WorkoutPage.tsx` now shows active-workout `Swap`, remove, and `+ Add Exercise` controls with a searchable category-grouped picker modal; completed workouts remain read-only
+- Workout exercise card actions now keep the remove exercise button as the rightmost action
+- Workout set delete and exercise remove confirmations now use an in-app confirmation modal instead of browser `window.confirm` popups
 - Last verified Node version: `v25.6.1`
 
 ## Completed
@@ -114,10 +125,18 @@
 - Browser smoke tested auth redirects, dashboard/workout flow, full set/session lifecycle, and account pages successfully
 - Added the first History implementation with a backend finished-session list endpoint, typed client helper, protected `/history` page, and dashboard link; verified the client build and server typecheck
 - Added a server `typecheck` script and verified it with `npm run typecheck -w server`
+- Updated workout detail navigation so dashboard-opened sessions link back to `/dashboard`, history-opened sessions link back to `/history`, and direct links default to Dashboard; verified with `npm run build -w client`
+- Added the first Progress implementation with a backend finished-set analytics endpoint, typed client helper, protected `/progress` page, and dashboard link; verified with `npm run build -w client` and `npm exec -w server -- tsc --noEmit`
+- Updated Progress personal best to use Epley estimated 1RM from finished-session `NORMAL` sets, with heaviest set as a secondary stat; verified with `npm run build -w client` and `npm run typecheck -w server`
+- Added active-workout exercise lookup plus add/swap/remove session exercise flows in the backend and workout UI; verified with `npm run build -w client` and `npm run typecheck -w server`
+- Moved the active-workout remove exercise button to the rightmost action position and verified with `npm run build -w client`
+- Replaced workout delete browser popups with a shared in-app confirmation modal for deleting sets and removing exercises; verified with `npm run build -w client`
 
 ## Next Actions
 1. Manually smoke test `/history`: finished workouts load, sessions are grouped by month, cards link to read-only `/workout/:sessionId`, and empty state works for a new account.
-2. Start the Progress feature after History smoke testing: exercise selector, personal best, top-set history, and trend stats.
+2. Manually smoke test `/progress`: empty state for a new account, exercise selector, estimated 1RM personal best, source top-set history links, progress stat, heaviest-set stat, and e1RM trend row after finishing workouts with logged normal sets.
+3. Manually smoke test active-workout exercise management: `+ Add Exercise`, `Swap`, remove with no sets, remove with logged sets, order renumbering, finished-workout mutation blocking, and history/progress behavior after modified workouts.
+4. [ ] Before final project wrap-up, read `TODO.md` and build `/guide` with the Estimated 1RM PB explanation plus any later calculation facts.
 
 ## Open Questions
 - None recorded right now.
@@ -161,3 +180,9 @@
 - 2026-06-21: Updated the change-password Show/Hide toggles so clicking them preserves focus and cursor selection in the active password input.
 - 2026-06-21: Browser smoke tests passed for auth redirects, dashboard/workout flow, full set/session lifecycle, and account pages. Added `GET /sessions/history`, `getSessionHistory()`, protected `/history`, month-grouped history cards, and a dashboard `View all` link. Verified with `npm run build -w client` and `npm exec -w server -- tsc --noEmit`.
 - 2026-06-21: Added `typecheck` to `server/package.json`, replacing the long server verification command with `npm run typecheck -w server`. Verified the new script passes.
+- 2026-06-21: Changed dashboard/history workout links to include `?from=dashboard` or `?from=history`, then updated `WorkoutPage.tsx` to use that source for the header back link. Verified with `npm run build -w client`.
+- 2026-06-22: Added `server/src/modules/progress/progress.routes.ts`, mounted `/progress`, added `client/src/lib/progress.ts`, created `client/src/pages/ProgressPage.tsx`, registered protected `/progress`, and linked it from dashboard stats. Verified `npm run build -w client` and `npm exec -w server -- tsc --noEmit`.
+- 2026-06-23: Changed Progress PB from raw heaviest set to Epley estimated 1RM using finished-session `NORMAL` sets only. The page now labels the main card `Estimated 1RM PB`, shows the source set, keeps raw heaviest set as a stat, and trends estimated 1RM. Verified `npm run build -w client` and `npm run typecheck -w server`.
+- 2026-06-30: Added protected `GET /exercises`, active-session exercise add/swap/remove backend routes, typed client helpers, and Workout page controls/modal for managing exercises during unfinished workouts. This is session-only and does not alter saved routine templates. Verified `npm run build -w client` and `npm run typecheck -w server`; manual browser smoke testing is still pending.
+- 2026-07-01: Moved the active-workout remove exercise button to the rightmost card action position. Verified `npm run build -w client`.
+- 2026-07-01: Replaced all workout `window.confirm` delete popups with a styled in-app confirmation modal for set deletion and exercise removal. Verified no remaining `window.confirm` calls under `client/src` and `npm run build -w client` passes.
