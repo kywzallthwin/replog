@@ -16,3 +16,6 @@ export const updateSetSchema = z.object({
   reps: z.coerce.number().int().min(1).max(1000).optional(),
 })
 
+export const sessionExerciseSchema = z.object({
+  exerciseId: z.string().min(1),
+})

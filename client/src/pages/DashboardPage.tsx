@@ -194,7 +194,7 @@ export function DashboardPage() {
                     dashboard.recentSessions.map((session) => (
                       <Link
                         key={session.id}
-                        to={`/workout/${session.id}`}
+                        to={`/workout/${session.id}?from=dashboard`}
                         className="flex items-center justify-between rounded-[16px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
                       >
                         <div>
@@ -221,7 +221,12 @@ export function DashboardPage() {
             </div>
 
             <aside className="rounded-[24px] bg-white p-5 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)] lg:self-start">
-              <p className="mb-4 text-[13px] font-bold text-slate-900">Your Stats</p>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-[13px] font-bold text-slate-900">Your Stats</p>
+                <Link to="/progress" className="text-xs font-bold text-slate-900 transition hover:text-slate-600">
+                  Progress
+                </Link>
+              </div>
               <div className="grid grid-cols-3 gap-3 lg:grid-cols-1">
                 <div className="rounded-[16px] bg-slate-50 p-4">
                   <div className="text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{dashboard.stats.workoutCount}</div>

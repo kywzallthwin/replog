@@ -136,7 +136,7 @@ export function HistoryPage() {
                   {group.sessions.map((session) => (
                     <Link
                       key={session.id}
-                      to={`/workout/${session.id}`}
+                      to={`/workout/${session.id}?from=history`}
                       className="rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
                     >
                       <div className="mb-3 flex items-center justify-between gap-3">

@@ -52,6 +52,10 @@ type SetResponse = {
   set: WorkoutSet
 }
 
+type SessionExerciseResponse = {
+  exercise: WorkoutExercise
+}
+
 export type AddSetInput = {
   sessionId: string
   sessionExerciseId: string
@@ -73,6 +77,22 @@ export type DeleteSetInput = {
   sessionId: string
   sessionExerciseId: string
   setId: string
+}
+
+export type AddSessionExerciseInput = {
+  sessionId: string
+  exerciseId: string
+}
+
+export type SwapSessionExerciseInput = {
+  sessionId: string
+  sessionExerciseId: string
+  exerciseId: string
+}
+
+export type RemoveSessionExerciseInput = {
+  sessionId: string
+  sessionExerciseId: string
 }
 
 export function sessionQueryKey(sessionId: string) {
@@ -97,6 +117,27 @@ export async function getSessionHistory() {
   const response = await api.get<SessionHistoryResponse>('/sessions/history')
 
   return response.data.sessions
+}
+
+export async function addSessionExercise(input: AddSessionExerciseInput) {
+  const response = await api.post<SessionExerciseResponse>(`/sessions/${input.sessionId}/exercises`, {
+    exerciseId: input.exerciseId,
+  })
+
+  return response.data.exercise
+}
+
+export async function swapSessionExercise(input: SwapSessionExerciseInput) {
+  const response = await api.patch<SessionExerciseResponse>(
+    `/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}`,
+    { exerciseId: input.exerciseId },
+  )
+
+  return response.data.exercise
+}
+
+export async function removeSessionExercise(input: RemoveSessionExerciseInput) {
+  await api.delete(`/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}`)
 }
 
 export async function addSet(input: AddSetInput) {
