@@ -1,13 +1,13 @@
 # STATUS.md
 
 ## Current Phase
-- Active workout exercise management wired / browser smoke testing history, progress, and exercise management next
+- History, progress, and active-workout exercise management backend logic verified via API-level smoke test / visual UI spot-check still pending / `/guide` is explicitly skipped (see Backlog) / next up is the mockup-rewrite backlog, if any of it gets scheduled
 
 ## Last Confirmed State
 - Project name chosen: `RepLog`
 - Repo root in use: `D:\coding\project\workout`
-- Mockup reference confirmed: `atomic-moore-mockup/atomic-moore-mockup.html`
-- Build plan confirmed: `AtomicMoore-Build-Plan.pdf`
+- Mockup reference confirmed: `Replog-mockup/Replog-mockup.html`
+- Build plan confirmed: `Replog-Build-Plan.pdf`
 - Root npm workspace config already exists in `package.json`
 - Declared workspaces in root config: `client`, `server`
 - `client/` now exists with a Vite React + TypeScript scaffold
@@ -131,12 +131,26 @@
 - Added active-workout exercise lookup plus add/swap/remove session exercise flows in the backend and workout UI; verified with `npm run build -w client` and `npm run typecheck -w server`
 - Moved the active-workout remove exercise button to the rightmost action position and verified with `npm run build -w client`
 - Replaced workout delete browser popups with a shared in-app confirmation modal for deleting sets and removing exercises; verified with `npm run build -w client`
+- Verified `/history`, `/progress`, and active-workout exercise management backend logic end-to-end with a 32-assertion Node/fetch API smoke test script against a disposable test account (registration, empty states, add/swap/remove exercise with order renumbering, finished-session mutation blocking, Epley 1RM personal best matching `TODO.md`'s worked example, and a 2-point progress trend across two finished sessions) — all 32 assertions passed
 
 ## Next Actions
-1. Manually smoke test `/history`: finished workouts load, sessions are grouped by month, cards link to read-only `/workout/:sessionId`, and empty state works for a new account.
-2. Manually smoke test `/progress`: empty state for a new account, exercise selector, estimated 1RM personal best, source top-set history links, progress stat, heaviest-set stat, and e1RM trend row after finishing workouts with logged normal sets.
-3. Manually smoke test active-workout exercise management: `+ Add Exercise`, `Swap`, remove with no sets, remove with logged sets, order renumbering, finished-workout mutation blocking, and history/progress behavior after modified workouts.
-4. [ ] Before final project wrap-up, read `TODO.md` and build `/guide` with the Estimated 1RM PB explanation plus any later calculation facts.
+1. [x] `/history` backend logic verified via API smoke test (empty state for a new account, finished session appears with correct exercise/set counts). Visual-only checks (grouped-by-month display, card links to read-only `/workout/:sessionId`) were not covered by the API test and are still open for a manual browser spot-check whenever convenient.
+2. [x] `/progress` backend logic verified via API smoke test (empty state for a new account; estimated 1RM personal best via Epley formula against `TODO.md`'s worked example; progress/heaviest-set/session-count stats; e1RM trend row growing to 2 points across two finished sessions). Visual-only checks (exercise selector UI, source top-set link, table rendering) were not covered and are still open for a manual browser spot-check.
+3. [x] Active-workout exercise management backend logic verified via API smoke test: add exercise, swap exercise, remove with no logged sets, remove with logged sets, exercise-order renumbering after each removal, finished-session mutation blocking (add/swap/remove/add-set all correctly return 409), and history/progress correctly reflect a session that had exercises added/swapped/removed mid-workout. Visual-only checks (search/category picker UI, in-app confirmation modal) were not covered and are still open for a manual browser spot-check.
+4. [x] Skipped for now, per explicit user decision — see Backlog. Building `/guide` is no longer part of the active build sequence.
+5. [ ] Optional: manual browser spot-check of the visual-only items noted in 1-3 above (empty-state copy, month grouping, exercise-picker/confirmation-modal UI) — not blocking, backend correctness is already verified.
+
+## Backlog (from mockup design-spec rewrite, not yet planned)
+- `Replog-mockup/Replog-mockup.html` was rewritten as a forward-looking design spec (its own note says so) and now specs several features not yet built. Not scheduled yet — capture only, to be turned into real Next Actions in a future session:
+  - Persistent navigation: bottom tab bar (mobile) / top nav (desktop) across Dashboard, History, Progress, Program, Profile.
+  - `/forgot-password` and `/reset-password` routes.
+  - `/program` route: full routine/day editor (add day, reorder/add/remove exercises per day).
+  - Active-workout additions: "last time" reference per exercise, a rest timer, a workout notes textarea.
+  - "New Exercise" modal for creating custom exercises with a category.
+  - Profile additions: "Edit Program" settings row, kg/lb units toggle.
+  - Progress page: SVG estimated-1RM trend chart above the session-history table.
+  - Mobile-first rules called out in the mockup note: safe-area-inset-bottom padding on the fixed tab bar, 44px minimum tap targets, numeric keyboards (`inputmode="decimal"`/`"numeric"`) for weight/reps inputs, rest timer stays visible while scrolling.
+- `/guide` (the `TODO.md`-specced Estimated 1RM PB explanation page) is explicitly skipped for now, per direct user decision on 2026-07-20. Do not build it unless the user asks again — it is off the active build sequence, not just deferred by default.
 
 ## Open Questions
 - None recorded right now.
@@ -186,3 +200,5 @@
 - 2026-06-30: Added protected `GET /exercises`, active-session exercise add/swap/remove backend routes, typed client helpers, and Workout page controls/modal for managing exercises during unfinished workouts. This is session-only and does not alter saved routine templates. Verified `npm run build -w client` and `npm run typecheck -w server`; manual browser smoke testing is still pending.
 - 2026-07-01: Moved the active-workout remove exercise button to the rightmost card action position. Verified `npm run build -w client`.
 - 2026-07-01: Replaced all workout `window.confirm` delete popups with a styled in-app confirmation modal for set deletion and exercise removal. Verified no remaining `window.confirm` calls under `client/src` and `npm run build -w client` passes.
+- 2026-07-20: Reconciled stale mockup/build-plan filename references in `AGENTS.md` and `STATUS.md` after discovering the mockup folder rename (`atomic-moore-mockup` → `Replog-mockup`) and an uncommitted build-plan PDF rename (`AtomicMoore-Build-Plan.pdf` → `Replog-Build-Plan.pdf`) hadn't been reflected in the docs. Also discovered `Replog-mockup/Replog-mockup.html` was substantially rewritten as a forward-looking design spec with several unbuilt features (persistent nav, forgot/reset password, `/program` editor, rest timer/notes/last-time reference, new-exercise modal, units toggle, progress chart) and recorded them in a new "Backlog" section rather than building them, per the user's direction to finish pending smoke tests first. Attempted automated browser smoke testing via `claude-in-chrome` but abandoned it after unreliable viewport/element-ref behavior (recorded in memory as `feedback_manual_smoke_testing`); the user's real logged-in session got logged out along the way and needs the user to log back in manually. At the user's request, verified `/history`, `/progress`, and active-workout exercise management purely at the API level instead, with a 32-assertion Node/fetch smoke-test script (`smoke-test.mjs`, not committed to the repo) against a disposable test account — all 32 passed, including order renumbering, finished-session mutation blocking (409s), and the Epley 1RM formula/trend. Visual-only UI aspects (empty-state copy, month grouping, picker/modal UI) were not covered and are left as an optional manual spot-check in Next Actions.
+- 2026-07-20: Drafted an implementation plan for `/guide` (static Estimated 1RM PB explanation page plus a discoverability link from `/progress`), then the user decided to skip building `/guide` for the entire project going forward rather than implement it. Next Actions item 4 is now marked done-as-skipped, and a Backlog note records the decision so a future session doesn't restart the work without being asked.

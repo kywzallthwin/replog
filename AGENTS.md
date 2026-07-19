@@ -6,8 +6,8 @@
 - Goal: build RepLog from the AtomicMoore mockup and build plan, using this repo as the main workspace.
 
 ## Source Of Truth
-- Mockup reference: `atomic-moore-mockup/atomic-moore-mockup.html`
-- Build plan: `AtomicMoore-Build-Plan.pdf`
+- Mockup reference: `Replog-mockup/Replog-mockup.html`
+- Build plan: `Replog-Build-Plan.pdf`
 - Root workspace config: `package.json`
 - Live handoff file: `STATUS.md`
 
@@ -49,7 +49,7 @@
   package-lock.json
   AGENTS.md
   STATUS.md
-  /atomic-moore-mockup
+  /Replog-mockup
   /client
   /server
 ```
