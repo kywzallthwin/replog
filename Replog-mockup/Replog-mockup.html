@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RepLog - Current App Mockup</title>
+  <title>RepLog - Design Spec</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #0f172a;
+      --primary-dark: #020617;
+      --primary-soft: #f1f5f9;
+    }
     body {
       min-height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -46,10 +51,10 @@
     .auth-heading h2 { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -.04em; }
     .auth-heading p { color: #64748b; margin-top: 8px; font-size: 14px; }
     .auth-card { max-width: 375px; margin: 0 auto; overflow: hidden; border-radius: 28px; background: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,.07), 0 10px 40px -4px rgba(0,0,0,.12); }
-    .auth-hero { background: #0f172a; color: #fff; text-align: center; padding: 38px 24px; }
+    .auth-hero { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: #fff; text-align: center; padding: 38px 24px; }
     .auth-logo { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
     .auth-tagline { margin-top: 8px; color: #cbd5e1; font-size: 14px; }
-    .content { padding: 20px; }
+    .content { padding: 22px; }
 
     .top { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 28px; }
     .brand-small { font-size: 14px; color: #64748b; font-weight: 700; }
@@ -60,45 +65,46 @@
     .sub { color: #64748b; font-size: 13px; margin-top: 4px; }
     .tiny { color: #94a3b8; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 
-    .card { background: #fff; border-radius: 24px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.07), 0 10px 40px -4px rgba(0,0,0,.12); }
+    .card { background: #fff; border-radius: 24px; padding: 22px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.07), 0 10px 40px -4px rgba(0,0,0,.12); }
     .soft-card { background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
     .surface { background: #f8fafc; border-radius: 16px; padding: 16px; }
     .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .stack { display: grid; gap: 12px; }
+    .stack { display: grid; gap: 14px; }
     .split { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(260px,.8fr); gap: 20px; align-items: start; }
     .two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
     .three { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
     .desktop .three.cards { grid-template-columns: repeat(3,1fr); }
 
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 0; border-radius: 13px; padding: 14px 18px; font-size: 15px; font-weight: 700; cursor: default; text-decoration: none; }
-    .btn-dark { background: #0f172a; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2), 0 4px 12px rgba(15,23,42,.22), inset 0 1px 0 rgba(255,255,255,.07); }
+    .btn-dark { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.18), 0 4px 14px rgba(15,23,42,.25), inset 0 1px 0 rgba(255,255,255,.12); }
     .btn-white { background: #fff; color: #475569; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
     .btn-green { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
     .btn-red { background: #fff; color: #ef4444; border: 1px solid #fecaca; }
     .btn-small { width: auto; padding: 8px 13px; border-radius: 10px; font-size: 12px; }
     .btn-icon { width: 32px; height: 32px; display: inline-grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: #94a3b8; }
-    .btn-icon.blue { background: #eff6ff; color: #2563eb; }
+    .btn-icon.blue { background: #f1f5f9; color: #0f172a; }
     .btn-icon.red { background: #fef2f2; color: #ef4444; }
 
     .tabs { display: flex; border-radius: 10px; background: #f1f5f9; padding: 4px; margin-bottom: 20px; }
     .tab { flex: 1; border-radius: 8px; text-align: center; padding: 10px 12px; color: #64748b; font-size: 14px; font-weight: 700; }
-    .tab.active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
-    .field { margin-bottom: 14px; }
+    .tab.active { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+    .field { margin-bottom: 16px; }
     .field label { display: block; margin-bottom: 6px; color: #334155; font-size: 14px; font-weight: 600; }
-    .input, select { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #0f172a; padding: 12px 14px; font-size: 15px; outline: 0; }
+    .input, select { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #0f172a; padding: 12px 14px; font-size: 15px; outline: 0; transition: border-color .15s, box-shadow .15s; }
+    .input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
     .hint { color: #94a3b8; font-size: 12px; margin-top: 5px; }
     .divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: #94a3b8; font-size: 12px; font-weight: 600; }
     .divider:before, .divider:after { content: ""; flex: 1; height: 1px; background: #e2e8f0; }
     .link-text { text-align: center; color: #64748b; font-size: 14px; }
-    .link-text span { color: #0f172a; font-weight: 700; }
+    .link-text span { color: var(--primary); font-weight: 700; }
 
     .user-actions { display: flex; align-items: center; gap: 8px; }
     .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; background: #fff; color: #334155; padding: 8px 11px; font-size: 13px; font-weight: 700; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
-    .avatar { width: 28px; height: 28px; border-radius: 999px; display: inline-grid; place-items: center; background: #0f172a; color: #fff; font-size: 12px; font-weight: 800; }
+    .avatar { width: 28px; height: 28px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--primary); color: #fff; font-size: 12px; font-weight: 800; }
     .avatar.big { width: 76px; height: 76px; font-size: 28px; }
     .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
     .pill { border: 1px solid #e2e8f0; background: #fff; color: #334155; border-radius: 999px; padding: 8px 13px; font-size: 12px; font-weight: 800; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
-    .pill.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+    .pill.active { background: var(--primary); color: #fff; border-color: var(--primary); }
     .badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
     .badge-neutral { background: #f1f5f9; color: #475569; }
     .badge-torso { background: #e0e7ff; color: #3730a3; }
@@ -106,7 +112,7 @@
     .badge-pull { background: #dbeafe; color: #1d4ed8; }
     .badge-push { background: #fef3c7; color: #92400e; }
     .badge-wu { background: #e2e8f0; color: #334155; font-style: italic; }
-    .badge-drop { background: #eff6ff; color: #1d4ed8; }
+    .badge-drop { background: #f1f5f9; color: #475569; }
 
     .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
     .stat { background: #f8fafc; border-radius: 16px; padding: 15px; }
@@ -133,7 +139,7 @@
     .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 12px; }
     .option { display: flex; align-items: center; gap: 10px; padding: 10px 0; color: #334155; font-size: 14px; border-bottom: 1px solid #f8fafc; }
     .radio { width: 18px; height: 18px; border-radius: 999px; border: 2px solid #cbd5e1; }
-    .radio.on { border-color: #0f172a; box-shadow: inset 0 0 0 4px #fff; background: #0f172a; }
+    .radio.on { border-color: var(--primary); box-shadow: inset 0 0 0 4px #fff; background: var(--primary); }
     .danger-copy { color: #64748b; font-size: 14px; line-height: 1.45; margin: 8px 0 16px; }
 
     .profile-card { overflow: hidden; border-radius: 28px; background: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,.07), 0 10px 40px -4px rgba(0,0,0,.12); }
@@ -158,6 +164,25 @@
     .swatch { text-align: center; color: #64748b; font-size: 10px; }
     .swatch div { width: 48px; height: 48px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 5px; }
 
+    /* Persistent navigation */
+    .tabbar { position: sticky; bottom: 0; display: flex; gap: 4px; margin-top: 22px; padding: 8px; background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
+    .tabbar-item { flex: 1; text-align: center; padding: 9px 4px; border-radius: 10px; font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: .02em; }
+    .tabbar-item .ic { display: block; font-size: 15px; margin-bottom: 3px; }
+    .tabbar-item.active { background: var(--primary-soft); color: var(--primary); }
+    .topnav { display: flex; gap: 6px; }
+    .topnav a { padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; color: #64748b; text-decoration: none; }
+    .topnav a.active { background: var(--primary-soft); color: var(--primary); }
+
+    /* Forgot-password link, notes, last-time, rest timer, chart */
+    .forgot-link { display: block; text-align: right; margin: -6px 0 14px; color: var(--primary); font-size: 13px; font-weight: 700; }
+    textarea.input { min-height: 60px; resize: vertical; font-family: inherit; line-height: 1.4; }
+    .last-ref { color: #94a3b8; font-size: 12px; font-weight: 600; padding: 4px 14px 0; }
+    .timer { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #0f172a; color: #fff; border-radius: 14px; padding: 12px 14px; font-weight: 800; }
+    .timer .t-val { font-size: 20px; letter-spacing: -.02em; }
+    .timer .t-btn { border: 0; border-radius: 9px; background: rgba(255,255,255,.14); color: #fff; font-weight: 700; font-size: 12px; padding: 7px 11px; }
+    .chart { border-radius: 14px; background: #f8fafc; padding: 14px; }
+    .chart svg { display: block; width: 100%; height: auto; }
+
     @media (max-width: 760px) {
       body { padding: 26px 12px; }
       .phone { width: min(375px, 100%); }
@@ -173,7 +198,7 @@
 </head>
 <body>
   <h1 class="page-title">RepLog</h1>
-  <p class="page-sub">Current app design mockup updated from the built React routes</p>
+  <p class="page-sub">Mobile-first design spec the app is built to match (desktop optional)</p>
 
   <div class="grid">
     <div>
@@ -187,6 +212,7 @@
               <div class="tabs"><div class="tab active">Login</div><div class="tab">Register</div></div>
               <div class="field"><label>Email</label><input class="input" value="you@email.com" /></div>
               <div class="field"><label>Password</label><input class="input" type="password" value="password" /></div>
+              <span class="forgot-link">Forgot password?</span>
               <button class="btn btn-dark">Login -></button>
               <div class="divider">or</div>
               <button class="btn btn-white">Continue with Google</button>
@@ -220,12 +246,51 @@
     </div>
 
     <div>
+      <p class="label">Route /forgot-password</p>
+      <div class="phone">
+        <div class="auth-shell">
+          <div class="auth-heading"><h2>RepLog</h2><p>Workout Tracker</p></div>
+          <div class="auth-card">
+            <div class="auth-hero"><div class="auth-logo">RepLog</div><div class="auth-tagline">Reset your password.</div></div>
+            <div class="content">
+              <h3 style="margin-bottom:6px;">Forgot password?</h3>
+              <p class="sub" style="margin-bottom:18px;">Enter your email and we'll send a reset link.</p>
+              <div class="field"><label>Email</label><input class="input" value="you@email.com" /></div>
+              <button class="btn btn-dark">Send reset link</button>
+              <p class="link-text" style="margin-top:18px;">Remembered it? <span>Back to Login</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="label">Route /reset-password</p>
+      <div class="phone">
+        <div class="auth-shell">
+          <div class="auth-heading"><h2>RepLog</h2><p>Workout Tracker</p></div>
+          <div class="auth-card">
+            <div class="auth-hero"><div class="auth-logo">RepLog</div><div class="auth-tagline">Set a new password.</div></div>
+            <div class="content">
+              <h3 style="margin-bottom:6px;">New password</h3>
+              <p class="sub" style="margin-bottom:18px;">Choose a new password for your account.</p>
+              <div class="field"><label>New Password</label><input class="input" type="password" value="newpass1" /><div class="hint">Min. 8 characters</div></div>
+              <div class="field"><label>Confirm New Password</label><input class="input" type="password" value="newpass1" /></div>
+              <button class="btn btn-dark">Update Password</button>
+              <p class="link-text" style="margin-top:18px;">Back to <span>Login</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
       <p class="label">Route /dashboard</p>
       <div class="phone">
         <main class="app">
           <div class="top">
             <div><div class="brand-small">RepLog</div><h1>Dashboard</h1></div>
-            <div class="user-actions"><div class="chip"><span class="avatar">J</span>John</div><button class="btn btn-dark btn-small">Logout</button></div>
+            <div class="user-actions"><div class="chip"><span class="avatar">J</span>John</div></div>
           </div>
           <div style="margin-bottom:18px;"><h2>Good morning, John</h2><p class="sub">Wednesday, 1 July 2026</p></div>
           <div class="card" style="margin-bottom:18px;"><div class="tiny">Suggested today</div><h1 style="margin-top:8px;">TORSO A</h1><p class="sub">6 exercises - Chest + Back + Shoulders</p><button class="btn btn-dark" style="margin-top:18px;">Start Workout</button></div>
@@ -237,6 +302,7 @@
             <div class="soft-card row"><div><strong>Sat 27 Jun <span class="badge badge-neutral">TORSO A</span></strong><p class="sub">6 exercises - In progress</p></div><span class="muted">&gt;</span></div>
           </div>
           <div class="card" style="margin-top:18px;"><div class="row" style="margin-bottom:12px;"><h3>Your Stats</h3><strong style="font-size:12px;">Progress</strong></div><div class="stats"><div class="stat"><div class="stat-value">24</div><div class="stat-label">Workouts</div></div><div class="stat"><div class="stat-value">432</div><div class="stat-label">Sets</div></div><div class="stat"><div class="stat-value">8.6k</div><div class="stat-label">Lifted</div></div></div></div>
+          <div class="tabbar"><div class="tabbar-item active"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -249,12 +315,15 @@
           <div class="stack">
             <div class="exercise-card">
               <div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button><button class="btn-icon red">x</button></div></div>
+              <div class="last-ref">Last time: 17 kg × 9 · Mon 22 Jun</div>
               <div class="set-row"><span class="badge badge-wu">WU</span><strong>10 kg</strong><span class="muted">x</span><span>12</span><span class="spacer"></span><button class="btn-icon blue">e</button><button class="btn-icon red">d</button></div>
               <div class="set-row"><span class="badge badge-neutral">1</span><strong>17 kg</strong><span class="muted">x</span><span>9</span><span class="spacer"></span><button class="btn-icon blue">e</button><button class="btn-icon red">d</button></div>
               <div class="inline-form"><div class="tiny" style="margin-bottom:10px;">Edit Set</div><div class="mini-grid"><div class="field"><label>Kind</label><select><option>Normal</option><option>Warm-up</option><option>Drop</option></select></div><div class="field"><label>Weight kg</label><input class="input" value="17" /></div><div class="field"><label>Reps</label><input class="input" value="8" /></div></div><div class="row" style="justify-content:flex-start;margin-top:10px;"><button class="btn btn-dark btn-small">Save Changes</button><button class="btn btn-white btn-small">Cancel</button></div></div>
             </div>
             <div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Lat Pulldown / Chin-ups</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button><button class="btn-icon red">x</button></div></div></div>
+            <div class="timer"><div><div style="font-size:10px;letter-spacing:.08em;opacity:.65;">REST TIMER</div><div class="t-val">1:30</div></div><div style="display:flex;gap:6px;"><button class="t-btn">+15s</button><button class="t-btn">Skip</button></div></div>
             <button class="btn btn-white">+ Add Exercise</button>
+            <div class="soft-card"><div class="tiny" style="margin-bottom:8px;">Workout Notes</div><textarea class="input" placeholder="How did it feel? Any tweaks?">Left shoulder felt tight on incline.</textarea></div>
             <button class="btn btn-green">Finish Workout</button>
           </div>
         </main>
@@ -292,6 +361,41 @@
     </div>
 
     <div>
+      <p class="label">New Exercise Modal</p>
+      <div class="phone">
+        <div class="modal-screen">
+          <main class="app"><div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1></div></div><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div><button class="btn btn-white btn-small">Swap</button></div></div></main>
+          <div class="modal-overlay"><div class="modal"><div class="modal-title">New Exercise</div><p class="sub" style="margin-bottom:14px;">Create a custom exercise you can add to any workout.</p><div class="field"><label>Name</label><input class="input" value="Cable Fly" /></div><div class="field"><label>Category</label><select><option>Chest</option><option>Back</option><option>Shoulders</option><option>Legs</option><option>Arms</option><option>Core</option></select></div><div class="row" style="margin-top:6px;"><button class="btn btn-white btn-small" style="flex:1;">Cancel</button><button class="btn btn-dark btn-small" style="flex:1;">Save Exercise</button></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="label">Route /program (routine editor)</p>
+      <div class="phone">
+        <main class="app">
+          <div class="top"><div><div class="brand-small">Profile</div><h1>Edit Program</h1></div><button class="btn btn-white btn-small">+ Add Day</button></div>
+          <div class="stack">
+            <div class="exercise-card">
+              <div class="exercise-head"><div class="row" style="gap:8px;justify-content:flex-start;"><span class="badge badge-torso">TORSO A</span><span class="exercise-title">Chest + Back + Shoulders</span></div><button class="btn-icon">✎</button></div>
+              <div class="set-row"><span class="muted" style="cursor:grab;">⠿</span><span>Smith Incline Bench</span><span class="spacer"></span><button class="btn-icon">↑</button><button class="btn-icon">↓</button><button class="btn-icon red">x</button></div>
+              <div class="set-row"><span class="muted" style="cursor:grab;">⠿</span><span>Lat Pulldown / Chin-ups</span><span class="spacer"></span><button class="btn-icon">↑</button><button class="btn-icon">↓</button><button class="btn-icon red">x</button></div>
+              <div class="set-row"><span class="muted" style="cursor:grab;">⠿</span><span>Machine Shoulder Press</span><span class="spacer"></span><button class="btn-icon">↑</button><button class="btn-icon">↓</button><button class="btn-icon red">x</button></div>
+              <div style="padding:12px;"><button class="btn btn-white btn-small">+ Add exercise</button></div>
+            </div>
+            <div class="exercise-card">
+              <div class="exercise-head"><div class="row" style="gap:8px;justify-content:flex-start;"><span class="badge badge-lower">LOWER+ARMS B</span><span class="exercise-title">Legs + Arms</span></div><button class="btn-icon">✎</button></div>
+              <div class="set-row"><span class="muted" style="cursor:grab;">⠿</span><span>Leg Press</span><span class="spacer"></span><button class="btn-icon">↑</button><button class="btn-icon">↓</button><button class="btn-icon red">x</button></div>
+              <div class="set-row"><span class="muted" style="cursor:grab;">⠿</span><span>Romanian Deadlift</span><span class="spacer"></span><button class="btn-icon">↑</button><button class="btn-icon">↓</button><button class="btn-icon red">x</button></div>
+              <div style="padding:12px;"><button class="btn btn-white btn-small">+ Add exercise</button></div>
+            </div>
+          </div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item active"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
+        </main>
+      </div>
+    </div>
+
+    <div>
       <p class="label">Completed Workout Detail</p>
       <div class="phone">
         <main class="app">
@@ -308,11 +412,12 @@
       <p class="label">Route /history</p>
       <div class="phone">
         <main class="app">
-          <div class="top"><div><div class="brand-small">RepLog</div><h1>Workout History</h1></div><button class="btn btn-dark btn-small">Dashboard</button></div>
+          <div class="top"><div><div class="brand-small">RepLog</div><h1>Workout History</h1></div></div>
           <div class="tiny" style="margin-bottom:10px;">July 2026</div>
           <div class="stack"><div class="soft-card"><div class="row"><span class="badge badge-torso">TORSO A</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:10px;">Thu 25 Jun</strong><p class="sub">6 exercises - 18 sets - 52 min</p></div><div class="soft-card"><div class="row"><span class="badge badge-lower">LOWER+ARMS B</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:10px;">Mon 22 Jun</strong><p class="sub">6 exercises - 16 sets - 48 min</p></div></div>
           <div class="tiny" style="margin:22px 0 10px;">June 2026</div>
           <div class="soft-card"><div class="row"><span class="badge badge-pull">PULL</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:10px;">Wed 17 Jun</strong><p class="sub">5 exercises - 14 sets - 44 min</p></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item active"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -321,8 +426,9 @@
       <p class="label">Route /history (empty state)</p>
       <div class="phone">
         <main class="app">
-          <div class="top"><div><div class="brand-small">RepLog</div><h1>Workout History</h1></div><button class="btn btn-dark btn-small">Dashboard</button></div>
+          <div class="top"><div><div class="brand-small">RepLog</div><h1>Workout History</h1></div></div>
           <div class="card" style="text-align:center;"><h3 style="font-size:18px;">No finished workouts yet</h3><p class="sub" style="margin-top:8px;">Finish a workout and it will appear here with duration, exercises, and set totals.</p><button class="btn btn-dark" style="margin-top:18px;width:auto;display:inline-flex;">Start from Dashboard</button></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item active"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -334,7 +440,8 @@
           <div class="top"><div><div class="brand-small">Dashboard</div><h1>Progress</h1></div><select style="max-width:170px;"><option>Lat Pulldown</option></select></div>
           <div class="pb-card" style="margin-bottom:14px;"><div class="tiny">Estimated 1RM PB</div><h1 style="margin-top:8px;">45.9 kg</h1><p class="sub">From 32 kg x 13 reps - Thu 25 Jun 2026</p></div>
           <div class="three" style="margin-bottom:14px;"><div class="soft-card"><div class="stat-value">6</div><div class="stat-label">Sessions</div></div><div class="soft-card"><div class="stat-value">+7 kg</div><div class="stat-label">Progress</div></div><div class="soft-card"><div class="stat-value">32 kg</div><div class="stat-label">Heaviest Set</div></div></div>
-          <div class="card"><div class="row" style="margin-bottom:12px;"><div><h3>Session History</h3><p class="sub">Lat Pulldown</p></div><span class="badge badge-neutral">BACK</span></div><table><tr><th>Date</th><th>Top Set</th><th>Est. 1RM</th></tr><tr><td><strong>25 Jun</strong></td><td><strong>32 kg x 13</strong></td><td>45.9 kg</td></tr><tr><td><strong>20 Jun</strong></td><td><strong>32 kg x 12</strong></td><td>44.8 kg</td></tr><tr><td><strong>13 Jun</strong></td><td>27 kg x 13</td><td>38.7 kg</td></tr></table><div class="trend"><strong>Estimated 1RM trend:</strong><span>38.7 -> 44.8 -> 45.9 kg</span><span class="up">up</span></div></div>
+          <div class="card"><div class="row" style="margin-bottom:12px;"><div><h3>Session History</h3><p class="sub">Lat Pulldown</p></div><span class="badge badge-neutral">BACK</span></div><div class="chart" style="margin-bottom:14px;"><div class="tiny" style="margin-bottom:8px;">Estimated 1RM (kg)</div><svg viewBox="0 0 300 120"><polyline fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="30,92 150,40 270,30" /><circle cx="30" cy="92" r="4" fill="#0f172a" /><circle cx="150" cy="40" r="4" fill="#0f172a" /><circle cx="270" cy="30" r="4" fill="#0f172a" /></svg><div class="row" style="color:#94a3b8;font-size:11px;font-weight:700;margin-top:4px;"><span>13 Jun</span><span>20 Jun</span><span>25 Jun</span></div></div><table><tr><th>Date</th><th>Top Set</th><th>Est. 1RM</th></tr><tr><td><strong>25 Jun</strong></td><td><strong>32 kg x 13</strong></td><td>45.9 kg</td></tr><tr><td><strong>20 Jun</strong></td><td><strong>32 kg x 12</strong></td><td>44.8 kg</td></tr><tr><td><strong>13 Jun</strong></td><td>27 kg x 13</td><td>38.7 kg</td></tr></table><div class="trend"><strong>Estimated 1RM trend:</strong><span>38.7 -> 44.8 -> 45.9 kg</span><span class="up">up</span></div></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item active"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -343,8 +450,9 @@
       <p class="label">Route /progress (empty state)</p>
       <div class="phone">
         <main class="app">
-          <div class="top"><div><div class="brand-small">Dashboard</div><h1>Progress</h1></div><select style="max-width:170px;" disabled><option>No exercise data</option></select></div>
+          <div class="top"><div><div class="brand-small">RepLog</div><h1>Progress</h1></div><select style="max-width:170px;" disabled><option>No exercise data</option></select></div>
           <div class="card"><h3 style="font-size:18px;">No finished sets yet</h3><p class="sub" style="margin-top:8px;">Complete a workout with normal working sets to see exercise progress here.</p></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item active"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -353,7 +461,8 @@
       <p class="label">Route /profile</p>
       <div class="phone">
         <main class="app">
-          <div class="profile-card"><div class="bar"><span>Back</span><strong>Profile</strong><span>Edit</span></div><div class="profile-hero"><div class="avatar big" style="margin:0 auto 12px;">J</div><h2>John</h2><p class="sub">john@email.com</p><p class="hint">Member since July 2026</p></div><div class="three" style="gap:0;border-bottom:1px solid #f1f5f9;"><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Workouts</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Sets</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0kg</div><div class="stat-label">Lifted</div></div></div><div class="content"><div class="tiny" style="margin-bottom:10px;">Settings</div><div style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;"><div class="settings-row">Edit Profile <span class="muted">&gt;</span></div><div class="settings-row">Change Password <span class="muted">&gt;</span></div></div><div class="tiny" style="margin:18px 0 10px;">Account</div><button class="btn btn-red">Log Out</button></div></div>
+          <div class="profile-card"><div class="bar"><span>Back</span><strong>Profile</strong><span>Edit</span></div><div class="profile-hero"><div class="avatar big" style="margin:0 auto 12px;">J</div><h2>John</h2><p class="sub">john@email.com</p><p class="hint">Member since July 2026</p></div><div class="three" style="gap:0;border-bottom:1px solid #f1f5f9;"><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Workouts</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Sets</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0kg</div><div class="stat-label">Lifted</div></div></div><div class="content"><div class="tiny" style="margin-bottom:10px;">Settings</div><div style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;"><div class="settings-row">Edit Profile <span class="muted">&gt;</span></div><div class="settings-row">Change Password <span class="muted">&gt;</span></div><div class="settings-row">Edit Program <span class="muted">&gt;</span></div><div class="settings-row">Units <span class="pill-row"><span class="pill active" style="padding:5px 11px;">kg</span><span class="pill" style="padding:5px 11px;">lb</span></span></div></div><div class="tiny" style="margin:18px 0 10px;">Account</div><button class="btn btn-red">Log Out</button></div></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item active"><span class="ic">●</span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -403,44 +512,45 @@
     </div>
   </div>
 
-  <h2 class="section-title">Desktop snapshots</h2>
+  <h2 class="section-title">Desktop snapshots (optional — build is mobile-first)</h2>
   <div class="grid">
     <div>
       <p class="label">Desktop /dashboard</p>
-      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/dashboard</div></div><main class="app desktop-app"><div class="max"><div class="top"><div><div class="brand-small">RepLog</div><h1>Dashboard</h1></div><div class="user-actions"><div class="chip"><span class="avatar">J</span>John</div><button class="btn btn-dark btn-small">Logout</button></div></div><div style="margin-bottom:20px;"><h2>Good morning, John</h2><p class="sub">Wednesday, 1 July 2026</p></div><div class="split"><div><div class="card" style="margin-bottom:18px;"><div class="tiny">Suggested today</div><h1 style="margin-top:8px;">TORSO A</h1><p class="sub">6 exercises - Chest + Back + Shoulders</p><button class="btn btn-dark" style="margin-top:18px;">Start Workout</button></div><p class="sub" style="font-weight:700;margin-bottom:8px;">Or pick a day:</p><div class="pill-row" style="margin-bottom:22px;"><div class="pill">PUSH</div><div class="pill">PULL</div><div class="pill">LEGS</div><div class="pill active">TORSO A</div><div class="pill">LOWER+ARMS B</div></div><div class="row" style="margin-bottom:10px;"><div class="tiny">Recent Sessions</div><strong style="font-size:12px;">View all</strong></div><div class="stack"><div class="soft-card row"><div><strong>Mon 29 Jun <span class="badge badge-neutral">LOWER+ARMS B</span></strong><p class="sub">6 exercises - Finished - Duration: 48 min</p></div><span class="muted">&gt;</span></div><div class="soft-card row"><div><strong>Sat 27 Jun <span class="badge badge-neutral">TORSO A</span></strong><p class="sub">6 exercises - In progress</p></div><span class="muted">&gt;</span></div></div></div><aside class="card"><div class="row" style="margin-bottom:12px;"><h3>Your Stats</h3><strong style="font-size:12px;">Progress</strong></div><div class="stack"><div class="stat"><div class="stat-value">24</div><div class="stat-label">Workouts</div></div><div class="stat"><div class="stat-value">432</div><div class="stat-label">Sets</div></div><div class="stat"><div class="stat-value">8.6k</div><div class="stat-label">Lifted</div></div></div></aside></div></div></main></div>
+      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/dashboard</div></div><main class="app desktop-app"><div class="max"><div class="top"><div><div class="brand-small">RepLog</div><h1>Dashboard</h1></div><nav class="topnav"><a class="active">Dashboard</a><a>History</a><a>Progress</a><a>Program</a><a>Profile</a></nav><div class="user-actions"><div class="chip"><span class="avatar">J</span>John</div></div></div><div style="margin-bottom:20px;"><h2>Good morning, John</h2><p class="sub">Wednesday, 1 July 2026</p></div><div class="split"><div><div class="card" style="margin-bottom:18px;"><div class="tiny">Suggested today</div><h1 style="margin-top:8px;">TORSO A</h1><p class="sub">6 exercises - Chest + Back + Shoulders</p><button class="btn btn-dark" style="margin-top:18px;">Start Workout</button></div><p class="sub" style="font-weight:700;margin-bottom:8px;">Or pick a day:</p><div class="pill-row" style="margin-bottom:22px;"><div class="pill">PUSH</div><div class="pill">PULL</div><div class="pill">LEGS</div><div class="pill active">TORSO A</div><div class="pill">LOWER+ARMS B</div></div><div class="row" style="margin-bottom:10px;"><div class="tiny">Recent Sessions</div><strong style="font-size:12px;">View all</strong></div><div class="stack"><div class="soft-card row"><div><strong>Mon 29 Jun <span class="badge badge-neutral">LOWER+ARMS B</span></strong><p class="sub">6 exercises - Finished - Duration: 48 min</p></div><span class="muted">&gt;</span></div><div class="soft-card row"><div><strong>Sat 27 Jun <span class="badge badge-neutral">TORSO A</span></strong><p class="sub">6 exercises - In progress</p></div><span class="muted">&gt;</span></div></div></div><aside class="card"><div class="row" style="margin-bottom:12px;"><h3>Your Stats</h3><strong style="font-size:12px;">Progress</strong></div><div class="stack"><div class="stat"><div class="stat-value">24</div><div class="stat-label">Workouts</div></div><div class="stat"><div class="stat-value">432</div><div class="stat-label">Sets</div></div><div class="stat"><div class="stat-value">8.6k</div><div class="stat-label">Lifted</div></div></div></aside></div></div></main></div>
     </div>
 
     <div>
       <p class="label">Desktop /workout/:sessionId</p>
-      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/workout/12</div></div><main class="app desktop-app"><div class="max"><div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1><p class="sub">Started 1 Jul, 09:14</p></div><button class="btn btn-green btn-small">Finish Workout</button></div><div class="two"><div class="stack"><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button><button class="btn-icon red">x</button></div></div><div class="set-row"><span class="badge badge-wu">WU</span><strong>10 kg</strong><span>x</span><span>12</span><span class="spacer"></span><button class="btn-icon blue">e</button><button class="btn-icon red">d</button></div><div class="set-row"><span class="badge badge-neutral">1</span><strong>17 kg</strong><span>x</span><span>9</span><span class="spacer"></span><button class="btn-icon blue">e</button><button class="btn-icon red">d</button></div></div><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Lat Pulldown / Chin-ups</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button><button class="btn-icon red">x</button></div></div></div><button class="btn btn-white">+ Add Exercise</button></div><div class="card"><div class="tiny" style="margin-bottom:10px;">Add Set</div><div class="mini-grid"><div class="field"><label>Kind</label><select><option>Normal</option><option>Warm-up</option><option>Drop</option></select></div><div class="field"><label>Weight kg</label><input class="input" value="32" /></div><div class="field"><label>Reps</label><input class="input" value="12" /></div></div><button class="btn btn-dark" style="margin-top:12px;">Save Set</button><p class="sub" style="margin-top:14px;">The built UI keeps add, edit, delete, swap, remove, and finish actions inside the workout route.</p></div></div></div></main></div>
+      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/workout/12</div></div><main class="app desktop-app"><div class="max"><div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1><p class="sub">Started 1 Jul, 09:14</p></div><button class="btn btn-green btn-small">Finish Workout</button></div><div class="two"><div class="stack"><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button><button class="btn-icon red">x</button></div></div><div class="last-ref">Last time: 17 kg × 9 · Mon 22 Jun</div><div class="set-row"><span class="badge badge-wu">WU</span><strong>10 kg</strong><span>x</span><span>12</span><span class="spacer"></span><button class="btn-icon blue">e</button><button class="btn-icon red">d</button></div><div class="set-row"><span class="badge badge-neutral">1</span><strong>17 kg</strong><span>x</span><span>9</span><span class="spacer"></span><button class="btn-icon blue">e</button><button class="btn-icon red">d</button></div></div><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Lat Pulldown / Chin-ups</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button><button class="btn-icon red">x</button></div></div></div><button class="btn btn-white">+ Add Exercise</button></div><div class="card"><div class="tiny" style="margin-bottom:10px;">Add Set</div><div class="mini-grid"><div class="field"><label>Kind</label><select><option>Normal</option><option>Warm-up</option><option>Drop</option></select></div><div class="field"><label>Weight kg</label><input class="input" value="32" /></div><div class="field"><label>Reps</label><input class="input" value="12" /></div></div><button class="btn btn-dark" style="margin-top:12px;">Save Set</button><div class="timer" style="margin-top:14px;"><div><div style="font-size:10px;letter-spacing:.08em;opacity:.65;">REST TIMER</div><div class="t-val">1:30</div></div><div style="display:flex;gap:6px;"><button class="t-btn">+15s</button><button class="t-btn">Skip</button></div></div><div class="tiny" style="margin:14px 0 8px;">Workout Notes</div><textarea class="input" placeholder="How did it feel? Any tweaks?">Left shoulder felt tight on incline.</textarea><p class="sub" style="margin-top:14px;">The built UI keeps add, edit, delete, swap, remove, and finish actions inside the workout route.</p></div></div></div></main></div>
     </div>
 
     <div>
       <p class="label">Desktop /history</p>
-      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/history</div></div><main class="app desktop-app"><div class="max"><div class="top"><div><div class="brand-small">RepLog</div><h1>Workout History</h1></div><button class="btn btn-dark btn-small">Dashboard</button></div><div class="tiny" style="margin-bottom:12px;">July 2026</div><div class="three cards"><div class="soft-card"><div class="row"><span class="badge badge-torso">TORSO A</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:12px;">Thu 25 Jun</strong><p class="sub">6 exercises - 18 sets - 52 min</p></div><div class="soft-card"><div class="row"><span class="badge badge-lower">LOWER+ARMS B</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:12px;">Mon 22 Jun</strong><p class="sub">6 exercises - 16 sets - 48 min</p></div><div class="soft-card"><div class="row"><span class="badge badge-pull">PULL</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:12px;">Wed 17 Jun</strong><p class="sub">5 exercises - 14 sets - 44 min</p></div></div></div></main></div>
+      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/history</div></div><main class="app desktop-app"><div class="max"><div class="top"><div><div class="brand-small">RepLog</div><h1>Workout History</h1></div><nav class="topnav"><a>Dashboard</a><a class="active">History</a><a>Progress</a><a>Program</a><a>Profile</a></nav></div><div class="tiny" style="margin-bottom:12px;">July 2026</div><div class="three cards"><div class="soft-card"><div class="row"><span class="badge badge-torso">TORSO A</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:12px;">Thu 25 Jun</strong><p class="sub">6 exercises - 18 sets - 52 min</p></div><div class="soft-card"><div class="row"><span class="badge badge-lower">LOWER+ARMS B</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:12px;">Mon 22 Jun</strong><p class="sub">6 exercises - 16 sets - 48 min</p></div><div class="soft-card"><div class="row"><span class="badge badge-pull">PULL</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:12px;">Wed 17 Jun</strong><p class="sub">5 exercises - 14 sets - 44 min</p></div></div></div></main></div>
     </div>
 
     <div>
       <p class="label">Desktop /progress</p>
-      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/progress</div></div><main class="app desktop-app"><div class="max"><div class="top"><div><div class="brand-small">Dashboard</div><h1>Progress</h1></div><select style="max-width:260px;"><option>Lat Pulldown</option></select></div><div class="split"><section><div class="pb-card" style="margin-bottom:14px;"><div class="tiny">Estimated 1RM PB</div><h1 style="margin-top:8px;">45.9 kg</h1><p class="sub">From 32 kg x 13 reps - Thu 25 Jun 2026</p></div><div class="three"><div class="soft-card"><div class="stat-value">6</div><div class="stat-label">Sessions</div></div><div class="soft-card"><div class="stat-value">+7 kg</div><div class="stat-label">Progress</div></div><div class="soft-card"><div class="stat-value">32 kg</div><div class="stat-label">Heaviest Set</div></div></div></section><section class="card"><div class="row" style="margin-bottom:12px;"><div><h3>Session History</h3><p class="sub">Lat Pulldown</p></div><span class="badge badge-neutral">BACK</span></div><table><tr><th>Date</th><th>Top Set</th><th>Est. 1RM</th></tr><tr><td><strong>25 Jun</strong></td><td><strong>32 kg x 13</strong></td><td>45.9 kg</td></tr><tr><td><strong>20 Jun</strong></td><td><strong>32 kg x 12</strong></td><td>44.8 kg</td></tr><tr><td><strong>13 Jun</strong></td><td>27 kg x 13</td><td>38.7 kg</td></tr></table><div class="trend"><strong>Estimated 1RM trend:</strong><span>38.7 -> 44.8 -> 45.9 kg</span><span class="up">up</span></div></section></div></div></main></div>
+      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/progress</div></div><main class="app desktop-app"><div class="max"><div class="top"><div><div class="brand-small">RepLog</div><h1>Progress</h1></div><nav class="topnav"><a>Dashboard</a><a>History</a><a class="active">Progress</a><a>Program</a><a>Profile</a></nav><select style="max-width:260px;"><option>Lat Pulldown</option></select></div><div class="split"><section><div class="pb-card" style="margin-bottom:14px;"><div class="tiny">Estimated 1RM PB</div><h1 style="margin-top:8px;">45.9 kg</h1><p class="sub">From 32 kg x 13 reps - Thu 25 Jun 2026</p></div><div class="three"><div class="soft-card"><div class="stat-value">6</div><div class="stat-label">Sessions</div></div><div class="soft-card"><div class="stat-value">+7 kg</div><div class="stat-label">Progress</div></div><div class="soft-card"><div class="stat-value">32 kg</div><div class="stat-label">Heaviest Set</div></div></div></section><section class="card"><div class="row" style="margin-bottom:12px;"><div><h3>Session History</h3><p class="sub">Lat Pulldown</p></div><span class="badge badge-neutral">BACK</span></div><div class="chart" style="margin-bottom:14px;"><div class="tiny" style="margin-bottom:8px;">Estimated 1RM (kg)</div><svg viewBox="0 0 600 140"><polyline fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="40,108 300,50 560,36" /><circle cx="40" cy="108" r="5" fill="#0f172a" /><circle cx="300" cy="50" r="5" fill="#0f172a" /><circle cx="560" cy="36" r="5" fill="#0f172a" /></svg><div class="row" style="color:#94a3b8;font-size:11px;font-weight:700;margin-top:4px;"><span>13 Jun</span><span>20 Jun</span><span>25 Jun</span></div></div><table><tr><th>Date</th><th>Top Set</th><th>Est. 1RM</th></tr><tr><td><strong>25 Jun</strong></td><td><strong>32 kg x 13</strong></td><td>45.9 kg</td></tr><tr><td><strong>20 Jun</strong></td><td><strong>32 kg x 12</strong></td><td>44.8 kg</td></tr><tr><td><strong>13 Jun</strong></td><td>27 kg x 13</td><td>38.7 kg</td></tr></table><div class="trend"><strong>Estimated 1RM trend:</strong><span>38.7 -> 44.8 -> 45.9 kg</span><span class="up">up</span></div></section></div></div></main></div>
     </div>
 
     <div>
       <p class="label">Desktop /profile</p>
-      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/profile</div></div><main class="app desktop-app"><div class="max" style="max-width:760px;"><div class="profile-card"><div class="bar"><span>Back</span><strong>Profile</strong><span>Edit</span></div><div class="profile-hero"><div class="avatar big" style="margin:0 auto 12px;">J</div><h2>John</h2><p class="sub">john@email.com</p><p class="hint">Member since July 2026</p></div><div class="three" style="gap:0;border-bottom:1px solid #f1f5f9;"><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Workouts</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Sets</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0kg</div><div class="stat-label">Lifted</div></div></div><div class="content"><div class="tiny" style="margin-bottom:10px;">Settings</div><div style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;"><div class="settings-row">Edit Profile <span class="muted">&gt;</span></div><div class="settings-row">Change Password <span class="muted">&gt;</span></div></div><div class="tiny" style="margin:18px 0 10px;">Account</div><button class="btn btn-red">Log Out</button></div></div></div></main></div>
+      <div class="desktop"><div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/profile</div></div><main class="app desktop-app"><div class="max" style="max-width:760px;"><div class="top"><div><div class="brand-small">RepLog</div><h1>Profile</h1></div><nav class="topnav"><a>Dashboard</a><a>History</a><a>Progress</a><a>Program</a><a class="active">Profile</a></nav></div><div class="profile-card"><div class="bar"><span>Back</span><strong>Profile</strong><span>Edit</span></div><div class="profile-hero"><div class="avatar big" style="margin:0 auto 12px;">J</div><h2>John</h2><p class="sub">john@email.com</p><p class="hint">Member since July 2026</p></div><div class="three" style="gap:0;border-bottom:1px solid #f1f5f9;"><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Workouts</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Sets</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0kg</div><div class="stat-label">Lifted</div></div></div><div class="content"><div class="tiny" style="margin-bottom:10px;">Settings</div><div style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;"><div class="settings-row">Edit Profile <span class="muted">&gt;</span></div><div class="settings-row">Change Password <span class="muted">&gt;</span></div><div class="settings-row">Edit Program <span class="muted">&gt;</span></div><div class="settings-row">Units <span class="pill-row"><span class="pill active" style="padding:5px 11px;">kg</span><span class="pill" style="padding:5px 11px;">lb</span></span></div></div><div class="tiny" style="margin:18px 0 10px;">Account</div><button class="btn btn-red">Log Out</button></div></div></div></main></div>
     </div>
   </div>
 
   <div class="note">
-    <strong>Design source:</strong> this mockup now follows the current RepLog implementation: protected full-page routes, auth card shell, dashboard/profile actions, session add/swap/remove controls, in-app delete confirmation for both sets and exercises, history grouping, and estimated 1RM progress language. It also documents the History and Progress empty states new accounts see first, plus a forward-looking mock of the planned (not yet built) <code>/guide</code> route from <code>TODO.md</code>.
+    <strong>Design source:</strong> this mockup is the design spec RepLog gets built to match, not documentation of what's already shipped. It covers protected full-page routes, auth card shell, dashboard/profile actions, session add/swap/remove controls, in-app delete confirmation for both sets and exercises, history grouping, and estimated 1RM progress language. It also documents the History and Progress empty states new accounts see first, plus a forward-looking mock of the planned (not yet built) <code>/guide</code> route from <code>TODO.md</code>. Primary/brand color is near-black monochrome; category day badges keep their own accent colors.
+    <br /><br /><strong>Mobile-first rules:</strong> the built mobile layout is the primary target; desktop frames are an optional responsive stretch. The bottom tab bar is fixed to the viewport with <code>env(safe-area-inset-bottom)</code> padding. All tap targets are at least 44px in the built app, even where this mock draws them smaller (e.g. the 32px icon buttons). Weight and reps inputs open numeric keyboards (<code>inputmode="decimal"</code> / <code>"numeric"</code>). The rest timer stays visible while scrolling during an active workout.
     <div class="palette">
       <div class="swatch"><div style="background:#f1f5f9"></div>App BG</div>
       <div class="swatch"><div style="background:#fff"></div>Card</div>
-      <div class="swatch"><div style="background:#0f172a"></div>Primary</div>
+      <div class="swatch"><div style="background:#0f172a"></div>Primary / Ink</div>
       <div class="swatch"><div style="background:#16a34a"></div>Success</div>
       <div class="swatch"><div style="background:#ef4444"></div>Danger</div>
       <div class="swatch"><div style="background:#e2e8f0"></div>Warm-up</div>
-      <div class="swatch"><div style="background:#eff6ff"></div>Drop Set</div>
+      <div class="swatch"><div style="background:#f1f5f9"></div>Drop Set</div>
       <div class="swatch"><div style="background:#f0fdf4"></div>1RM PB</div>
     </div>
   </div>
