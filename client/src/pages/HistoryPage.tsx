@@ -5,6 +5,8 @@ import {
   sessionHistoryQueryKey,
   type WorkoutHistorySession,
 } from '../lib/sessions'
+import { BottomTabBar } from '../components/nav/BottomTabBar'
+import { TopNav } from '../components/nav/TopNav'
 
 function formatMonth(startedAt: string) {
   return new Intl.DateTimeFormat('en', {
@@ -79,7 +81,7 @@ export function HistoryPage() {
   const groupedSessions = sessions ? groupSessionsByMonth(sessions) : []
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
+    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
@@ -88,6 +90,7 @@ export function HistoryPage() {
               Workout History
             </h1>
           </div>
+          <TopNav />
           <Link
             to="/dashboard"
             className="rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800"
@@ -159,6 +162,7 @@ export function HistoryPage() {
           </div>
         ) : null}
       </div>
+      <BottomTabBar />
     </main>
   )
 }

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getProgress, progressQueryKey } from '../lib/progress'
+import { BottomTabBar } from '../components/nav/BottomTabBar'
+import { TopNav } from '../components/nav/TopNav'
 
 function formatFullDate(startedAt: string) {
   return new Intl.DateTimeFormat('en', {
@@ -46,7 +48,7 @@ export function ProgressPage() {
   })
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
+    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -55,6 +57,7 @@ export function ProgressPage() {
             </Link>
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Progress</h1>
           </div>
+          <TopNav />
           <select
             value={progress?.selectedExercise?.id ?? ''}
             disabled={!progress?.exercises.length}
@@ -183,6 +186,7 @@ export function ProgressPage() {
           </div>
         ) : null}
       </div>
+      <BottomTabBar />
     </main>
   )
 }

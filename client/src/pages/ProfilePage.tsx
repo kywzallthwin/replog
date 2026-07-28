@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
+import { BottomTabBar } from '../components/nav/BottomTabBar'
+import { TopNav } from '../components/nav/TopNav'
 
 function formatMemberSince(createdAt?: string) {
   if (!createdAt) {
@@ -30,7 +32,10 @@ export function ProfilePage() {
   })
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
+    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
+      <div className="mx-auto mb-4 hidden max-w-3xl justify-end sm:flex">
+        <TopNav />
+      </div>
       <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <Link to="/dashboard" className="text-sm font-semibold text-slate-900">
@@ -99,6 +104,7 @@ export function ProfilePage() {
           ) : null}
         </section>
       </div>
+      <BottomTabBar />
     </main>
   )
 }

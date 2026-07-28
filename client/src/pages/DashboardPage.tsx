@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
 import { startSession } from '../lib/sessions'
+import { BottomTabBar } from '../components/nav/BottomTabBar'
+import { TopNav } from '../components/nav/TopNav'
 
 function getGreeting() {
   const hour = new Date().getHours()
@@ -80,7 +82,7 @@ export function DashboardPage() {
   })
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
+    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
@@ -89,6 +91,7 @@ export function DashboardPage() {
               Dashboard
             </h1>
           </div>
+          <TopNav />
           <div className="flex items-center gap-2">
             <Link
               to="/profile"
@@ -256,6 +259,7 @@ export function DashboardPage() {
           </p>
         ) : null}
       </div>
+      <BottomTabBar />
     </main>
   )
 }
