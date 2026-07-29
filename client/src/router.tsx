@@ -8,6 +8,7 @@ import { HistoryPage } from './pages/HistoryPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProgressPage } from './pages/ProgressPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { ProgramPage } from './pages/ProgramPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { WorkoutPage } from './pages/WorkoutPage'
 
@@ -61,6 +62,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <ProgressPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/program',
+    element: (
+      <RequireAuth>
+        <ProgramPage />
       </RequireAuth>
     ),
   },

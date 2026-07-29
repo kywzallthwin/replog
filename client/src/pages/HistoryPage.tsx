@@ -5,6 +5,7 @@ import {
   sessionHistoryQueryKey,
   type WorkoutHistorySession,
 } from '../lib/sessions'
+import { getBadgeClass } from '../lib/badgeColors'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 
@@ -29,30 +30,6 @@ function formatDuration(durationSec: number | null) {
   }
 
   return `${Math.max(1, Math.round(durationSec / 60))} min`
-}
-
-function getBadgeClass(badgeColor: string) {
-  if (badgeColor === 'bg-amber-100 text-amber-800') {
-    return 'bg-amber-100 text-amber-800'
-  }
-
-  if (badgeColor === 'bg-blue-100 text-blue-800') {
-    return 'bg-blue-100 text-blue-800'
-  }
-
-  if (badgeColor === 'bg-pink-100 text-pink-800') {
-    return 'bg-pink-100 text-pink-800'
-  }
-
-  if (badgeColor === 'bg-indigo-100 text-indigo-800') {
-    return 'bg-indigo-100 text-indigo-800'
-  }
-
-  if (badgeColor === 'bg-green-100 text-green-800') {
-    return 'bg-green-100 text-green-800'
-  }
-
-  return 'bg-slate-100 text-slate-600'
 }
 
 function groupSessionsByMonth(sessions: WorkoutHistorySession[]) {
