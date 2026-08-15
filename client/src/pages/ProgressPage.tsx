@@ -48,11 +48,11 @@ export function ProgressPage() {
   })
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
+    <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Link to="/dashboard" className="text-sm font-semibold text-slate-500 transition hover:text-slate-900">
+            <Link to="/dashboard" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-500 transition hover:text-slate-900">
               Dashboard
             </Link>
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Progress</h1>
@@ -104,9 +104,12 @@ export function ProgressPage() {
                     <h2 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-900">
                       {formatEstimatedWeight(progress.personalBest.estimatedOneRepMaxKg)}
                     </h2>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <Link
+                      to={`/workout/${progress.personalBest.sessionId}?from=progress`}
+                      className="mt-1 inline-flex min-h-11 items-center text-sm text-slate-500 transition hover:text-slate-900"
+                    >
                       From {formatWeight(progress.personalBest.weightKg)} x {progress.personalBest.reps} reps · {formatFullDate(progress.personalBest.startedAt)}
-                    </p>
+                    </Link>
                   </>
                 ) : (
                   <p className="mt-2 text-sm text-slate-500">No estimated 1RM yet.</p>
@@ -142,8 +145,8 @@ export function ProgressPage() {
 
               {progress.sessionHistory.length ? (
                 <>
-                  <div className="overflow-hidden rounded-[14px] border border-slate-100">
-                    <table className="w-full text-left text-sm">
+                  <div className="overflow-x-auto rounded-[14px] border border-slate-100">
+                    <table className="w-full min-w-[420px] text-left text-sm">
                       <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
                         <tr>
                           <th className="px-4 py-3">Date</th>
@@ -155,7 +158,10 @@ export function ProgressPage() {
                         {progress.sessionHistory.map((session) => (
                           <tr key={session.sessionId} className="text-slate-700">
                             <td className="px-4 py-3 font-semibold text-slate-900">
-                              <Link to={`/workout/${session.sessionId}`} className="transition hover:text-slate-500">
+                              <Link
+                                to={`/workout/${session.sessionId}?from=progress`}
+                                className="flex min-h-11 items-center transition hover:text-slate-500"
+                              >
                                 {formatShortDate(session.startedAt)}
                               </Link>
                             </td>

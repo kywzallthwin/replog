@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { Link, useNavigate } from 'react-router-dom'
@@ -22,8 +22,8 @@ export function EditProfilePage() {
     queryFn: getCurrentUser,
     retry: false,
   })
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState<string | null>(null)
+  const [email, setEmail] = useState<string | null>(null)
   const [error, setError] = useState('')
   const updateMutation = useMutation({
     mutationFn: updateCurrentUser,
@@ -41,26 +41,17 @@ export function EditProfilePage() {
     },
   })
 
-  useEffect(() => {
-    if (!user) {
-      return
-    }
-
-    setUsername(user.username)
-    setEmail(user.email)
-  }, [user])
-
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-    updateMutation.mutate({ username, email })
+    updateMutation.mutate({ username: username ?? user?.username ?? '', email: email ?? user?.email ?? '' })
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
+    <main className="min-h-dvh bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-xl overflow-hidden rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <Link to="/profile" className="text-sm font-semibold text-slate-900">
+          <Link to="/profile" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
             Profile
           </Link>
           <h1 className="text-[15px] font-bold text-slate-900">Edit Profile</h1>
@@ -79,7 +70,7 @@ export function EditProfilePage() {
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Username</label>
             <input
               type="text"
-              value={username}
+              value={username ?? user?.username ?? ''}
               onChange={(event) => setUsername(event.target.value)}
               required
               minLength={2}
@@ -92,7 +83,7 @@ export function EditProfilePage() {
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
             <input
               type="email"
-              value={email}
+              value={email ?? user?.email ?? ''}
               onChange={(event) => setEmail(event.target.value)}
               required
               className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"

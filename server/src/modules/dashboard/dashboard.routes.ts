@@ -108,6 +108,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
       dayName: session.dayNameSnapshot,
       badgeColor: session.badgeColorSnapshot,
       startedAt: session.startedAt,
+      endedAt: session.endedAt,
       durationSec: session.durationSec,
       exerciseCount: session.sessionExercises.length,
     })),

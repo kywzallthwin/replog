@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
+import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 
@@ -23,6 +24,11 @@ export function ProfilePage() {
     queryFn: getCurrentUser,
     retry: false,
   })
+  const { data: dashboard } = useQuery({
+    queryKey: dashboardQueryKey,
+    queryFn: getDashboard,
+    retry: false,
+  })
   const logoutMutation = useMutation({
     mutationFn: logoutUser,
     onSuccess: () => {
@@ -32,17 +38,17 @@ export function ProfilePage() {
   })
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
-      <div className="mx-auto mb-4 hidden max-w-3xl justify-end sm:flex">
+    <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
+      <div className="mx-auto mb-4 hidden max-w-3xl justify-end lg:flex">
         <TopNav />
       </div>
       <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <Link to="/dashboard" className="text-sm font-semibold text-slate-900">
+          <Link to="/dashboard" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
             Back
           </Link>
           <h1 className="text-[15px] font-bold text-slate-900">Profile</h1>
-          <Link to="/profile/edit" className="text-sm font-semibold text-slate-500">
+          <Link to="/profile/edit" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-500">
             Edit
           </Link>
         </header>
@@ -54,7 +60,7 @@ export function ProfilePage() {
           <h2 className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
             {user?.username ?? 'User'}
           </h2>
-          <p className="mt-1 text-sm text-slate-500">{user?.email ?? 'Loading...'}</p>
+          <p className="mt-1 break-all text-sm text-slate-500">{user?.email ?? 'Loading...'}</p>
           <p className="mt-1 text-xs font-medium text-slate-400">
             {formatMemberSince(user?.createdAt)}
           </p>
@@ -62,15 +68,21 @@ export function ProfilePage() {
 
         <section className="grid grid-cols-3 border-b border-slate-100">
           <div className="border-r border-slate-100 px-2 py-4 text-center">
-            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">0</div>
+            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
+              {dashboard?.stats.workoutCount ?? 0}
+            </div>
             <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Workouts</div>
           </div>
           <div className="border-r border-slate-100 px-2 py-4 text-center">
-            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">0</div>
+            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
+              {dashboard?.stats.setCount ?? 0}
+            </div>
             <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Sets</div>
           </div>
           <div className="px-2 py-4 text-center">
-            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">0kg</div>
+            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
+              {Math.round(dashboard?.stats.totalVolumeKg ?? 0)}kg
+            </div>
             <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Lifted</div>
           </div>
         </section>
@@ -82,8 +94,12 @@ export function ProfilePage() {
               <span className="text-sm font-medium text-slate-900">Edit Profile</span>
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>
-            <Link to="/profile/password" className="flex items-center justify-between bg-white px-4 py-4">
+            <Link to="/profile/password" className="flex min-h-11 items-center justify-between border-b border-slate-100 bg-white px-4 py-4">
               <span className="text-sm font-medium text-slate-900">Change Password</span>
+              <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
+            </Link>
+            <Link to="/program" className="flex min-h-11 items-center justify-between bg-white px-4 py-4">
+              <span className="text-sm font-medium text-slate-900">Edit Program</span>
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>
           </div>

@@ -14,6 +14,7 @@ export type DashboardSession = {
   dayName: string
   badgeColor: string
   startedAt: string
+  endedAt: string | null
   durationSec: number | null
   exerciseCount: number
 }

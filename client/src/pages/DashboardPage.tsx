@@ -37,12 +37,14 @@ function formatSessionDate(startedAt: string) {
   }).format(new Date(startedAt))
 }
 
-function formatDuration(durationSec: number | null) {
-  if (!durationSec) {
+function formatDuration(durationSec: number | null, endedAt: string | null) {
+  if (!endedAt) {
     return 'In progress'
   }
 
-  return `Finished · Duration: ${Math.round(durationSec / 60)} min`
+  return durationSec === null
+    ? 'Finished · Duration unavailable'
+    : `Finished · Duration: ${Math.max(1, Math.round(durationSec / 60))} min`
 }
 
 function formatVolume(totalVolumeKg: number) {
@@ -82,7 +84,7 @@ export function DashboardPage() {
   })
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
+    <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
@@ -95,7 +97,7 @@ export function DashboardPage() {
           <div className="flex items-center gap-2">
             <Link
               to="/profile"
-              className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"
+              className="flex min-h-11 items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:bg-slate-50"
             >
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
                 {user?.avatarInitial ?? 'U'}
@@ -106,7 +108,7 @@ export function DashboardPage() {
               type="button"
               disabled={logoutMutation.isPending}
               onClick={() => logoutMutation.mutate()}
-              className="rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+              className="min-h-11 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
             >
               {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
             </button>
@@ -177,7 +179,7 @@ export function DashboardPage() {
                       key={day.id}
                       disabled={startSessionMutation.isPending}
                       onClick={() => startSessionMutation.mutate(day.id)}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition hover:border-slate-900 hover:bg-slate-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      className="min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition hover:border-slate-900 hover:bg-slate-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {day.name}
                     </button>
@@ -188,7 +190,7 @@ export function DashboardPage() {
               <section>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] text-slate-400">Recent Sessions</h3>
-                  <Link to="/history" className="text-xs font-bold text-slate-900 transition hover:text-slate-600">
+                  <Link to="/history" className="inline-flex min-h-11 items-center text-xs font-bold text-slate-900 transition hover:text-slate-600">
                     View all
                   </Link>
                 </div>
@@ -200,7 +202,7 @@ export function DashboardPage() {
                         to={`/workout/${session.id}?from=dashboard`}
                         className="flex items-center justify-between rounded-[16px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-bold text-slate-900">
                             {formatSessionDate(session.startedAt)}{' '}
                             <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
@@ -208,7 +210,7 @@ export function DashboardPage() {
                             </span>
                           </p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {session.exerciseCount} exercises · {formatDuration(session.durationSec)}
+                            {session.exerciseCount} exercises · {formatDuration(session.durationSec, session.endedAt)}
                           </p>
                         </div>
                         <span className="text-lg text-slate-300">{String.fromCharCode(0x203a)}</span>
@@ -226,7 +228,7 @@ export function DashboardPage() {
             <aside className="rounded-[24px] bg-white p-5 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)] lg:self-start">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <p className="text-[13px] font-bold text-slate-900">Your Stats</p>
-                <Link to="/progress" className="text-xs font-bold text-slate-900 transition hover:text-slate-600">
+                <Link to="/progress" className="inline-flex min-h-11 items-center text-xs font-bold text-slate-900 transition hover:text-slate-600">
                   Progress
                 </Link>
               </div>

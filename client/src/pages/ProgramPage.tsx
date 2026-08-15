@@ -249,11 +249,12 @@ export function ProgramPage() {
   }
 
   function handleReorder(dayId: string, exercise: DayExerciseItem, direction: 'up' | 'down') {
+    reorderDayExerciseMutation.reset()
     reorderDayExerciseMutation.mutate({ dayId, dayExerciseId: exercise.id, direction })
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
+    <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
@@ -264,7 +265,7 @@ export function ProgramPage() {
           <button
             type="button"
             onClick={openAddDayModal}
-            className="rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800"
+            className="min-h-11 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800"
           >
             + Add Day
           </button>
@@ -299,20 +300,20 @@ export function ProgramPage() {
                 className="rounded-[18px] border border-slate-100 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(day.badgeColor)}`}
+                      className={`max-w-[55%] truncate rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(day.badgeColor)}`}
                     >
                       {day.name}
                     </span>
-                    <span className="text-sm font-semibold text-slate-500">{dayCategorySubtitle(day)}</span>
+                    <span className="min-w-0 truncate text-sm font-semibold text-slate-500">{dayCategorySubtitle(day)}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => openEditDayModal(day)}
                     title="Edit day"
                     aria-label={`Edit ${day.name}`}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -338,16 +339,15 @@ export function ProgramPage() {
                         key={exercise.id}
                         className="flex items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0"
                       >
-                        <span className="cursor-grab text-slate-300">{'⠿'}</span>
-                        <span className="font-medium text-slate-700">{exercise.name}</span>
-                        <span className="grow" />
+                        <span aria-hidden="true" className="shrink-0 text-slate-300">{'⠿'}</span>
+                        <span className="min-w-0 grow break-words font-medium text-slate-700">{exercise.name}</span>
                         <button
                           type="button"
                           onClick={() => handleReorder(day.id, exercise, 'up')}
                           disabled={index === 0 || reorderDayExerciseMutation.isPending}
                           title="Move up"
                           aria-label={`Move ${exercise.name} up`}
-                          className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
                         >
                           {'↑'}
                         </button>
@@ -357,7 +357,7 @@ export function ProgramPage() {
                           disabled={index === day.exercises.length - 1 || reorderDayExerciseMutation.isPending}
                           title="Move down"
                           aria-label={`Move ${exercise.name} down`}
-                          className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
                         >
                           {'↓'}
                         </button>
@@ -366,7 +366,7 @@ export function ProgramPage() {
                           onClick={() => handleRemoveExercise(day.id, exercise)}
                           title="Remove exercise"
                           aria-label={`Remove ${exercise.name}`}
-                          className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -392,7 +392,7 @@ export function ProgramPage() {
                   <button
                     type="button"
                     onClick={() => openAddExercisePicker(day.id)}
-                    className="w-full rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                    className="min-h-11 w-full rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
                   >
                     + Add exercise
                   </button>
@@ -401,28 +401,45 @@ export function ProgramPage() {
             ))}
           </div>
         ) : null}
+
+        {reorderDayExerciseMutation.isError ? (
+          <p className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            Unable to reorder the exercise. Please try again.
+          </p>
+        ) : null}
       </div>
       <BottomTabBar />
 
       {dayModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-          <div className="w-full max-w-md overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]">
-            <form onSubmit={handleDaySubmit}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') closeDayModal()
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="program-day-dialog-title"
+            className="flex max-h-[calc(100dvh-3rem)] w-full max-w-md flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+          >
+            <form onSubmit={handleDaySubmit} className="flex min-h-0 flex-col">
               <div className="border-b border-slate-100 px-5 py-4">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                   {dayModal.mode === 'add' ? 'Add Day' : 'Edit Day'}
                 </p>
-                <h2 className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+                <h2 id="program-day-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
                   {dayModal.mode === 'add' ? 'New day' : dayModal.day.name}
                 </h2>
               </div>
-              <div className="max-h-[68vh] space-y-4 overflow-y-auto p-5">
+              <div className="min-h-0 space-y-4 overflow-y-auto p-5">
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
                     Name
                   </span>
                   <input
                     type="text"
+                    maxLength={60}
                     value={dayName}
                     onChange={(event) => setDayName(event.target.value)}
                     placeholder="e.g. PUSH"
@@ -441,7 +458,8 @@ export function ProgramPage() {
                         type="button"
                         onClick={() => setDayBadgeColor(color)}
                         aria-label={`Choose badge color ${color}`}
-                        className={`h-9 w-9 rounded-full ${color} ${
+                        aria-pressed={dayBadgeColor === color}
+                        className={`h-11 w-11 rounded-full ${color} ${
                           dayBadgeColor === color ? 'ring-2 ring-offset-2 ring-slate-900' : ''
                         }`}
                       />
@@ -459,7 +477,7 @@ export function ProgramPage() {
                   <button
                     type="button"
                     onClick={() => handleDeleteDayClick(dayModal.day)}
-                    className="w-full rounded-[12px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100"
+                    className="min-h-11 w-full rounded-[12px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100"
                   >
                     Delete Day
                   </button>
@@ -488,13 +506,23 @@ export function ProgramPage() {
       ) : null}
 
       {exercisePicker ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-          <div className="max-h-full w-full max-w-lg overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && !addDayExerciseMutation.isPending) closeExercisePicker()
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="program-exercise-dialog-title"
+            className="flex max-h-[calc(100dvh-3rem)] w-full max-w-lg flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+          >
             <div className="border-b border-slate-100 px-5 py-4">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Add Exercise</p>
-              <h2 className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">Choose an exercise</h2>
+              <h2 id="program-exercise-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">Choose an exercise</h2>
             </div>
-            <div className="max-h-[68vh] overflow-y-auto p-5">
+            <div className="min-h-0 overflow-y-auto p-5">
               <input
                 type="search"
                 value={exerciseSearch}
@@ -536,6 +564,7 @@ export function ProgramPage() {
                             key={exercise.id}
                             type="button"
                             onClick={() => setSelectedExerciseId(exercise.id)}
+                            aria-pressed={isSelected}
                             className={`flex w-full items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${
                               isSelected
                                 ? 'border-slate-900 bg-slate-900 text-white'
@@ -586,8 +615,18 @@ export function ProgramPage() {
       ) : null}
 
       {deleteConfirmation ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
-          <div className="w-full max-w-sm overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') closeDeleteConfirmation()
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="program-delete-dialog-title"
+            className="flex max-h-[calc(100dvh-3rem)] w-full max-w-sm flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+          >
             <div className="p-5">
               <div className="mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
                 <svg
@@ -606,7 +645,7 @@ export function ProgramPage() {
                   <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
               </div>
-              <h2 className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+              <h2 id="program-delete-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
                 {deleteConfirmation.type === 'day'
                   ? `Delete ${deleteConfirmation.day.name}?`
                   : `Remove ${deleteConfirmation.exercise.name}?`}

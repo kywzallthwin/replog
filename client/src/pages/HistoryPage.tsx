@@ -25,7 +25,7 @@ function formatSessionDate(startedAt: string) {
 }
 
 function formatDuration(durationSec: number | null) {
-  if (!durationSec) {
+  if (durationSec === null) {
     return 'Duration unavailable'
   }
 
@@ -58,7 +58,7 @@ export function HistoryPage() {
   const groupedSessions = sessions ? groupSessionsByMonth(sessions) : []
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 pt-8 pb-24 sm:px-6 sm:py-10">
+    <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
@@ -68,12 +68,6 @@ export function HistoryPage() {
             </h1>
           </div>
           <TopNav />
-          <Link
-            to="/dashboard"
-            className="rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800"
-          >
-            Dashboard
-          </Link>
         </header>
 
         {isPending ? (
