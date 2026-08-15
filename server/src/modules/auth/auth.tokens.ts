@@ -14,10 +14,11 @@ const authCookieOptions: CookieOptions = {
 
 type AuthTokenPayload = {
   userId: string
+  authVersion: number
 }
 
-export function setAuthCookie(res: Response, userId: string) {
-  const token = jwt.sign({ userId } satisfies AuthTokenPayload, env.JWT_SECRET, {
+export function setAuthCookie(res: Response, userId: string, authVersion: number) {
+  const token = jwt.sign({ userId, authVersion } satisfies AuthTokenPayload, env.JWT_SECRET, {
     expiresIn: '7d',
   })
 
@@ -39,9 +40,13 @@ export function readAuthCookie(cookies: Record<string, unknown>) {
 export function verifyAuthToken(token: string) {
   const payload = jwt.verify(token, env.JWT_SECRET)
 
-  if (typeof payload === 'string' || typeof payload.userId !== 'string') {
+  if (
+    typeof payload === 'string' ||
+    typeof payload.userId !== 'string' ||
+    typeof payload.authVersion !== 'number'
+  ) {
     return null
   }
 
-  return { userId: payload.userId }
+  return { userId: payload.userId, authVersion: payload.authVersion }
 }

@@ -22,6 +22,15 @@ export type ChangePasswordInput = {
   newPassword: string
 }
 
+export type ForgotPasswordInput = {
+  email: string
+}
+
+export type ResetPasswordInput = {
+  token: string
+  newPassword: string
+}
+
 export const authMeQueryKey = ['auth', 'me'] as const
 
 export async function getCurrentUser() {
@@ -42,4 +51,12 @@ export async function updateCurrentUser(input: UpdateCurrentUserInput) {
 
 export async function changePassword(input: ChangePasswordInput) {
   await api.post('/users/me/password', input)
+}
+
+export async function requestPasswordReset(input: ForgotPasswordInput) {
+  await api.post('/auth/forgot-password', input)
+}
+
+export async function resetPassword(input: ResetPasswordInput) {
+  await api.post('/auth/reset-password', input)
 }

@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 
 type AuthShellProps = {
   children: ReactNode
+  tagline?: string
 }
 
-export function AuthShell({ children }: AuthShellProps) {
+export function AuthShell({ children, tagline = 'Track every lift.' }: AuthShellProps) {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
@@ -20,7 +21,7 @@ export function AuthShell({ children }: AuthShellProps) {
             <div className="text-2xl font-bold tracking-[-0.02em] text-white">
               RepLog
             </div>
-            <p className="mt-2 text-sm text-slate-300">Track every lift.</p>
+            <p className="mt-2 text-sm text-slate-300">{tagline}</p>
           </div>
 
           <div className="p-5">{children}</div>

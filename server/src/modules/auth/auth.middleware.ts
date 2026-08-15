@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
+import { prisma } from '../../prisma.js'
 import { readAuthCookie, verifyAuthToken } from './auth.tokens.js'
 
 declare global {
@@ -9,7 +10,7 @@ declare global {
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = readAuthCookie(req.cookies ?? {})
 
   if (!token) {
@@ -21,6 +22,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     const payload = verifyAuthToken(token)
 
     if (!payload) {
+      res.status(401).json({ error: 'Authentication required' })
+      return
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { authVersion: true },
+    })
+
+    if (!user || user.authVersion !== payload.authVersion) {
       res.status(401).json({ error: 'Authentication required' })
       return
     }

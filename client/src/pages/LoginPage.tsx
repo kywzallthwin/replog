@@ -91,6 +91,13 @@ export function LoginPage() {
           />
         </div>
 
+        <NavLink
+          to="/forgot-password"
+          className="-mt-2 mb-2 flex min-h-11 items-center justify-end text-sm font-semibold text-slate-900 transition hover:text-slate-600"
+        >
+          Forgot password?
+        </NavLink>
+
         {error ? (
           <p className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {error}
