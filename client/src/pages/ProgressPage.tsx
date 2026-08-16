@@ -48,8 +48,8 @@ export function ProgressPage() {
   })
 
   return (
-    <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
-      <div className="mx-auto max-w-5xl">
+    <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
+      <div className="mx-auto w-full min-w-0 max-w-5xl">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <Link to="/dashboard" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-500 transition hover:text-slate-900">
@@ -96,7 +96,7 @@ export function ProgressPage() {
 
         {progress?.selectedExercise ? (
           <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-            <section>
+            <section className="min-w-0">
               <div className="mb-4 rounded-[24px] border border-green-200 bg-green-50 p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-green-600">Estimated 1RM PB</p>
                 {progress.personalBest ? (
@@ -116,23 +116,23 @@ export function ProgressPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{progress.stats.sessionCount}</div>
+              <div className="grid min-w-0 grid-cols-3 gap-3">
+                <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{progress.stats.sessionCount}</div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Sessions</div>
                 </div>
-                <div className="rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatProgress(progress.stats.progressKg)}</div>
+                <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatProgress(progress.stats.progressKg)}</div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Progress</div>
                 </div>
-                <div className="rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatWeight(progress.stats.heaviestWeightKg)}</div>
+                <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
+                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatWeight(progress.stats.heaviestWeightKg)}</div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Heaviest Set</div>
                 </div>
               </div>
             </section>
 
-            <section className="rounded-[24px] bg-white p-5 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
+            <section className="min-w-0 rounded-[24px] bg-white p-5 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-[15px] font-bold text-slate-900">Session History</h2>
@@ -146,7 +146,7 @@ export function ProgressPage() {
               {progress.sessionHistory.length ? (
                 <>
                   <div className="overflow-x-auto rounded-[14px] border border-slate-100">
-                    <table className="w-full min-w-[420px] text-left text-sm">
+                    <table className="w-full min-w-0 text-left text-sm sm:min-w-[420px]">
                       <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
                         <tr>
                           <th className="px-4 py-3">Date</th>
@@ -177,7 +177,7 @@ export function ProgressPage() {
 
                   <div className="mt-4 flex flex-wrap items-center gap-2 rounded-[14px] bg-slate-50 px-4 py-3 text-sm text-slate-500">
                     <span className="font-semibold text-slate-700">Estimated 1RM trend:</span>
-                    <span>{progress.trendEstimatedOneRepMaxKg.map((weightKg) => Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)).join(' -> ')} kg</span>
+                    <span className="break-words">{progress.trendEstimatedOneRepMaxKg.map((weightKg) => Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)).join(' -> ')} kg</span>
                     <span className={progress.stats.progressKg >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-500'}>
                       {progress.stats.progressKg >= 0 ? 'up' : 'down'}
                     </span>

@@ -15,8 +15,8 @@
 - Git repo already initialized.
 - Root npm workspace config already exists in `package.json`.
 - Declared workspaces: `client`, `server`.
-- `client/` does not exist yet.
-- `server/` does not exist yet.
+- `client/` exists as the Vite React client workspace.
+- `server/` exists as the Express/Prisma server workspace.
 - Root dev dependency already installed: `concurrently`.
 - Root `dev` script currently runs both workspaces: `npm run dev`.
 - Last verified local Node version: `v25.6.1`.
@@ -37,6 +37,8 @@
 
 ## Working Rules
 - Preserve the mockup's structure and intent while translating it into the app.
+- Mobile-first is the standing priority: treat 375px phone layouts as the primary acceptance target, verify mobile before larger breakpoints, and treat desktop responsive polish as optional unless it affects mobile behavior.
+- Keep `STATUS.md` as a concise handoff document, generally around 40-70 lines. Preserve current state, next actions, blockers, backlog, and only the latest few session notes; do not append an exhaustive historical changelog.
 - Do not assume a step is complete unless the files and commands confirm it.
 - Record any plan changes, blockers, or setup deviations in `STATUS.md`.
 - Update `STATUS.md` at the end of every session.
