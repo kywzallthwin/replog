@@ -2,7 +2,7 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { AuthShell } from '../components/auth/AuthShell'
 import { GoogleButton } from '../components/auth/GoogleButton'
 import { api } from '../lib/api'
@@ -14,10 +14,11 @@ type ApiErrorResponse = {
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => getGoogleError(searchParams.get('google_error')))
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -133,4 +134,25 @@ export function LoginPage() {
       </p>
     </AuthShell>
   )
+}
+
+function getGoogleError(error: string | null) {
+  switch (error) {
+    case 'cancelled':
+      return 'Google sign-in was cancelled.'
+    case 'not_configured':
+      return 'Google sign-in is not configured yet.'
+    case 'invalid_state':
+      return 'Google sign-in expired. Please try again.'
+    case 'unverified_email':
+      return 'Google sign-in requires a verified email address.'
+    case 'account_conflict':
+      return 'That Google account is linked to a different RepLog account.'
+    case 'missing_code':
+    case 'missing_identity':
+    case 'provider_error':
+      return 'Unable to sign in with Google. Please try again.'
+    default:
+      return ''
+  }
 }

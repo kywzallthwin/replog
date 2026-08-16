@@ -1,7 +1,8 @@
 import { compare, hash } from 'bcryptjs'
-import { createHash, randomBytes } from 'node:crypto'
-import { Router } from 'express'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { Router, type Response } from 'express'
 import { rateLimit } from 'express-rate-limit'
+import { OAuth2Client } from 'google-auth-library'
 import type { User } from '../../generated/prisma/client.js'
 import { env } from '../../env.js'
 import { prisma } from '../../prisma.js'
@@ -22,6 +23,8 @@ const forgotPasswordMinimumResponseMs = 300
 const forgotPasswordResponse = {
   message: 'If an account exists for that email, a password reset link has been sent.',
 }
+const googleStateCookieName = 'replog_google_state'
+const googleStateLifetimeMs = 10 * 60 * 1000
 
 const forgotPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -38,6 +41,11 @@ const resetPasswordLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many reset attempts. Please try again later.' },
 })
+
+const googleOAuthClient =
+  env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+    ? new OAuth2Client(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, env.GOOGLE_CALLBACK_URL)
+    : null
 
 export const authRouter = Router()
 
@@ -58,6 +66,151 @@ function getAvatarInitial(username: string, email: string) {
 function getPasswordResetTokenHash(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
+
+function getGoogleCallbackUrl() {
+  return env.GOOGLE_CALLBACK_URL ?? `http://localhost:${env.PORT}/auth/google/callback`
+}
+
+function redirectFromGoogle(res: Response, error?: string) {
+  const redirectUrl = new URL('/login', env.CLIENT_URL)
+
+  if (error) {
+    redirectUrl.searchParams.set('google_error', error)
+  }
+
+  res.redirect(redirectUrl.toString())
+}
+
+function clearGoogleStateCookie(res: Response) {
+  res.clearCookie(googleStateCookieName, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/auth/google',
+  })
+}
+
+function getGoogleUsername(name: string | undefined, email: string) {
+  const candidate = (name?.trim() || email.split('@')[0] || 'User').slice(0, 32)
+  return candidate.length >= 2 ? candidate : `${candidate} User`.slice(0, 32)
+}
+
+function getGoogleAvatarInitial(username: string, email: string) {
+  return (username[0] ?? email[0] ?? 'U').toUpperCase()
+}
+
+authRouter.get('/google', (_req, res) => {
+  if (!googleOAuthClient || !env.GOOGLE_CLIENT_ID) {
+    redirectFromGoogle(res, 'not_configured')
+    return
+  }
+
+  const state = randomBytes(32).toString('hex')
+  res.cookie(googleStateCookieName, state, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: googleStateLifetimeMs,
+    path: '/auth/google',
+  })
+
+  res.redirect(
+    googleOAuthClient.generateAuthUrl({
+      access_type: 'online',
+      scope: ['openid', 'email', 'profile'],
+      state,
+      prompt: 'select_account',
+      include_granted_scopes: true,
+      redirect_uri: getGoogleCallbackUrl(),
+    }),
+  )
+})
+
+authRouter.get('/google/callback', async (req, res) => {
+  const stateCookie = req.cookies?.[googleStateCookieName]
+  clearGoogleStateCookie(res)
+
+  if (!googleOAuthClient || !env.GOOGLE_CLIENT_ID || typeof stateCookie !== 'string') {
+    redirectFromGoogle(res, 'invalid_state')
+    return
+  }
+
+  const state = typeof req.query.state === 'string' ? req.query.state : ''
+
+  try {
+    const expected = Buffer.from(stateCookie)
+    const received = Buffer.from(state)
+
+    if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
+      redirectFromGoogle(res, 'invalid_state')
+      return
+    }
+
+    if (typeof req.query.error === 'string') {
+      redirectFromGoogle(res, req.query.error === 'access_denied' ? 'cancelled' : 'provider_error')
+      return
+    }
+
+    const code = typeof req.query.code === 'string' ? req.query.code : null
+
+    if (!code) {
+      redirectFromGoogle(res, 'missing_code')
+      return
+    }
+
+    const { tokens } = await googleOAuthClient.getToken({ code, redirect_uri: getGoogleCallbackUrl() })
+
+    if (!tokens.id_token) {
+      redirectFromGoogle(res, 'missing_identity')
+      return
+    }
+
+    const ticket = await googleOAuthClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: env.GOOGLE_CLIENT_ID,
+    })
+    const payload = ticket.getPayload()
+    const googleId = payload?.sub
+    const email = payload?.email?.trim().toLowerCase()
+
+    if (!googleId || !email || payload.email_verified !== true) {
+      redirectFromGoogle(res, 'unverified_email')
+      return
+    }
+
+    let user = await prisma.user.findUnique({ where: { googleId } })
+
+    if (!user) {
+      const existingUser = await prisma.user.findUnique({ where: { email } })
+
+      if (existingUser?.googleId && existingUser.googleId !== googleId) {
+        redirectFromGoogle(res, 'account_conflict')
+        return
+      }
+
+      user = existingUser
+        ? await prisma.user.update({ where: { id: existingUser.id }, data: { googleId } })
+        : await prisma.user.create({
+            data: {
+              email,
+              username: getGoogleUsername(payload.name, email),
+              googleId,
+              avatarInitial: getGoogleAvatarInitial(payload.name ?? '', email),
+            },
+          })
+
+      if (!existingUser) {
+        await createStarterProgramForUser(user.id)
+      }
+    }
+
+    setAuthCookie(res, user.id, user.authVersion)
+    redirectFromGoogle(res)
+  } catch (error) {
+    console.error('Google OAuth callback failed:', error instanceof Error ? error.message : 'Unknown error')
+    redirectFromGoogle(res, 'provider_error')
+  }
+})
 
 authRouter.post('/register', async (req, res) => {
   const parsedBody = registerSchema.safeParse(req.body)

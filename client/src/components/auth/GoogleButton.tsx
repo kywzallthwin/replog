@@ -1,11 +1,13 @@
+import { apiBaseUrl } from '../../lib/api'
+
 type GoogleButtonProps = {
   label: string
 }
 
 export function GoogleButton({ label }: GoogleButtonProps) {
   return (
-    <button
-      type="button"
+    <a
+      href={`${apiBaseUrl}/auth/google`}
       className="flex w-full items-center justify-center gap-3 rounded-[13px] border border-[#dadce0] bg-white px-5 py-[13px] text-[15px] font-medium text-[#3c4043] shadow-[0_1px_3px_rgba(60,64,67,0.12),0_2px_6px_rgba(60,64,67,0.06)] transition hover:bg-slate-50"
     >
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
@@ -28,6 +30,6 @@ export function GoogleButton({ label }: GoogleButtonProps) {
         <path fill="none" d="M0 0h48v48H0z" />
       </svg>
       {label}
-    </button>
+    </a>
   )
 }
