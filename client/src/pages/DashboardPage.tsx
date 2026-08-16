@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
 import { startSession } from '../lib/sessions'
+import { getBadgeClass } from '../lib/badgeColors'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 
@@ -143,9 +144,9 @@ export function DashboardPage() {
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Suggested today</p>
                 {dashboard.suggestedDay ? (
                   <>
-                    <h3 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-900">
+                    <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(dashboard.suggestedDay.badgeColor)}`}>
                       {dashboard.suggestedDay.name}
-                    </h3>
+                    </span>
                     <p className="mt-1 text-sm text-slate-500">
                       {dashboard.suggestedDay.exerciseCount} exercises
                       {dashboard.suggestedDay.categories.length
@@ -179,7 +180,7 @@ export function DashboardPage() {
                       key={day.id}
                       disabled={startSessionMutation.isPending}
                       onClick={() => startSessionMutation.mutate(day.id)}
-                      className="min-h-11 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition hover:border-slate-900 hover:bg-slate-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      className={`min-h-11 rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.04em] shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-black/5 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 ${getBadgeClass(day.badgeColor)}`}
                     >
                       {day.name}
                     </button>
@@ -205,7 +206,7 @@ export function DashboardPage() {
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-slate-900">
                             {formatSessionDate(session.startedAt)}{' '}
-                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                           <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${getBadgeClass(session.badgeColor)}`}>
                               {session.dayName}
                             </span>
                           </p>

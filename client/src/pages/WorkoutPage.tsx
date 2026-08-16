@@ -17,6 +17,7 @@ import {
   type WorkoutSet,
 } from '../lib/sessions'
 import { dashboardQueryKey } from '../lib/dashboard'
+import { getBadgeClass } from '../lib/badgeColors'
 import { exercisesQueryKey, getExercises, type ExerciseCategory } from '../lib/exercises'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 
@@ -560,6 +561,9 @@ export function WorkoutPage() {
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                 {session.endedAt ? 'Completed workout' : 'Active workout'}
               </p>
+              <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(session.badgeColor)}`}>
+                {session.dayName}
+              </span>
               <h2 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-900">
                 {session.dayName}
               </h2>

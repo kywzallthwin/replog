@@ -313,6 +313,8 @@ export function ProgramPage() {
                   <button
                     type="button"
                     onClick={() => openEditDayModal(day)}
+                    data-press="icon"
+                    data-press-tone="blue"
                     title="Edit day"
                     aria-label={`Edit ${day.name}`}
                     className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
@@ -347,6 +349,8 @@ export function ProgramPage() {
                           type="button"
                           onClick={() => handleReorder(day.id, exercise, 'up')}
                           disabled={index === 0 || reorderDayExerciseMutation.isPending}
+                          data-press="icon"
+                          data-press-tone="slate"
                           title="Move up"
                           aria-label={`Move ${exercise.name} up`}
                           className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
@@ -357,6 +361,8 @@ export function ProgramPage() {
                           type="button"
                           onClick={() => handleReorder(day.id, exercise, 'down')}
                           disabled={index === day.exercises.length - 1 || reorderDayExerciseMutation.isPending}
+                          data-press="icon"
+                          data-press-tone="slate"
                           title="Move down"
                           aria-label={`Move ${exercise.name} down`}
                           className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
@@ -366,6 +372,8 @@ export function ProgramPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveExercise(day.id, exercise)}
+                          data-press="icon"
+                          data-press-tone="red"
                           title="Remove exercise"
                           aria-label={`Remove ${exercise.name}`}
                           className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500"
@@ -459,6 +467,7 @@ export function ProgramPage() {
                         key={color}
                         type="button"
                         onClick={() => setDayBadgeColor(color)}
+                        data-press="swatch"
                         aria-label={`Choose badge color ${color}`}
                         aria-pressed={dayBadgeColor === color}
                         className={`h-11 w-11 rounded-full ${color} ${

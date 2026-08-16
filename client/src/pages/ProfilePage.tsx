@@ -90,15 +90,15 @@ export function ProfilePage() {
         <section className="px-5 py-5">
           <p className="mb-3 text-[13px] font-semibold text-slate-500">Settings</p>
           <div className="overflow-hidden rounded-[14px] border border-slate-200">
-            <Link to="/profile/edit" className="flex items-center justify-between border-b border-slate-100 bg-white px-4 py-4">
+            <Link data-press="row" to="/profile/edit" className="flex items-center justify-between border-b border-slate-100 bg-white px-4 py-4">
               <span className="text-sm font-medium text-slate-900">Edit Profile</span>
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>
-            <Link to="/profile/password" className="flex min-h-11 items-center justify-between border-b border-slate-100 bg-white px-4 py-4">
+            <Link data-press="row" to="/profile/password" className="flex min-h-11 items-center justify-between border-b border-slate-100 bg-white px-4 py-4">
               <span className="text-sm font-medium text-slate-900">Change Password</span>
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>
-            <Link to="/program" className="flex min-h-11 items-center justify-between bg-white px-4 py-4">
+            <Link data-press="row" to="/program" className="flex min-h-11 items-center justify-between bg-white px-4 py-4">
               <span className="text-sm font-medium text-slate-900">Edit Program</span>
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>

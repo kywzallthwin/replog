@@ -4,3 +4,94 @@
   outline: 2px solid #0f172a;
   outline-offset: 2px;
 }
+
+@media (hover: none) and (pointer: coarse) {
+  :where(button, a[href], [role="button"]):not([data-press="row"]):not([data-press="icon"]):not([data-press="swatch"]) {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: scale 80ms ease, filter 80ms ease;
+  }
+
+  :where(
+    button:not(:disabled),
+    a[href],
+    [role="button"]:not([aria-disabled="true"])
+  ):not([data-press="row"]):not([data-press="icon"]):not([data-press="swatch"]):active {
+    scale: 0.98;
+    filter: brightness(0.96);
+  }
+
+  :where([data-press="row"]) {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background-color 80ms ease;
+  }
+
+  :where([data-press="row"]) > span {
+    transition: color 80ms ease, transform 80ms ease;
+  }
+
+  :where([data-press="row"]):active {
+    background-color: #f8fafc;
+  }
+
+  :where([data-press="row"]):active > span:first-child {
+    transform: translateX(2px);
+  }
+
+  :where([data-press="row"]):active > span:last-child {
+    color: #64748b;
+    transform: translateX(2px);
+  }
+
+  :where([data-press="icon"]) {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background-color 80ms ease, color 80ms ease, scale 80ms ease;
+  }
+
+  :where([data-press="icon"]:not(:disabled)):active {
+    scale: 0.92;
+  }
+
+  :where([data-press="icon"][data-press-tone="blue"]:not(:disabled)):active {
+    background-color: #eff6ff;
+    color: #2563eb;
+  }
+
+  :where([data-press="icon"][data-press-tone="slate"]:not(:disabled)):active {
+    background-color: #e2e8f0;
+    color: #334155;
+  }
+
+  :where([data-press="icon"][data-press-tone="red"]:not(:disabled)):active {
+    background-color: #fef2f2;
+    color: #ef4444;
+  }
+
+  :where([data-press="swatch"]) {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: scale 80ms ease;
+  }
+
+  :where([data-press="swatch"]):active {
+    scale: 0.92;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (prefers-reduced-motion: reduce) {
+  :where(button, a[href], [role="button"]):not([data-press="row"]):not([data-press="icon"]):not([data-press="swatch"]):active {
+    scale: 1;
+  }
+
+  :where([data-press="row"]):active > span:first-child,
+  :where([data-press="row"]):active > span:last-child {
+    transform: none;
+  }
+
+  :where([data-press="icon"]:active),
+  :where([data-press="swatch"]:active) {
+    scale: 1;
+  }
+}
