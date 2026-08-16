@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getProgress, progressQueryKey } from '../lib/progress'
@@ -40,12 +41,59 @@ function formatProgress(progressKg: number) {
 
 export function ProgressPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const [isExerciseMenuOpen, setIsExerciseMenuOpen] = useState(false)
+  const exerciseMenuRef = useRef<HTMLDivElement>(null)
   const exerciseId = searchParams.get('exerciseId')
   const { data: progress, isError, isPending } = useQuery({
     queryKey: progressQueryKey(exerciseId),
     queryFn: () => getProgress(exerciseId),
     retry: false,
   })
+  const exercises = progress?.exercises ?? []
+  const selectedExercise = progress?.selectedExercise
+  const selectedExerciseIndex = exercises.findIndex((exercise) => exercise.id === selectedExercise?.id)
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (exerciseMenuRef.current && !exerciseMenuRef.current.contains(event.target as Node)) {
+        setIsExerciseMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [])
+
+  function selectExercise(nextExerciseId: string) {
+    setSearchParams({ exerciseId: nextExerciseId })
+    setIsExerciseMenuOpen(false)
+  }
+
+  function handleExerciseMenuKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!exercises.length) return
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      if (!isExerciseMenuOpen) {
+        setIsExerciseMenuOpen(true)
+        return
+      }
+      const direction = event.key === 'ArrowDown' ? 1 : -1
+      const nextIndex = (selectedExerciseIndex + direction + exercises.length) % exercises.length
+      selectExercise(exercises[nextIndex].id)
+      return
+    }
+
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      selectExercise(exercises[event.key === 'Home' ? 0 : exercises.length - 1].id)
+      return
+    }
+
+    if (event.key === 'Escape') {
+      setIsExerciseMenuOpen(false)
+    }
+  }
 
   return (
     <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
@@ -58,19 +106,51 @@ export function ProgressPage() {
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Progress</h1>
           </div>
           <TopNav />
-          <select
-            value={progress?.selectedExercise?.id ?? ''}
-            disabled={!progress?.exercises.length}
-            onChange={(event) => setSearchParams({ exerciseId: event.target.value })}
-            className="h-11 w-full rounded-[13px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] outline-none transition focus:border-slate-900 disabled:cursor-not-allowed disabled:text-slate-400 sm:w-[260px]"
-          >
-            {progress?.exercises.length ? null : <option value="">No exercise data</option>}
-            {progress?.exercises.map((exercise) => (
-              <option key={exercise.id} value={exercise.id}>
-                {exercise.name}
-              </option>
-            ))}
-          </select>
+          <div ref={exerciseMenuRef} className="relative w-full sm:w-[260px]">
+            <button
+              type="button"
+              disabled={!exercises.length}
+              aria-haspopup="listbox"
+              aria-expanded={isExerciseMenuOpen}
+              aria-label="Select exercise"
+              onClick={() => setIsExerciseMenuOpen((isOpen) => !isOpen)}
+              onKeyDown={handleExerciseMenuKeyDown}
+              className="flex h-11 w-full items-center justify-between gap-3 rounded-[13px] border border-slate-200 bg-white px-3 text-left text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] outline-none transition hover:border-slate-300 focus-visible:border-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              <span className="truncate">{selectedExercise?.name ?? 'No exercise data'}</span>
+              <span className={`text-slate-400 transition-transform ${isExerciseMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true">
+                ↓
+              </span>
+            </button>
+
+            {isExerciseMenuOpen && exercises.length ? (
+              <div
+                role="listbox"
+                aria-label="Exercises"
+                className="absolute inset-x-0 top-[calc(100%+6px)] z-30 max-h-64 overflow-y-auto rounded-[16px] border border-slate-200 bg-white p-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.16)]"
+              >
+                {exercises.map((exercise) => {
+                  const isSelected = exercise.id === selectedExercise?.id
+
+                  return (
+                    <button
+                      key={exercise.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => selectExercise(exercise.id)}
+                      className={`flex min-h-11 w-full items-center justify-between rounded-[11px] px-3 py-2 text-left text-sm font-semibold transition ${
+                        isSelected ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="truncate">{exercise.name}</span>
+                      {isSelected ? <span className="ml-3 text-sm text-white/80" aria-hidden="true">✓</span> : null}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
         </header>
 
         {isPending ? (

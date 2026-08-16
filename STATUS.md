@@ -56,6 +56,7 @@
 - No other blockers are recorded.
 
 ## Recent Notes
+- 2026-08-16: Replaced the native Progress exercise selector with a styled accessible dropdown supporting click-outside, Escape, arrow/Home/End keyboard selection, internal scrolling, and mobile-friendly sizing. Client lint, production build, and `git diff --check` pass; browser viewport verification remains pending.
 - 2026-08-15: Re-read the updated `AGENTS.md`, corrected its stale `client/` and `server/` existence facts, and completed the executable QA pass. Client build/lint, server typecheck, `git diff --check`, live health/auth/dashboard checks, and password-recovery validation passed. Rendered checks at 375px/430px and physical-device safe-area/keyboard checks remain manual because no browser automation is available in the repository environment.
 - 2026-08-15: Mobile-first rule was made explicit in `AGENTS.md`; existing mobile polish was reverified with client build/lint, server typecheck, and `git diff --check`.
 - 2026-08-15: Constrained Progress mobile layout widths, isolated table sizing, and added narrow-value wrapping after manual browser QA found right-side overflow at phone width. Client build/lint and `git diff --check` pass; browser recheck remains pending.
