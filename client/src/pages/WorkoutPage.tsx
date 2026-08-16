@@ -18,6 +18,7 @@ import {
 } from '../lib/sessions'
 import { dashboardQueryKey } from '../lib/dashboard'
 import { exercisesQueryKey, getExercises, type ExerciseCategory } from '../lib/exercises'
+import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -272,6 +273,7 @@ export function WorkoutPage() {
   const [exerciseSearch, setExerciseSearch] = useState('')
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
+  useBodyScrollLock(Boolean(exercisePicker || deleteConfirmation))
   const { data: session, isError, isPending } = useQuery({
     queryKey: sessionQueryKey(sessionId ?? ''),
     queryFn: () => getSession(sessionId ?? ''),
@@ -916,26 +918,9 @@ export function WorkoutPage() {
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="workout-delete-dialog-title"
-            className="flex max-h-[calc(100dvh-3rem)] w-full max-w-sm flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
           >
-            <div className="p-5">
-              <div className="mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-              </div>
+            <div>
               <h2 id="workout-delete-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
                 {deleteConfirmation.type === 'set'
                   ? `Delete ${deleteConfirmation.set.weightKg} kg x ${deleteConfirmation.set.reps}?`
@@ -959,7 +944,7 @@ export function WorkoutPage() {
                 </p>
               ) : null}
             </div>
-            <div className="flex gap-2 border-t border-slate-100 p-4">
+            <div className="mt-5 flex gap-2">
               <button
                 type="button"
                 onClick={closeDeleteConfirmation}
@@ -972,7 +957,7 @@ export function WorkoutPage() {
                 type="button"
                 onClick={confirmDelete}
                 disabled={deleteConfirmationIsPending}
-                className="flex-1 rounded-[14px] bg-red-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-red-300"
+                className="flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
               >
                 {deleteConfirmationIsPending
                   ? 'Deleting...'
