@@ -1,7 +1,7 @@
 # RepLog Status
 
 ## Current Phase
-- MVP feature implementation is substantially complete through authentication, Google OAuth, dashboard, workouts, history, progress, profile, Program editing, and password recovery. Local authentication connectivity and dashboard request latency were corrected in the latest session.
+- MVP feature implementation is substantially complete through authentication, Google OAuth, dashboard, workouts, history, progress, profile, Program editing, password recovery, revised exercise pickers, and custom exercise creation. Local authentication connectivity and dashboard request latency were corrected in the latest session.
 - Current priority is mobile-first visual QA and polish. Day badge colors now appear consistently on Dashboard, Program, Workout, and History; Dashboard day-picker controls use a single colored pill instead of a nested white pill; mobile navigation now uses the preferred edge-to-edge bar with Lucide line icons and a short top active indicator; coarse-pointer controls now provide rounded press feedback, with dedicated treatments for grouped Profile rows and Program icon/swatch controls. Treat 375px phone layouts as the primary acceptance target; verify mobile before larger breakpoints. Desktop responsive polish is optional unless it affects mobile behavior.
 
 ## Confirmed State
@@ -22,6 +22,8 @@
 - Active workouts with session snapshots, add/edit/delete sets, warm-up/normal/drop kinds, live startedAt-based duration, finish/cancel flows, and read-only completed details.
 - Single active workout enforcement with a database partial unique index, Dashboard resume state, blocked starts, and stale-client conflict recovery.
 - Active-workout exercise add, swap, remove, search, category grouping, and in-app confirmations.
+- Revised exercise picker with Program-day and All-exercises sources, source-specific search, Added states, and routine-day grouping.
+- User-owned custom exercise creation with category validation, normalized duplicate-name conflicts, immediate picker availability, and duplicate attachment protection.
 - History page with finished-session API, month grouping, empty state, and read-only workout links.
 - Progress page with exercise selection, Epley estimated-1RM PB, stats, session history, trend text, source links, and safe table overflow.
 - Program editor with day add/rename/recolor/delete and exercise add/remove/reorder.
@@ -46,7 +48,7 @@
 3. [ ] Verify mobile bottom navigation active states, safe-area clearance, and that final content is not obscured.
 4. [ ] Verify History and Progress populated/empty states, table behavior, links, and month grouping on mobile.
 5. [ ] Verify Program add/edit/delete/recolor/exercise reorder flows and modal reachability on short mobile viewports.
-6. [ ] Verify Workout picker, set/exercise delete, and cancel-workout confirmation dialogs with the mobile keyboard and narrow heights.
+ 6. [ ] Verify revised Workout and Program exercise pickers, custom creation, set/exercise delete, and cancel-workout confirmation dialogs with the mobile keyboard and narrow heights.
 7. [ ] Manually verify active workout flow at `375px`: start, navigate away, resume, finish/cancel, then start another workout.
 8. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
 9. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
@@ -54,7 +56,6 @@
 
 ## Deferred Backlog
 - Rest timer, last-time exercise references, and workout notes.
-- Custom exercise creation modal and user-owned exercise workflow.
 - Profile kg/lb units preference.
 - SVG estimated-1RM chart.
 - Whole-day Program reordering.
@@ -66,6 +67,7 @@
 - No other blockers are recorded.
 
 ## Recent Notes
+- 2026-08-20: Implemented revised Program-day/All-exercises pickers, Added states, custom user-owned exercise creation, normalized duplicate-name validation, duplicate attachment protection, and private query-cache clearing. Client lint/build, server typecheck, diff checks, and authenticated API smoke checks passed; rendered mobile picker verification remains manual.
 - 2026-08-20: Implemented single-active-workout enforcement. Existing duplicate active sessions were preserved as completed records except for each user's newest active session; concurrent starts return `409`, Dashboard exposes Resume Workout and blocks new starts, and active workouts can be cancelled with confirmation. Client/server checks and API terminal-state smoke tests passed; rendered mobile verification remains pending.
 - 2026-08-20: Implemented authenticated whole-session cancellation. Active Workout now confirms permanent deletion of the session and logged sets, removes the session from cache, refreshes dependent Dashboard/History/Progress queries, and returns to Dashboard. Client build/lint, server typecheck, diff checks, and authenticated cancellation smoke test passed.
 - 2026-08-20: Added the active Workout live duration timer. It derives elapsed time from persisted `startedAt`, recalculates every second from wall-clock time, resynchronizes on tab visibility changes, and remains separate from the deferred rest timer. Client lint/build and `git diff --check` pass; rendered mobile verification remains manual.

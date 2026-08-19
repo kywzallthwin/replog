@@ -16,9 +16,10 @@ import {
   type ProgramDay,
 } from '../lib/programs'
 import { dashboardQueryKey } from '../lib/dashboard'
-import { exercisesQueryKey, getExercises, type ExerciseCategory } from '../lib/exercises'
+import { exercisesQueryKey, getExercises } from '../lib/exercises'
 import { getBadgeClass } from '../lib/badgeColors'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
+import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 
@@ -31,18 +32,7 @@ type DeleteConfirmationState =
   | { type: 'exercise'; dayId: string; exercise: DayExerciseItem }
   | null
 
-const exerciseCategoryLabels: Record<ExerciseCategory, string> = {
-  CHEST: 'Chest',
-  BACK: 'Back',
-  SHOULDERS: 'Shoulders',
-  LEGS: 'Legs',
-  ARMS: 'Arms',
-  CORE: 'Core',
-}
-
-const exerciseCategoryOrder: ExerciseCategory[] = ['CHEST', 'BACK', 'SHOULDERS', 'LEGS', 'ARMS', 'CORE']
-
-function formatCategory(category: ExerciseCategory) {
+function formatCategory(category: string) {
   return category.charAt(0) + category.slice(1).toLowerCase()
 }
 
@@ -59,7 +49,6 @@ export function ProgramPage() {
   const [dayBadgeColor, setDayBadgeColor] = useState<DayBadgeColor>(DAY_BADGE_COLORS[0])
   const [dayFormError, setDayFormError] = useState('')
   const [exercisePicker, setExercisePicker] = useState<ExercisePickerState>(null)
-  const [exerciseSearch, setExerciseSearch] = useState('')
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState>(null)
   useBodyScrollLock(Boolean(dayModal || exercisePicker || deleteConfirmation))
@@ -79,16 +68,6 @@ export function ProgramPage() {
     queryFn: getExercises,
     enabled: Boolean(exercisePicker),
   })
-
-  const visibleExerciseOptions = exerciseOptions.filter((exercise) =>
-    exercise.name.toLowerCase().includes(exerciseSearch.trim().toLowerCase()),
-  )
-  const groupedExerciseOptions = exerciseCategoryOrder
-    .map((category) => ({
-      category,
-      exercises: visibleExerciseOptions.filter((exercise) => exercise.category === category),
-    }))
-    .filter((group) => group.exercises.length > 0)
 
   async function invalidateProgramData() {
     await queryClient.invalidateQueries({ queryKey: programQueryKey })
@@ -122,7 +101,6 @@ export function ProgramPage() {
       await invalidateProgramData()
       setExercisePicker(null)
       setSelectedExerciseId('')
-      setExerciseSearch('')
     },
   })
   const removeDayExerciseMutation = useMutation({
@@ -201,13 +179,11 @@ export function ProgramPage() {
   function openAddExercisePicker(dayId: string) {
     setExercisePicker({ dayId })
     setSelectedExerciseId('')
-    setExerciseSearch('')
   }
 
   function closeExercisePicker() {
     setExercisePicker(null)
     setSelectedExerciseId('')
-    setExerciseSearch('')
   }
 
   function handleExercisePickerConfirm() {
@@ -517,112 +493,24 @@ export function ProgramPage() {
       ) : null}
 
       {exercisePicker ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape' && !addDayExerciseMutation.isPending) closeExercisePicker()
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="program-exercise-dialog-title"
-            className="flex max-h-[calc(100dvh-3rem)] w-full max-w-lg flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
-          >
-            <div className="border-b border-slate-100 px-5 py-4">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Add Exercise</p>
-              <h2 id="program-exercise-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">Choose an exercise</h2>
-            </div>
-            <div className="min-h-0 overflow-y-auto p-5">
-              <input
-                type="search"
-                value={exerciseSearch}
-                onChange={(event) => setExerciseSearch(event.target.value)}
-                placeholder="Search exercises..."
-                className="mb-4 h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-slate-900"
-              />
-
-              {isExerciseOptionsPending ? (
-                <p className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-                  Loading exercises...
-                </p>
-              ) : null}
-
-              {isExerciseOptionsError ? (
-                <p className="rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                  Unable to load exercises. Please try again.
-                </p>
-              ) : null}
-
-              {!isExerciseOptionsPending && !isExerciseOptionsError && groupedExerciseOptions.length === 0 ? (
-                <p className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-                  No exercises match your search.
-                </p>
-              ) : null}
-
-              <div className="space-y-4">
-                {groupedExerciseOptions.map((group) => (
-                  <section key={group.category}>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                      {exerciseCategoryLabels[group.category]}
-                    </p>
-                    <div className="space-y-2">
-                      {group.exercises.map((exercise) => {
-                        const isSelected = selectedExerciseId === exercise.id
-
-                        return (
-                          <button
-                            key={exercise.id}
-                            type="button"
-                            onClick={() => setSelectedExerciseId(exercise.id)}
-                            aria-pressed={isSelected}
-                            className={`flex w-full items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${
-                              isSelected
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-100 bg-white text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span
-                              className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
-                                isSelected ? 'border-white bg-white text-slate-900' : 'border-slate-300 text-transparent'
-                              }`}
-                            >
-                              <span className="h-2 w-2 rounded-full bg-current" />
-                            </span>
-                            <span className="grow">{exercise.name}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </section>
-                ))}
-              </div>
-
-              {addDayExerciseMutation.isError ? (
-                <p className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                  Unable to add exercise. Please try again.
-                </p>
-              ) : null}
-            </div>
-            <div className="flex gap-2 border-t border-slate-100 p-4">
-              <button
-                type="button"
-                onClick={closeExercisePicker}
-                className="flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleExercisePickerConfirm}
-                disabled={!selectedExerciseId || addDayExerciseMutation.isPending}
-                className="flex-1 rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-              >
-                {addDayExerciseMutation.isPending ? 'Saving...' : 'Add Exercise'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExercisePickerDialog
+          mode="add"
+          exerciseOptions={exerciseOptions}
+          program={program}
+          programIsPending={isPending}
+          programIsError={isError}
+          targetDayId={exercisePicker.dayId}
+          existingExerciseIds={program?.days.find((day) => day.id === exercisePicker.dayId)?.exercises.map((exercise) => exercise.exerciseId) ?? []}
+          selectedExerciseId={selectedExerciseId}
+          isOptionsPending={isExerciseOptionsPending}
+          isOptionsError={isExerciseOptionsError}
+          isSaving={addDayExerciseMutation.isPending}
+          saveError={addDayExerciseMutation.isError ? 'Unable to add exercise. Please try again.' : undefined}
+          onSelectedExercise={setSelectedExerciseId}
+          onConfirm={handleExercisePickerConfirm}
+          onClose={closeExercisePicker}
+          onCreated={(exercise) => setSelectedExerciseId(exercise.id)}
+        />
       ) : null}
 
       {deleteConfirmation ? (

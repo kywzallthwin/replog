@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
+import { authMeQueryKey, clearPrivateQueries, getCurrentUser, logoutUser } from '../lib/auth'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
@@ -32,6 +32,7 @@ export function ProfilePage() {
   const logoutMutation = useMutation({
     mutationFn: logoutUser,
     onSuccess: () => {
+      clearPrivateQueries(queryClient)
       queryClient.removeQueries({ queryKey: authMeQueryKey })
       navigate('/login', { replace: true })
     },

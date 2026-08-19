@@ -1,12 +1,12 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { AuthShell } from '../components/auth/AuthShell'
 import { GoogleButton } from '../components/auth/GoogleButton'
 import { api } from '../lib/api'
-import { authMeQueryKey, type AuthResponse } from '../lib/auth'
+import { authMeQueryKey, clearPrivateQueries, type AuthResponse } from '../lib/auth'
 
 type ApiErrorResponse = {
   error?: string
@@ -21,6 +21,10 @@ export function LoginPage() {
   const [error, setError] = useState(() => getGoogleError(searchParams.get('google_error')))
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  useEffect(() => {
+    clearPrivateQueries(queryClient)
+  }, [queryClient])
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
@@ -32,6 +36,7 @@ export function LoginPage() {
         password,
       })
 
+      clearPrivateQueries(queryClient)
       queryClient.setQueryData(authMeQueryKey, response.data.user)
       navigate('/dashboard')
     } catch (err) {

@@ -1,14 +1,16 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   addSessionExercise,
   addSet,
+  cancelSession,
   deleteSet,
   finishSession,
   getSession,
   removeSessionExercise,
+  sessionHistoryQueryKey,
   sessionQueryKey,
   swapSessionExercise,
   updateSet,
@@ -18,8 +20,11 @@ import {
 } from '../lib/sessions'
 import { dashboardQueryKey } from '../lib/dashboard'
 import { getBadgeClass } from '../lib/badgeColors'
-import { exercisesQueryKey, getExercises, type ExerciseCategory } from '../lib/exercises'
+import { exercisesQueryKey, getExercises } from '../lib/exercises'
+import { getActiveProgram, programQueryKey } from '../lib/programs'
+import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
+import { useWorkoutTimer } from '../lib/useWorkoutTimer'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -29,17 +34,6 @@ type DeleteConfirmationState =
   | { type: 'set'; exercise: WorkoutExercise; set: WorkoutSet }
   | { type: 'exercise'; exercise: WorkoutExercise }
 
-const exerciseCategoryLabels: Record<ExerciseCategory, string> = {
-  CHEST: 'Chest',
-  BACK: 'Back',
-  SHOULDERS: 'Shoulders',
-  LEGS: 'Legs',
-  ARMS: 'Arms',
-  CORE: 'Core',
-}
-
-const exerciseCategoryOrder: ExerciseCategory[] = ['CHEST', 'BACK', 'SHOULDERS', 'LEGS', 'ARMS', 'CORE']
-
 function formatStartedAt(startedAt: string) {
   return new Intl.DateTimeFormat('en', {
     hour: '2-digit',
@@ -47,6 +41,33 @@ function formatStartedAt(startedAt: string) {
     day: 'numeric',
     month: 'short',
   }).format(new Date(startedAt))
+}
+
+function formatWorkoutDuration(totalSeconds: number) {
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const pad = (value: number) => value.toString().padStart(2, '0')
+
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`
+}
+
+function WorkoutDuration({ startedAt }: { startedAt: string }) {
+  const elapsedSeconds = useWorkoutTimer(startedAt)
+  const duration = formatWorkoutDuration(elapsedSeconds)
+
+  return (
+    <div
+      aria-label={`Workout duration ${duration}`}
+      className="flex shrink-0 flex-col items-end gap-1.5 py-1 text-right"
+    >
+      <span className="inline-flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.07em] leading-none text-slate-500">
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-green-500" />
+        Workout duration
+      </span>
+      <span className="text-[28px] font-black leading-[0.9] tracking-[-0.05em] text-slate-900">{duration}</span>
+    </div>
+  )
 }
 
 function formatSetKind(kind: SetKind, order: number) {
@@ -271,10 +292,12 @@ export function WorkoutPage() {
   const [reps, setReps] = useState('')
   const [formError, setFormError] = useState('')
   const [exercisePicker, setExercisePicker] = useState<ExercisePickerState | null>(null)
-  const [exerciseSearch, setExerciseSearch] = useState('')
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
-  useBodyScrollLock(Boolean(exercisePicker || deleteConfirmation))
+  const [cancelConfirmation, setCancelConfirmation] = useState(false)
+  const cancelTriggerRef = useRef<HTMLButtonElement>(null)
+  const keepWorkoutButtonRef = useRef<HTMLButtonElement>(null)
+  useBodyScrollLock(Boolean(exercisePicker || deleteConfirmation || cancelConfirmation))
   const { data: session, isError, isPending } = useQuery({
     queryKey: sessionQueryKey(sessionId ?? ''),
     queryFn: () => getSession(sessionId ?? ''),
@@ -290,18 +313,19 @@ export function WorkoutPage() {
     queryFn: getExercises,
     enabled: Boolean(exercisePicker),
   })
+  const {
+    data: program,
+    isError: isProgramError,
+    isPending: isProgramPending,
+  } = useQuery({
+    queryKey: programQueryKey,
+    queryFn: getActiveProgram,
+    enabled: Boolean(exercisePicker),
+    retry: false,
+  })
   const source = searchParams.get('from')
   const headerLink = source === 'history' ? '/history' : source === 'progress' ? '/progress' : '/dashboard'
   const headerLinkLabel = source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
-  const visibleExerciseOptions = exerciseOptions.filter((exercise) =>
-    exercise.name.toLowerCase().includes(exerciseSearch.trim().toLowerCase()),
-  )
-  const groupedExerciseOptions = exerciseCategoryOrder
-    .map((category) => ({
-      category,
-      exercises: visibleExerciseOptions.filter((exercise) => exercise.category === category),
-    }))
-    .filter((group) => group.exercises.length > 0)
   const addSetMutation = useMutation({
     mutationFn: addSet,
     onSuccess: async () => {
@@ -326,7 +350,6 @@ export function WorkoutPage() {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       setExercisePicker(null)
       setSelectedExerciseId('')
-      setExerciseSearch('')
     },
   })
   const swapSessionExerciseMutation = useMutation({
@@ -339,7 +362,6 @@ export function WorkoutPage() {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       setExercisePicker(null)
       setSelectedExerciseId('')
-      setExerciseSearch('')
     },
   })
   const removeSessionExerciseMutation = useMutation({
@@ -357,8 +379,6 @@ export function WorkoutPage() {
   })
   const exercisePickerIsSaving = addSessionExerciseMutation.isPending || swapSessionExerciseMutation.isPending
   const exercisePickerHasError = addSessionExerciseMutation.isError || swapSessionExerciseMutation.isError
-  const isCurrentSwapSelection =
-    exercisePicker?.mode === 'swap' && selectedExerciseId === exercisePicker.sessionExercise.exerciseId
   const updateSetMutation = useMutation({
     mutationFn: updateSet,
     onSuccess: async () => {
@@ -390,9 +410,31 @@ export function WorkoutPage() {
       }
 
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+      await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
+      await queryClient.invalidateQueries({ queryKey: ['progress'] })
       navigate('/dashboard')
     },
   })
+  const cancelSessionMutation = useMutation({
+    mutationFn: cancelSession,
+    onSuccess: async () => {
+      if (sessionId) {
+        queryClient.removeQueries({ queryKey: sessionQueryKey(sessionId) })
+      }
+
+      await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+      await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
+      await queryClient.invalidateQueries({ queryKey: ['progress'] })
+      setCancelConfirmation(false)
+      navigate('/dashboard')
+    },
+  })
+
+  useEffect(() => {
+    if (cancelConfirmation) {
+      keepWorkoutButtonRef.current?.focus()
+    }
+  }, [cancelConfirmation])
 
   function openAddSetForm(exercise: WorkoutExercise) {
     setActiveExerciseId(exercise.id)
@@ -406,7 +448,6 @@ export function WorkoutPage() {
   function openAddExercisePicker() {
     setExercisePicker({ mode: 'add' })
     setSelectedExerciseId('')
-    setExerciseSearch('')
     setActiveExerciseId(null)
     setEditingSet(null)
   }
@@ -414,7 +455,6 @@ export function WorkoutPage() {
   function openSwapExercisePicker(exercise: WorkoutExercise) {
     setExercisePicker({ mode: 'swap', sessionExercise: exercise })
     setSelectedExerciseId(exercise.exerciseId)
-    setExerciseSearch('')
     setActiveExerciseId(null)
     setEditingSet(null)
   }
@@ -422,7 +462,6 @@ export function WorkoutPage() {
   function closeExercisePicker() {
     setExercisePicker(null)
     setSelectedExerciseId('')
-    setExerciseSearch('')
   }
 
   function handleExercisePickerConfirm() {
@@ -531,14 +570,17 @@ export function WorkoutPage() {
   return (
     <main className="min-h-dvh bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-4xl overflow-hidden rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-        <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <Link to={headerLink} className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
-            {headerLinkLabel}
-          </Link>
-          <h1 className="text-[15px] font-bold text-slate-900">
-            {session?.dayName ?? 'Workout'}
-          </h1>
-          <div className="w-[72px]" />
+        <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+          <div className="min-w-0">
+            <Link to={headerLink} className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
+              {headerLinkLabel}
+            </Link>
+            <h1 className="truncate text-[15px] font-bold text-slate-900">
+              {session?.dayName ?? 'Workout'}
+            </h1>
+            {session ? <p className="text-xs text-slate-500">Started {formatStartedAt(session.startedAt)}</p> : null}
+          </div>
+          {session && !session.endedAt ? <WorkoutDuration startedAt={session.startedAt} /> : <div className="w-[72px] shrink-0" />}
         </header>
 
         {isPending ? (
@@ -762,7 +804,7 @@ export function WorkoutPage() {
                 <button
                   type="button"
                   onClick={() => finishSessionMutation.mutate(session.id)}
-                  disabled={finishSessionMutation.isPending}
+                  disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending}
                   className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-green-100 px-4 py-3 text-sm font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:bg-green-50 disabled:text-green-400"
                 >
                   <svg
@@ -780,9 +822,26 @@ export function WorkoutPage() {
                   </svg>
                   <span>{finishSessionMutation.isPending ? 'Finishing...' : 'Finish Workout'}</span>
                 </button>
+                <button
+                  type="button"
+                  ref={cancelTriggerRef}
+                  onClick={() => {
+                    cancelSessionMutation.reset()
+                    setCancelConfirmation(true)
+                  }}
+                  disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending}
+                  className="w-full rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                >
+                  {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Workout'}
+                </button>
                 {finishSessionMutation.isError ? (
                   <p className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                     Unable to finish workout. Please try again.
+                  </p>
+                ) : null}
+                {cancelSessionMutation.isError ? (
+                  <p className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                    Unable to cancel workout. Please try again.
                   </p>
                 ) : null}
               </div>
@@ -792,123 +851,26 @@ export function WorkoutPage() {
       </div>
 
       {exercisePicker ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape' && !exercisePickerIsSaving) closeExercisePicker()
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="workout-exercise-dialog-title"
-            className="flex max-h-[calc(100dvh-3rem)] w-full max-w-lg flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
-          >
-            <div className="border-b border-slate-100 px-5 py-4">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                {exercisePicker.mode === 'add' ? 'Add Exercise' : 'Swap Exercise'}
-              </p>
-              <h2 id="workout-exercise-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
-                {exercisePicker.mode === 'add' ? 'Choose an exercise' : exercisePicker.sessionExercise.name}
-              </h2>
-            </div>
-            <div className="min-h-0 overflow-y-auto p-5">
-              <input
-                type="search"
-                value={exerciseSearch}
-                onChange={(event) => setExerciseSearch(event.target.value)}
-                placeholder="Search exercises..."
-                className="mb-4 h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-slate-900"
-              />
-
-              {isExerciseOptionsPending ? (
-                <p className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-                  Loading exercises...
-                </p>
-              ) : null}
-
-              {isExerciseOptionsError ? (
-                <p className="rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                  Unable to load exercises. Please try again.
-                </p>
-              ) : null}
-
-              {!isExerciseOptionsPending && !isExerciseOptionsError && groupedExerciseOptions.length === 0 ? (
-                <p className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-                  No exercises match your search.
-                </p>
-              ) : null}
-
-              <div className="space-y-4">
-                {groupedExerciseOptions.map((group) => (
-                  <section key={group.category}>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                      {exerciseCategoryLabels[group.category]}
-                    </p>
-                    <div className="space-y-2">
-                      {group.exercises.map((exercise) => {
-                        const isSelected = selectedExerciseId === exercise.id
-                        const isCurrent =
-                          exercisePicker.mode === 'swap' && exercisePicker.sessionExercise.exerciseId === exercise.id
-
-                        return (
-                          <button
-                            key={exercise.id}
-                            type="button"
-                            onClick={() => setSelectedExerciseId(exercise.id)}
-                            aria-pressed={isSelected}
-                            className={`flex w-full items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${
-                              isSelected
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-100 bg-white text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span
-                              className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
-                                isSelected ? 'border-white bg-white text-slate-900' : 'border-slate-300 text-transparent'
-                              }`}
-                            >
-                              <span className="h-2 w-2 rounded-full bg-current" />
-                            </span>
-                            <span className="grow">{exercise.name}</span>
-                            {isCurrent ? (
-                              <span className={isSelected ? 'text-xs text-white/70' : 'text-xs text-slate-400'}>
-                                Current
-                              </span>
-                            ) : null}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </section>
-                ))}
-              </div>
-
-              {exercisePickerHasError ? (
-                <p className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                  Unable to save exercise change. Please try again.
-                </p>
-              ) : null}
-            </div>
-            <div className="flex gap-2 border-t border-slate-100 p-4">
-              <button
-                type="button"
-                onClick={closeExercisePicker}
-                className="flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleExercisePickerConfirm}
-                disabled={!selectedExerciseId || isCurrentSwapSelection || exercisePickerIsSaving}
-                className="flex-1 rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-              >
-                {exercisePickerIsSaving ? 'Saving...' : exercisePicker.mode === 'add' ? 'Add Exercise' : 'Swap'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExercisePickerDialog
+          mode={exercisePicker.mode}
+          currentExerciseName={exercisePicker.mode === 'swap' ? exercisePicker.sessionExercise.name : undefined}
+          exerciseOptions={exerciseOptions}
+          program={program}
+          programIsPending={isProgramPending}
+          programIsError={isProgramError}
+          targetDayId={session?.dayId ?? undefined}
+          existingExerciseIds={session?.exercises.map((exercise) => exercise.exerciseId) ?? []}
+          currentExerciseId={exercisePicker.mode === 'swap' ? exercisePicker.sessionExercise.exerciseId : undefined}
+          selectedExerciseId={selectedExerciseId}
+          isOptionsPending={isExerciseOptionsPending}
+          isOptionsError={isExerciseOptionsError}
+          isSaving={exercisePickerIsSaving}
+          saveError={exercisePickerHasError ? 'Unable to save exercise change. Please try again.' : undefined}
+          onSelectedExercise={setSelectedExerciseId}
+          onConfirm={handleExercisePickerConfirm}
+          onClose={closeExercisePicker}
+          onCreated={(exercise) => setSelectedExerciseId(exercise.id)}
+        />
       ) : null}
 
       {deleteConfirmation ? (
@@ -968,6 +930,63 @@ export function WorkoutPage() {
                   : deleteConfirmation.type === 'set'
                     ? 'Delete Set'
                     : 'Remove Exercise'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {cancelConfirmation ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="workout-cancel-dialog-title"
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' && !cancelSessionMutation.isPending) {
+                setCancelConfirmation(false)
+                cancelTriggerRef.current?.focus()
+              }
+            }}
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
+          >
+            <h2 id="workout-cancel-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+              Cancel this workout?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              This will permanently delete the active {session?.dayName ?? 'workout'} session and any sets you have logged. This cannot be undone.
+            </p>
+            {cancelSessionMutation.isError ? (
+              <p className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                Unable to cancel workout. Please try again.
+              </p>
+            ) : null}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                ref={keepWorkoutButtonRef}
+                onClick={() => {
+                  setCancelConfirmation(false)
+                  cancelTriggerRef.current?.focus()
+                }}
+                disabled={cancelSessionMutation.isPending}
+                className="flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                Keep Workout
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (sessionId) {
+                    cancelSessionMutation.mutate(sessionId)
+                  }
+                }}
+                disabled={cancelSessionMutation.isPending}
+                className="flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+              >
+                {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Workout'}
               </button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { api } from './api'
+import type { QueryClient } from '@tanstack/react-query'
 
 export type AuthUser = {
   id: string
@@ -32,6 +33,12 @@ export type ResetPasswordInput = {
 }
 
 export const authMeQueryKey = ['auth', 'me'] as const
+
+export function clearPrivateQueries(queryClient: QueryClient) {
+  queryClient.removeQueries({
+    predicate: (query) => query.queryKey[0] !== 'auth',
+  })
+}
 
 export async function getCurrentUser() {
   const response = await api.get<AuthResponse>('/auth/me')

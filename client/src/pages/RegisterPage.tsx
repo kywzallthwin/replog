@@ -6,7 +6,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { AuthShell } from '../components/auth/AuthShell'
 import { GoogleButton } from '../components/auth/GoogleButton'
 import { api } from '../lib/api'
-import { authMeQueryKey, type AuthResponse } from '../lib/auth'
+import { authMeQueryKey, clearPrivateQueries, type AuthResponse } from '../lib/auth'
 
 type ApiErrorResponse = {
   error?: string
@@ -33,6 +33,7 @@ export function RegisterPage() {
         password,
       })
 
+      clearPrivateQueries(queryClient)
       queryClient.setQueryData(authMeQueryKey, response.data.user)
       navigate('/dashboard')
     } catch (err) {

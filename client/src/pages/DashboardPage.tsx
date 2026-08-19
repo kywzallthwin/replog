@@ -71,8 +71,8 @@ export function DashboardPage() {
     retry: false,
   })
   const logoutMutation = useMutation({
-      mutationFn: logoutUser,
-      onSuccess: () => {
+    mutationFn: logoutUser,
+    onSuccess: () => {
       clearPrivateQueries(queryClient)
       queryClient.removeQueries({ queryKey: authMeQueryKey })
       navigate('/login', { replace: true })

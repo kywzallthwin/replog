@@ -287,6 +287,15 @@ programsRouter.post('/days/:dayId/exercises', requireAuth, async (req, res) => {
     return
   }
 
+  const existingDayExercise = await prisma.dayExercise.findFirst({
+    where: { dayId, exerciseId: exercise.id },
+  })
+
+  if (existingDayExercise) {
+    res.status(409).json({ error: 'Exercise is already in this program day' })
+    return
+  }
+
   const latestDayExercise = await prisma.dayExercise.findFirst({
     where: { dayId },
     orderBy: { order: 'desc' },
