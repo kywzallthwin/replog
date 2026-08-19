@@ -152,7 +152,7 @@ export function DashboardPage() {
           <div className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
             <div>
               {dashboard.activeSession ? (
-                <section className="mb-5 rounded-[28px] bg-white p-6">
+                <section className="mb-5 rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(15,23,42,0.12)]">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Workout in progress</p>
                   <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(dashboard.activeSession.badgeColor)}`}>
                     {dashboard.activeSession.dayName}
@@ -171,7 +171,7 @@ export function DashboardPage() {
                   </Link>
                 </section>
               ) : null}
-              <section className="mb-5 rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
+              <section className={`mb-5 rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)] ${dashboard.activeSession ? 'hidden' : ''}`}>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Suggested today</p>
                 {dashboard.suggestedDay ? (
                   <>
@@ -208,12 +208,22 @@ export function DashboardPage() {
 
               <section className="mb-5">
                 {dashboard.activeSession ? (
-                  <p className="mb-2 text-sm font-semibold text-slate-500">
-                    Finish or cancel this workout before starting another.
-                  </p>
+                  <div className="mb-4 flex items-start gap-3 rounded-[16px] border border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-500">
+                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-200 text-[11px] font-black text-slate-600" aria-hidden="true">
+                      i
+                    </span>
+                    <p>Finish or cancel this workout before starting another.</p>
+                  </div>
                 ) : null}
-                <p className="mb-2 text-sm font-medium text-slate-500">Or pick a day:</p>
-                <div className="flex flex-wrap gap-2">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-slate-500">
+                    {dashboard.activeSession ? 'Other workouts' : 'Or pick a day:'}
+                  </p>
+                  {dashboard.activeSession ? (
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Locked</span>
+                  ) : null}
+                </div>
+                <div className={`flex flex-wrap gap-2 ${dashboard.activeSession ? 'opacity-50' : ''}`}>
                   {dashboard.activeProgram?.days.map((day) => (
                     <button
                       type="button"
@@ -231,7 +241,7 @@ export function DashboardPage() {
               <section>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <h3 className="text-[13px] font-bold uppercase tracking-[0.1em] text-slate-400">Recent Sessions</h3>
-                  <Link to="/history" className="inline-flex min-h-11 items-center text-xs font-bold text-slate-900 transition hover:text-slate-600">
+                  <Link to="/history" className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-bold text-slate-900 transition hover:bg-slate-100 hover:text-slate-600 active:bg-slate-200">
                     View all
                   </Link>
                 </div>

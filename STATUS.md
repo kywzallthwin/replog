@@ -64,11 +64,12 @@
 ## Blockers
 - Real Google OAuth browser verification requires a Google Cloud OAuth client and registered callback URL; implementation is ready but credentials are not configured locally.
 - Real password-reset email delivery requires a valid local `RESEND_API_KEY`; reset API behavior is already verified independently.
-- Full client lint/build are currently blocked by an unrelated uncommitted malformed conditional in `client/src/pages/DashboardPage.tsx` around line 155; targeted Workout ESLint passes.
 - No other blockers are recorded.
 
 ## Recent Notes
-- 2026-08-20: Added the Program-matching red circular touch feedback attributes to the active Workout exercise remove button. Targeted Workout ESLint and diff checks pass; full client lint/build remain blocked by the unrelated Dashboard JSX parse error above.
+- 2026-08-20: Added rounded hover, pressed, and mobile touch feedback to the Dashboard Recent Sessions `View all` link while preserving its 44px target and History navigation. Client lint/build and diff checks pass.
+- 2026-08-20: Refined the active Dashboard state by removing the misleading disabled Start Workout button and hiding Suggested Today while a workout is active. Resume Workout is now the sole primary action; a subtle lock message and muted locked day pills explain the restriction. Client lint/build and diff checks pass.
+- 2026-08-20: Added the Program-matching red circular touch feedback attributes to the active Workout exercise remove button. Targeted Workout ESLint and diff checks passed; the Dashboard JSX issue was subsequently corrected.
 - 2026-08-20: Implemented revised Program-day/All-exercises pickers, Added states, custom user-owned exercise creation, normalized duplicate-name validation, duplicate attachment protection, and private query-cache clearing. Client lint/build, server typecheck, diff checks, and authenticated API smoke checks passed; rendered mobile picker verification remains manual.
 - 2026-08-20: Implemented single-active-workout enforcement. Existing duplicate active sessions were preserved as completed records except for each user's newest active session; concurrent starts return `409`, Dashboard exposes Resume Workout and blocks new starts, and active workouts can be cancelled with confirmation. Client/server checks and API terminal-state smoke tests passed; rendered mobile verification remains pending.
 - 2026-08-20: Implemented authenticated whole-session cancellation. Active Workout now confirms permanent deletion of the session and logged sets, removes the session from cache, refreshes dependent Dashboard/History/Progress queries, and returns to Dashboard. Client build/lint, server typecheck, diff checks, and authenticated cancellation smoke test passed.
