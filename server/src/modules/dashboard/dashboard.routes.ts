@@ -37,34 +37,35 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
     },
   })
 
-  const recentSessions = await prisma.session.findMany({
-    where: { userId },
-    orderBy: { startedAt: 'desc' },
-    take: 3,
-    include: {
-      sessionExercises: true,
-    },
-  })
-  const workoutCount = await prisma.session.count({
-    where: { userId },
-  })
-
-  const latestSession = await prisma.session.findFirst({
-    where: { userId },
-    orderBy: { startedAt: 'desc' },
-    include: { day: true },
-  })
-  const setLogs = await prisma.setLog.findMany({
-    where: {
-      sessionExercise: {
-        session: { userId },
+  const [recentSessions, workoutCount, latestSession, setLogs] = await Promise.all([
+    prisma.session.findMany({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      take: 3,
+      include: {
+        sessionExercises: true,
       },
-    },
-    select: {
-      reps: true,
-      weightKg: true,
-    },
-  })
+    }),
+    prisma.session.count({
+      where: { userId },
+    }),
+    prisma.session.findFirst({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      include: { day: true },
+    }),
+    prisma.setLog.findMany({
+      where: {
+        sessionExercise: {
+          session: { userId },
+        },
+      },
+      select: {
+        reps: true,
+        weightKg: true,
+      },
+    }),
+  ])
   const totalVolumeKg = setLogs.reduce((total, set) => total + set.weightKg * set.reps, 0)
   const days = activeProgram?.days ?? []
   const latestSessionDay = latestSession?.day
