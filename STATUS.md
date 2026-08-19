@@ -19,7 +19,8 @@
 - Forgot/reset password routes with hashed, expiring, single-use tokens, rate limiting, auth-version session revocation, and Resend delivery integration.
 - Profile editing and password changes with validation and bcrypt hashing.
 - Dashboard with starter routine provisioning, suggested workout, day selection, recent sessions, and stats.
-- Active workouts with session snapshots, add/edit/delete sets, warm-up/normal/drop kinds, finish flow, and read-only completed details.
+- Active workouts with session snapshots, add/edit/delete sets, warm-up/normal/drop kinds, live startedAt-based duration, finish/cancel flows, and read-only completed details.
+- Single active workout enforcement with a database partial unique index, Dashboard resume state, blocked starts, and stale-client conflict recovery.
 - Active-workout exercise add, swap, remove, search, category grouping, and in-app confirmations.
 - History page with finished-session API, month grouping, empty state, and read-only workout links.
 - Progress page with exercise selection, Epley estimated-1RM PB, stats, session history, trend text, source links, and safe table overflow.
@@ -35,6 +36,9 @@
 - Local API/client URLs were corrected to use `localhost`; API requests now fail within 10 seconds instead of hanging indefinitely, and dashboard independent queries run concurrently.
 - Live server smoke check passed on the current source: `/health`, disposable registration, authenticated `/auth/me`, `/dashboard`, invalid forgot-password validation, and configured-email forgot-password response.
 - Backend auth, account, dashboard, sessions, history, progress, exercise management, Program, and password-reset API smoke tests have passed as recorded by recent commits.
+- Automated local acceptance check passed: client served on `5173`, API health responded, disposable registration provisioned five starter days, authenticated Dashboard loaded, logout cleared the session, and protected/invalid requests returned `401`/`400` as expected. No browser executable or automation dependency is available for rendered viewport checks.
+- Cancellation API smoke check passed: an authenticated disposable user started a workout, logged a set, deleted the session with `204`, received `404` afterward, had no active Dashboard session, and received `401` without authentication.
+- Single-active-session migration applied successfully; duplicate unfinished sessions were marked completed while each user kept the newest active session.
 
 ## Next Actions
 1. [ ] Manual browser check of login and dashboard after restarting both dev servers.
@@ -42,10 +46,11 @@
 3. [ ] Verify mobile bottom navigation active states, safe-area clearance, and that final content is not obscured.
 4. [ ] Verify History and Progress populated/empty states, table behavior, links, and month grouping on mobile.
 5. [ ] Verify Program add/edit/delete/recolor/exercise reorder flows and modal reachability on short mobile viewports.
-6. [ ] Verify Workout picker and delete-confirmation dialogs with the mobile keyboard and narrow heights.
-7. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
-8. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
-9. [ ] Add a valid `RESEND_API_KEY` to ignored `server/.env` and manually verify actual reset-email delivery.
+6. [ ] Verify Workout picker, set/exercise delete, and cancel-workout confirmation dialogs with the mobile keyboard and narrow heights.
+7. [ ] Manually verify active workout flow at `375px`: start, navigate away, resume, finish/cancel, then start another workout.
+8. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
+9. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
+10. [ ] Add a valid `RESEND_API_KEY` to ignored `server/.env` and manually verify actual reset-email delivery.
 
 ## Deferred Backlog
 - Rest timer, last-time exercise references, and workout notes.
@@ -61,6 +66,10 @@
 - No other blockers are recorded.
 
 ## Recent Notes
+- 2026-08-20: Implemented single-active-workout enforcement. Existing duplicate active sessions were preserved as completed records except for each user's newest active session; concurrent starts return `409`, Dashboard exposes Resume Workout and blocks new starts, and active workouts can be cancelled with confirmation. Client/server checks and API terminal-state smoke tests passed; rendered mobile verification remains pending.
+- 2026-08-20: Implemented authenticated whole-session cancellation. Active Workout now confirms permanent deletion of the session and logged sets, removes the session from cache, refreshes dependent Dashboard/History/Progress queries, and returns to Dashboard. Client build/lint, server typecheck, diff checks, and authenticated cancellation smoke test passed.
+- 2026-08-20: Added the active Workout live duration timer. It derives elapsed time from persisted `startedAt`, recalculates every second from wall-clock time, resynchronizes on tab visibility changes, and remains separate from the deferred rest timer. Client lint/build and `git diff --check` pass; rendered mobile verification remains manual.
+- 2026-08-20: Re-ran local acceptance checks after navigation implementation. Client lint/build, server typecheck, diff checks, client/API availability, auth/dashboard/logout flow, and protected/invalid request handling passed; 375px/430px rendered checks remain manual because browser automation is unavailable.
 - 2026-08-20: Implemented the preferred Concept B mobile navigation in React with Lucide SVG icons, a full-width edge-to-edge bar, a short top active indicator, preserved 44px tab targets, and safe-area bottom padding. Desktop `TopNav` remains unchanged.
 - 2026-08-19: Added a separate edge-to-edge mobile navigation comparison frame to `Replog-mockup.html`. It uses the same SVG icon language, removes the floating container treatment, and marks the active destination with a short top indicator. Existing floating navigation examples remain unchanged.
 - 2026-08-19: Corrected stale LAN API/client URLs to localhost for local development, added a 10-second Axios timeout, enabled one-minute query freshness, and parallelized independent Dashboard database queries. Client build/lint, server typecheck, CORS, health, client loading, and invalid-login smoke checks passed after restarting the dev servers.
