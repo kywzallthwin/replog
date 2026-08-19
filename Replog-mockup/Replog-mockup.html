@@ -164,11 +164,18 @@
     .swatch { text-align: center; color: #64748b; font-size: 10px; }
     .swatch div { width: 48px; height: 48px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 5px; }
 
-    /* Persistent navigation */
-    .tabbar { position: sticky; bottom: 0; display: flex; gap: 4px; margin-top: 22px; padding: 8px; background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
-    .tabbar-item { flex: 1; text-align: center; padding: 9px 4px; border-radius: 10px; font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: .02em; }
-    .tabbar-item .ic { display: block; font-size: 15px; margin-bottom: 3px; }
-    .tabbar-item.active { background: var(--primary-soft); color: var(--primary); }
+    /* Persistent mobile navigation: an inset floating dock with a compact active state. */
+    .tabbar { position: sticky; bottom: 0; z-index: 2; display: flex; gap: 3px; margin: 22px 4px 0; padding: 7px; background: rgba(255,255,255,.98); border: 1px solid #e2e8f0; border-radius: 20px; box-shadow: 0 10px 24px rgba(15,23,42,.12), 0 2px 5px rgba(15,23,42,.06); }
+    .tabbar-item { flex: 1; min-width: 0; display: flex; min-height: 44px; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 13px; padding: 4px 2px; color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .01em; line-height: 1; }
+    .tabbar-item .ic { display: grid; width: 27px; height: 23px; place-items: center; border-radius: 9px; margin-bottom: 1px; }
+    .tabbar-item .ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+    .tabbar-item.active { color: var(--primary); }
+    .tabbar-item.active .ic { background: var(--primary-soft); }
+    .tabbar-edge { position: sticky; bottom: 0; z-index: 2; display: flex; gap: 3px; margin: 22px -16px -22px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: rgba(255,255,255,.98); border-top: 1px solid #e2e8f0; }
+    .tabbar-edge .tabbar-item { position: relative; border-radius: 0; }
+    .tabbar-edge .tabbar-item.active { background: transparent; }
+    .tabbar-edge .tabbar-item.active::before { position: absolute; top: -8px; left: 50%; width: 24px; height: 3px; border-radius: 999px; background: var(--primary); content: ''; transform: translateX(-50%); }
+    .tabbar-edge .tabbar-item.active .ic { background: transparent; }
     .topnav { display: flex; gap: 6px; }
     .topnav a { padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; color: #64748b; text-decoration: none; }
     .topnav a.active { background: var(--primary-soft); color: var(--primary); }
@@ -180,6 +187,17 @@
     .timer { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #0f172a; color: #fff; border-radius: 14px; padding: 12px 14px; font-weight: 800; }
     .timer .t-val { font-size: 20px; letter-spacing: -.02em; }
     .timer .t-btn { border: 0; border-radius: 9px; background: rgba(255,255,255,.14); color: #fff; font-weight: 700; font-size: 12px; padding: 7px 11px; }
+    .workout-duration-header { flex-shrink: 0; display: flex; min-width: 118px; flex-direction: column; align-items: flex-end; gap: 7px; padding: 3px 0; text-align: right; }
+    .workout-duration-header .duration-meta { display: inline-flex; align-items: center; gap: 6px; color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .07em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+    .workout-duration-header .duration-meta::before { width: 7px; height: 7px; border-radius: 999px; background: #22c55e; content: ''; }
+    .workout-duration-header .duration-value { color: #0f172a; font-size: 28px; font-weight: 900; letter-spacing: -.05em; line-height: .9; }
+    .picker-tabs { display: flex; gap: 4px; margin-bottom: 12px; padding: 4px; border-radius: 10px; background: #f1f5f9; }
+    .picker-tab { flex: 1; border: 0; border-radius: 8px; background: transparent; color: #64748b; font-size: 11px; font-weight: 800; padding: 9px 8px; }
+    .picker-tab.active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.1); }
+    .option.disabled { color: #94a3b8; }
+    .option.disabled .radio { border-color: #e2e8f0; background: #f8fafc; }
+    .option-note { margin-left: auto; color: #94a3b8; font-size: 10px; font-weight: 700; }
+    .cancel-copy { color: #64748b; font-size: 14px; line-height: 1.45; margin: 8px 0 16px; }
     .chart { border-radius: 14px; background: #f8fafc; padding: 14px; }
     .chart svg { display: block; width: 100%; height: auto; }
 
@@ -192,6 +210,7 @@
       .three, .stats { grid-template-columns: 1fr; }
       .desktop .three.cards { grid-template-columns: 1fr; }
       .top { flex-direction: column; align-items: flex-start; }
+      .workout-top { flex-direction: row; align-items: center; }
       .user-actions { width: 100%; justify-content: space-between; }
     }
   </style>
@@ -293,16 +312,26 @@
             <div class="user-actions"><div class="chip"><span class="avatar">J</span>John</div></div>
           </div>
           <div style="margin-bottom:18px;"><h2>Good morning, John</h2><p class="sub">Wednesday, 1 July 2026</p></div>
-          <div class="card" style="margin-bottom:18px;"><div class="tiny">Suggested today</div><h1 style="margin-top:8px;">TORSO A</h1><p class="sub">6 exercises - Chest + Back + Shoulders</p><button class="btn btn-dark" style="margin-top:18px;">Start Workout</button></div>
-          <p class="sub" style="font-weight:700;margin-bottom:8px;">Or pick a day:</p>
-          <div class="pill-row" style="margin-bottom:22px;"><div class="pill">PUSH</div><div class="pill">PULL</div><div class="pill">LEGS</div><div class="pill active">TORSO A</div><div class="pill">LOWER+ARMS B</div></div>
+          <div class="card" style="margin-bottom:18px;"><div class="tiny">Workout in progress</div><h1 style="margin-top:8px;">TORSO A</h1><p class="sub">Started 1 Jul, 09:14 · 6 exercises</p><button class="btn btn-dark" style="margin-top:18px;">Resume Workout</button></div>
+          <p class="sub" style="font-weight:700;margin-bottom:8px;">Finish or cancel this workout before starting another.</p>
+          <div class="pill-row" style="margin-bottom:22px;opacity:.55;"><div class="pill">PUSH</div><div class="pill">PULL</div><div class="pill">LEGS</div><div class="pill active">TORSO A</div><div class="pill">LOWER+ARMS B</div></div>
           <div class="row" style="margin-bottom:10px;"><div class="tiny">Recent Sessions</div><strong style="font-size:12px;">View all</strong></div>
           <div class="stack">
             <div class="soft-card row"><div><strong>Mon 29 Jun <span class="badge badge-neutral">LOWER+ARMS B</span></strong><p class="sub">6 exercises - Finished - Duration: 48 min</p></div><span class="muted">&gt;</span></div>
             <div class="soft-card row"><div><strong>Sat 27 Jun <span class="badge badge-neutral">TORSO A</span></strong><p class="sub">6 exercises - In progress</p></div><span class="muted">&gt;</span></div>
           </div>
           <div class="card" style="margin-top:18px;"><div class="row" style="margin-bottom:12px;"><h3>Your Stats</h3><strong style="font-size:12px;">Progress</strong></div><div class="stats"><div class="stat"><div class="stat-value">24</div><div class="stat-label">Workouts</div></div><div class="stat"><div class="stat-value">432</div><div class="stat-label">Sets</div></div><div class="stat"><div class="stat-value">8.6k</div><div class="stat-label">Lifted</div></div></div></div>
-          <div class="tabbar"><div class="tabbar-item active"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
+          <div class="tabbar"><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
+        </main>
+      </div>
+    </div>
+
+    <div>
+      <p class="label">Navigation concept B / edge-to-edge</p>
+      <div class="phone">
+        <main class="app" style="min-height:300px;display:flex;flex-direction:column;justify-content:flex-end;">
+          <div class="surface" style="margin-bottom:auto;"><div class="tiny">Alternative navigation direction</div><h2 style="margin-top:8px;">Clean and grounded</h2><p class="sub">A full-width bar keeps the page edge clear while the top indicator makes the current destination easy to scan.</p></div>
+          <div class="tabbar-edge"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -311,7 +340,7 @@
       <p class="label">Route /workout/:sessionId</p>
       <div class="phone">
         <main class="app">
-          <div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1><p class="sub">Started 1 Jul, 09:14</p></div><button class="btn btn-green btn-small">Finish Workout</button></div>
+          <div class="top workout-top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1><p class="sub">Started 1 Jul, 09:14</p></div><div class="workout-duration-header"><div class="duration-meta">Workout duration</div><div class="duration-value" data-workout-duration>42:18</div></div></div>
           <div class="stack">
             <div class="exercise-card">
               <div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button><button class="btn-icon red">x</button></div></div>
@@ -325,17 +354,18 @@
             <button class="btn btn-white">+ Add Exercise</button>
             <div class="soft-card"><div class="tiny" style="margin-bottom:8px;">Workout Notes</div><textarea class="input" placeholder="How did it feel? Any tweaks?">Left shoulder felt tight on incline.</textarea></div>
             <button class="btn btn-green">Finish Workout</button>
+            <button class="btn btn-red">Cancel Workout</button>
           </div>
         </main>
       </div>
     </div>
 
     <div>
-      <p class="label">Exercise Picker Modal</p>
+      <p class="label">Add Exercise Picker Modal</p>
       <div class="phone">
         <div class="modal-screen">
-          <main class="app"><div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1></div></div><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div><button class="btn btn-white btn-small">Swap</button></div></div></main>
-          <div class="modal-overlay"><div class="modal"><div class="modal-title">Swap Exercise</div><input class="input" value="incline" style="margin-bottom:12px;" /><div class="tiny">Chest</div><div class="option"><span class="radio on"></span>Smith Incline Bench</div><div class="option"><span class="radio"></span>DB Incline Press</div><div class="option"><span class="radio"></span>Barbell Flat Press</div><div class="tiny" style="margin-top:14px;">Shoulders</div><div class="option"><span class="radio"></span>Machine OHP</div><div class="option"><span class="radio"></span>DB OHP</div><div class="row" style="margin-top:14px;"><button class="btn btn-white btn-small" style="flex:1;">Cancel</button><button class="btn btn-dark btn-small" style="flex:1;">Swap</button></div></div></div>
+          <main class="app"><div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1></div></div><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div><button class="btn btn-white btn-small">+ Add Exercise</button></div></div></main>
+          <div class="modal-overlay"><div class="modal"><div class="modal-title">Add Exercise</div><input class="input" placeholder="Search exercises" style="margin-bottom:12px;" /><div class="picker-tabs"><button class="picker-tab active">Program days</button><button class="picker-tab">All exercises</button></div><div class="tiny">TORSO A</div><div class="option disabled"><span class="radio"></span>Smith Incline Bench<span class="option-note">Added</span></div><div class="option"><span class="radio on"></span>DB Incline Press</div><div class="option"><span class="radio"></span>Barbell Flat Press</div><div class="tiny" style="margin-top:14px;">PULL</div><div class="option"><span class="radio"></span>Lat Pulldown</div><div class="option disabled"><span class="radio"></span>Face Pull<span class="option-note">Added</span></div><div class="row" style="margin-top:14px;"><button class="btn btn-white btn-small" style="flex:1;">Cancel</button><button class="btn btn-dark btn-small" style="flex:1;">Add Exercise</button></div></div></div>
         </div>
       </div>
     </div>
@@ -356,6 +386,16 @@
         <div class="modal-screen">
           <main class="app"><div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1></div></div><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Lat Pulldown / Chin-ups</div></div></div></main>
           <div class="modal-overlay"><div class="modal"><div class="modal-title">Remove Lat Pulldown / Chin-ups?</div><p class="danger-copy">This removes the exercise from this workout and deletes 2 logged sets.</p><div class="row"><button class="btn btn-white btn-small" style="flex:1;">Cancel</button><button class="btn btn-red btn-small" style="flex:1;">Remove Exercise</button></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="label">Cancel Workout Confirmation</p>
+      <div class="phone">
+        <div class="modal-screen">
+          <main class="app"><div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1></div></div><div class="soft-card"><div class="tiny">Workout in progress</div><strong style="display:block;margin-top:8px;">42:18 elapsed</strong></div></main>
+          <div class="modal-overlay"><div class="modal"><div class="modal-title">Cancel this workout?</div><p class="cancel-copy">This will delete the active TORSO A workout and any sets you have logged. This cannot be undone.</p><div class="row"><button class="btn btn-white btn-small" style="flex:1;">Keep Workout</button><button class="btn btn-red btn-small" style="flex:1;">Cancel Workout</button></div></div></div>
         </div>
       </div>
     </div>
@@ -390,7 +430,7 @@
               <div style="padding:12px;"><button class="btn btn-white btn-small">+ Add exercise</button></div>
             </div>
           </div>
-          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item active"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -417,7 +457,7 @@
           <div class="stack"><div class="soft-card"><div class="row"><span class="badge badge-torso">TORSO A</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:10px;">Thu 25 Jun</strong><p class="sub">6 exercises - 18 sets - 52 min</p></div><div class="soft-card"><div class="row"><span class="badge badge-lower">LOWER+ARMS B</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:10px;">Mon 22 Jun</strong><p class="sub">6 exercises - 16 sets - 48 min</p></div></div>
           <div class="tiny" style="margin:22px 0 10px;">June 2026</div>
           <div class="soft-card"><div class="row"><span class="badge badge-pull">PULL</span><span class="muted">&gt;</span></div><strong style="display:block;margin-top:10px;">Wed 17 Jun</strong><p class="sub">5 exercises - 14 sets - 44 min</p></div>
-          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item active"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -428,7 +468,7 @@
         <main class="app">
           <div class="top"><div><div class="brand-small">RepLog</div><h1>Workout History</h1></div></div>
           <div class="card" style="text-align:center;"><h3 style="font-size:18px;">No finished workouts yet</h3><p class="sub" style="margin-top:8px;">Finish a workout and it will appear here with duration, exercises, and set totals.</p><button class="btn btn-dark" style="margin-top:18px;width:auto;display:inline-flex;">Start from Dashboard</button></div>
-          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item active"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -441,7 +481,7 @@
           <div class="pb-card" style="margin-bottom:14px;"><div class="tiny">Estimated 1RM PB</div><h1 style="margin-top:8px;">45.9 kg</h1><p class="sub">From 32 kg x 13 reps - Thu 25 Jun 2026</p></div>
           <div class="three" style="margin-bottom:14px;"><div class="soft-card"><div class="stat-value">6</div><div class="stat-label">Sessions</div></div><div class="soft-card"><div class="stat-value">+7 kg</div><div class="stat-label">Progress</div></div><div class="soft-card"><div class="stat-value">32 kg</div><div class="stat-label">Heaviest Set</div></div></div>
           <div class="card"><div class="row" style="margin-bottom:12px;"><div><h3>Session History</h3><p class="sub">Lat Pulldown</p></div><span class="badge badge-neutral">BACK</span></div><div class="chart" style="margin-bottom:14px;"><div class="tiny" style="margin-bottom:8px;">Estimated 1RM (kg)</div><svg viewBox="0 0 300 120"><polyline fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="30,92 150,40 270,30" /><circle cx="30" cy="92" r="4" fill="#0f172a" /><circle cx="150" cy="40" r="4" fill="#0f172a" /><circle cx="270" cy="30" r="4" fill="#0f172a" /></svg><div class="row" style="color:#94a3b8;font-size:11px;font-weight:700;margin-top:4px;"><span>13 Jun</span><span>20 Jun</span><span>25 Jun</span></div></div><table><tr><th>Date</th><th>Top Set</th><th>Est. 1RM</th></tr><tr><td><strong>25 Jun</strong></td><td><strong>32 kg x 13</strong></td><td>45.9 kg</td></tr><tr><td><strong>20 Jun</strong></td><td><strong>32 kg x 12</strong></td><td>44.8 kg</td></tr><tr><td><strong>13 Jun</strong></td><td>27 kg x 13</td><td>38.7 kg</td></tr></table><div class="trend"><strong>Estimated 1RM trend:</strong><span>38.7 -> 44.8 -> 45.9 kg</span><span class="up">up</span></div></div>
-          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item active"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -452,7 +492,7 @@
         <main class="app">
           <div class="top"><div><div class="brand-small">RepLog</div><h1>Progress</h1></div><select style="max-width:170px;" disabled><option>No exercise data</option></select></div>
           <div class="card"><h3 style="font-size:18px;">No finished sets yet</h3><p class="sub" style="margin-top:8px;">Complete a workout with normal working sets to see exercise progress here.</p></div>
-          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item active"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item"><span class="ic">●</span>Profile</div></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -462,7 +502,7 @@
       <div class="phone">
         <main class="app">
           <div class="profile-card"><div class="bar"><span>Back</span><strong>Profile</strong><span>Edit</span></div><div class="profile-hero"><div class="avatar big" style="margin:0 auto 12px;">J</div><h2>John</h2><p class="sub">john@email.com</p><p class="hint">Member since July 2026</p></div><div class="three" style="gap:0;border-bottom:1px solid #f1f5f9;"><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Workouts</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0</div><div class="stat-label">Sets</div></div><div class="stat" style="border-radius:0;text-align:center;"><div class="stat-value">0kg</div><div class="stat-label">Lifted</div></div></div><div class="content"><div class="tiny" style="margin-bottom:10px;">Settings</div><div style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;"><div class="settings-row">Edit Profile <span class="muted">&gt;</span></div><div class="settings-row">Change Password <span class="muted">&gt;</span></div><div class="settings-row">Edit Program <span class="muted">&gt;</span></div><div class="settings-row">Units <span class="pill-row"><span class="pill active" style="padding:5px 11px;">kg</span><span class="pill" style="padding:5px 11px;">lb</span></span></div></div><div class="tiny" style="margin:18px 0 10px;">Account</div><button class="btn btn-red">Log Out</button></div></div>
-          <div class="tabbar"><div class="tabbar-item"><span class="ic">■</span>Home</div><div class="tabbar-item"><span class="ic">≡</span>History</div><div class="tabbar-item"><span class="ic">▲</span>Progress</div><div class="tabbar-item"><span class="ic">◎</span>Program</div><div class="tabbar-item active"><span class="ic">●</span>Profile</div></div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -542,7 +582,7 @@
 
   <div class="note">
     <strong>Design source:</strong> this mockup is the design spec RepLog gets built to match, not documentation of what's already shipped. It covers protected full-page routes, auth card shell, dashboard/profile actions, session add/swap/remove controls, in-app delete confirmation for both sets and exercises, history grouping, and estimated 1RM progress language. It also documents the History and Progress empty states new accounts see first, plus a forward-looking mock of the planned (not yet built) <code>/guide</code> route from <code>TODO.md</code>. Primary/brand color is near-black monochrome; category day badges keep their own accent colors.
-    <br /><br /><strong>Mobile-first rules:</strong> the built mobile layout is the primary target; desktop frames are an optional responsive stretch. The bottom tab bar is fixed to the viewport with <code>env(safe-area-inset-bottom)</code> padding. All tap targets are at least 44px in the built app, even where this mock draws them smaller (e.g. the 32px icon buttons). Weight and reps inputs open numeric keyboards (<code>inputmode="decimal"</code> / <code>"numeric"</code>). The rest timer stays visible while scrolling during an active workout.
+    <br /><br /><strong>Mobile-first rules:</strong> the built mobile layout is the primary target; desktop frames are an optional responsive stretch. The primary bottom navigation uses a refined floating dock with recognizable line icons, while the comparison frame above shows an edge-to-edge alternative with a short top active indicator. Both directions use consistent 44px tap targets and <code>env(safe-area-inset-bottom)</code> padding when fixed to the viewport. This mock keeps the docks sticky inside each phone frame to preview the same proportions. Weight and reps inputs open numeric keyboards (<code>inputmode="decimal"</code> / <code>"numeric"</code>). The rest timer stays visible while scrolling during an active workout.
     <div class="palette">
       <div class="swatch"><div style="background:#f1f5f9"></div>App BG</div>
       <div class="swatch"><div style="background:#fff"></div>Card</div>
@@ -554,5 +594,37 @@
       <div class="swatch"><div style="background:#f0fdf4"></div>1RM PB</div>
     </div>
   </div>
+<script>
+  (() => {
+    const timerNodes = document.querySelectorAll('[data-workout-duration]')
+    if (!timerNodes.length) return
+
+    const storageKey = 'replog-mockup-workout-started-at'
+    const seededElapsedSeconds = (42 * 60) + 18
+    let startedAt = Number(sessionStorage.getItem(storageKey))
+
+    if (!Number.isFinite(startedAt) || startedAt <= 0) {
+      startedAt = Date.now() - (seededElapsedSeconds * 1000)
+      sessionStorage.setItem(storageKey, String(startedAt))
+    }
+
+    const pad = (value) => String(value).padStart(2, '0')
+    const formatDuration = (seconds) => {
+      const hours = Math.floor(seconds / 3600)
+      const minutes = Math.floor((seconds % 3600) / 60)
+      const remainingSeconds = seconds % 60
+      return hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(remainingSeconds)}` : `${minutes}:${pad(remainingSeconds)}`
+    }
+
+    const render = () => {
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+      timerNodes.forEach((node) => { node.textContent = formatDuration(elapsedSeconds) })
+    }
+
+    render()
+    window.setInterval(render, 1000)
+    document.addEventListener('visibilitychange', render)
+  })()
+</script>
 </body>
 </html>
