@@ -279,7 +279,7 @@ export function DashboardPage() {
             <aside className="rounded-[24px] bg-white p-5 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)] lg:self-start">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <p className="text-[13px] font-bold text-slate-900">Your Stats</p>
-                <Link to="/progress" className="inline-flex min-h-11 items-center text-xs font-bold text-slate-900 transition hover:text-slate-600">
+                <Link to="/progress" className="inline-flex min-h-11 items-center rounded-full px-3 text-xs font-bold text-slate-900 transition hover:bg-slate-100 hover:text-slate-600 active:bg-slate-200">
                   Progress
                 </Link>
               </div>

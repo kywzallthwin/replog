@@ -67,6 +67,7 @@
 - No other blockers are recorded.
 
 ## Recent Notes
+- 2026-08-20: Added matching rounded hover, pressed, and mobile touch feedback to the Dashboard `Progress` link while preserving its 44px target and Progress navigation. Client lint/build and diff checks pass.
 - 2026-08-20: Added rounded hover, pressed, and mobile touch feedback to the Dashboard Recent Sessions `View all` link while preserving its 44px target and History navigation. Client lint/build and diff checks pass.
 - 2026-08-20: Refined the active Dashboard state by removing the misleading disabled Start Workout button and hiding Suggested Today while a workout is active. Resume Workout is now the sole primary action; a subtle lock message and muted locked day pills explain the restriction. Client lint/build and diff checks pass.
 - 2026-08-20: Added the Program-matching red circular touch feedback attributes to the active Workout exercise remove button. Targeted Workout ESLint and diff checks passed; the Dashboard JSX issue was subsequently corrected.
