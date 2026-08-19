@@ -1,8 +1,8 @@
 # RepLog Status
 
 ## Current Phase
-- MVP feature implementation is substantially complete through authentication, Google OAuth, dashboard, workouts, history, progress, profile, Program editing, and password recovery.
-- Current priority is mobile-first visual QA and polish. Day badge colors now appear consistently on Dashboard, Program, Workout, and History; Dashboard day-picker controls use a single colored pill instead of a nested white pill; coarse-pointer controls now provide rounded press feedback, with dedicated treatments for grouped Profile rows and Program icon/swatch controls. Treat 375px phone layouts as the primary acceptance target; verify mobile before larger breakpoints. Desktop responsive polish is optional unless it affects mobile behavior.
+- MVP feature implementation is substantially complete through authentication, Google OAuth, dashboard, workouts, history, progress, profile, Program editing, and password recovery. Local authentication connectivity and dashboard request latency were corrected in the latest session.
+- Current priority is mobile-first visual QA and polish. Day badge colors now appear consistently on Dashboard, Program, Workout, and History; Dashboard day-picker controls use a single colored pill instead of a nested white pill; mobile navigation now uses the preferred edge-to-edge bar with Lucide line icons and a short top active indicator; coarse-pointer controls now provide rounded press feedback, with dedicated treatments for grouped Profile rows and Program icon/swatch controls. Treat 375px phone layouts as the primary acceptance target; verify mobile before larger breakpoints. Desktop responsive polish is optional unless it affects mobile behavior.
 
 ## Confirmed State
 - Root workspace: `D:\coding\project\workout`
@@ -32,18 +32,20 @@
 - `npm run lint -w client` passes.
 - `npm run typecheck -w server` passes.
 - `git diff --check` passes.
+- Local API/client URLs were corrected to use `localhost`; API requests now fail within 10 seconds instead of hanging indefinitely, and dashboard independent queries run concurrently.
 - Live server smoke check passed on the current source: `/health`, disposable registration, authenticated `/auth/me`, `/dashboard`, invalid forgot-password validation, and configured-email forgot-password response.
 - Backend auth, account, dashboard, sessions, history, progress, exercise management, Program, and password-reset API smoke tests have passed as recorded by recent commits.
 
 ## Next Actions
-1. [ ] Manual mobile browser spot-check at `375px` and approximately `430px` for all primary routes, including the new day badge placements.
-2. [ ] Verify mobile bottom navigation active states, safe-area clearance, and that final content is not obscured.
-3. [ ] Verify History and Progress populated/empty states, table behavior, links, and month grouping on mobile.
-4. [ ] Verify Program add/edit/delete/recolor/exercise reorder flows and modal reachability on short mobile viewports.
-5. [ ] Verify Workout picker and delete-confirmation dialogs with the mobile keyboard and narrow heights.
-6. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
-7. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
-8. [ ] Add a valid `RESEND_API_KEY` to ignored `server/.env` and manually verify actual reset-email delivery.
+1. [ ] Manual browser check of login and dashboard after restarting both dev servers.
+2. [ ] Manual mobile browser spot-check at `375px` and approximately `430px` for all primary routes, including the new day badge placements.
+3. [ ] Verify mobile bottom navigation active states, safe-area clearance, and that final content is not obscured.
+4. [ ] Verify History and Progress populated/empty states, table behavior, links, and month grouping on mobile.
+5. [ ] Verify Program add/edit/delete/recolor/exercise reorder flows and modal reachability on short mobile viewports.
+6. [ ] Verify Workout picker and delete-confirmation dialogs with the mobile keyboard and narrow heights.
+7. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
+8. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
+9. [ ] Add a valid `RESEND_API_KEY` to ignored `server/.env` and manually verify actual reset-email delivery.
 
 ## Deferred Backlog
 - Rest timer, last-time exercise references, and workout notes.
@@ -59,6 +61,13 @@
 - No other blockers are recorded.
 
 ## Recent Notes
+- 2026-08-20: Implemented the preferred Concept B mobile navigation in React with Lucide SVG icons, a full-width edge-to-edge bar, a short top active indicator, preserved 44px tab targets, and safe-area bottom padding. Desktop `TopNav` remains unchanged.
+- 2026-08-19: Added a separate edge-to-edge mobile navigation comparison frame to `Replog-mockup.html`. It uses the same SVG icon language, removes the floating container treatment, and marks the active destination with a short top indicator. Existing floating navigation examples remain unchanged.
+- 2026-08-19: Corrected stale LAN API/client URLs to localhost for local development, added a 10-second Axios timeout, enabled one-minute query freshness, and parallelized independent Dashboard database queries. Client build/lint, server typecheck, CORS, health, client loading, and invalid-login smoke checks passed after restarting the dev servers.
+- 2026-08-17: Added the root GitHub-facing README, RepLog package description and keywords, and replaced the generic client Vite README with workspace documentation. GitHub CLI is not installed locally, so live repository description/topics remain to be updated through GitHub.
+- 2026-08-17: Redesigned every mobile navigation example in `Replog-mockup.html` as a refined floating dock with inline SVG icons, inset elevation, compact active capsules, and updated mobile-first implementation notes. Desktop top navigation was intentionally unchanged.
+- 2026-08-17: Refined the mobile Workout mockup header by replacing the small top Finish Workout button with an open, unboxed two-line duration timer; the full-width bottom Finish Workout and Cancel Workout actions remain in place. Timer persistence and desktop mockups are unchanged.
+- 2026-08-17: Updated the mobile HTML mockup with the active-workout/resume state, live session-duration demo, cancel-workout action and confirmation, program-day exercise picker state, and duplicate exercise affordances. The demo timer is isolated to the mockup and uses sessionStorage; real client/server behavior is unchanged.
 - 2026-08-16: Created a transparent PNG logo concept at `client/public/brand/replog-logo-concept.png`: a near-black `RepLog` wordmark with an R/log-row/progress-arrow monogram. It is not yet wired into the app or favicon.
 - 2026-08-16: Added server-redirect Google OAuth with CSRF state cookies, verified-email checks, safe account linking, Google-only user provisioning, and client callback errors. Client build/lint, server typecheck, and `git diff --check` pass; provider round-trip verification remains pending credentials.
 - 2026-08-16: Replaced the native Progress exercise selector with a styled accessible dropdown supporting click-outside, Escape, arrow/Home/End keyboard selection, internal scrolling, and mobile-friendly sizing. Client lint, production build, and `git diff --check` pass; browser viewport verification remains pending.
