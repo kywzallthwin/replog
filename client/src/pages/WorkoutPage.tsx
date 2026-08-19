@@ -655,6 +655,8 @@ export function WorkoutPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveExercise(exercise)}
+                          data-press="icon"
+                          data-press-tone="red"
                           title="Remove exercise"
                           aria-label={`Remove ${exercise.name}`}
                           disabled={removeSessionExerciseMutation.isPending}
