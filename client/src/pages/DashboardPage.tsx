@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
 import { Link, useNavigate } from 'react-router-dom'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
-import { authMeQueryKey, getCurrentUser, logoutUser } from '../lib/auth'
+import { authMeQueryKey, clearPrivateQueries, getCurrentUser, logoutUser } from '../lib/auth'
 import { startSession } from '../lib/sessions'
 import { getBadgeClass } from '../lib/badgeColors'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
@@ -70,8 +71,9 @@ export function DashboardPage() {
     retry: false,
   })
   const logoutMutation = useMutation({
-    mutationFn: logoutUser,
-    onSuccess: () => {
+      mutationFn: logoutUser,
+      onSuccess: () => {
+      clearPrivateQueries(queryClient)
       queryClient.removeQueries({ queryKey: authMeQueryKey })
       navigate('/login', { replace: true })
     },
@@ -81,6 +83,15 @@ export function DashboardPage() {
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       navigate(`/workout/${session.id}`)
+    },
+    onError: (error) => {
+      if (axios.isAxiosError<{ activeSessionId?: string }>(error)) {
+        const activeSessionId = error.response?.data?.activeSessionId
+
+        if (activeSessionId) {
+          navigate(`/workout/${activeSessionId}?from=dashboard`)
+        }
+      }
     },
   })
 
@@ -140,6 +151,26 @@ export function DashboardPage() {
         {dashboard ? (
           <div className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
             <div>
+              {dashboard.activeSession ? (
+                <section className="mb-5 rounded-[28px] bg-white p-6">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Workout in progress</p>
+                  <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(dashboard.activeSession.badgeColor)}`}>
+                    {dashboard.activeSession.dayName}
+                  </span>
+                  <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-slate-900">
+                    {dashboard.activeSession.dayName}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Started {formatSessionDate(dashboard.activeSession.startedAt)} · {dashboard.activeSession.exerciseCount} exercises
+                  </p>
+                  <Link
+                    to={`/workout/${dashboard.activeSession.id}?from=dashboard`}
+                    className="mt-5 block w-full rounded-[13px] bg-slate-900 px-5 py-[15px] text-center text-[15px] font-semibold text-white"
+                  >
+                    Resume Workout
+                  </Link>
+                </section>
+              ) : null}
               <section className="mb-5 rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Suggested today</p>
                 {dashboard.suggestedDay ? (
@@ -155,7 +186,7 @@ export function DashboardPage() {
                     </p>
                     <button
                       type="button"
-                      disabled={startSessionMutation.isPending}
+                      disabled={Boolean(dashboard.activeSession) || startSessionMutation.isPending}
                       onClick={() => {
                         if (dashboard.suggestedDay) {
                           startSessionMutation.mutate(dashboard.suggestedDay.id)
@@ -163,7 +194,11 @@ export function DashboardPage() {
                       }}
                       className="mt-5 w-full rounded-[13px] bg-slate-900 px-5 py-[15px] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:bg-slate-800"
                     >
-                      {startSessionMutation.isPending ? 'Starting...' : 'Start Workout'}
+                      {dashboard.activeSession
+                        ? 'Finish or cancel your active workout first'
+                        : startSessionMutation.isPending
+                          ? 'Starting...'
+                          : 'Start Workout'}
                     </button>
                   </>
                 ) : (
@@ -172,13 +207,18 @@ export function DashboardPage() {
               </section>
 
               <section className="mb-5">
+                {dashboard.activeSession ? (
+                  <p className="mb-2 text-sm font-semibold text-slate-500">
+                    Finish or cancel this workout before starting another.
+                  </p>
+                ) : null}
                 <p className="mb-2 text-sm font-medium text-slate-500">Or pick a day:</p>
                 <div className="flex flex-wrap gap-2">
                   {dashboard.activeProgram?.days.map((day) => (
                     <button
                       type="button"
                       key={day.id}
-                      disabled={startSessionMutation.isPending}
+                      disabled={Boolean(dashboard.activeSession) || startSessionMutation.isPending}
                       onClick={() => startSessionMutation.mutate(day.id)}
                       className={`min-h-11 rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.04em] shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-black/5 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 ${getBadgeClass(day.badgeColor)}`}
                     >

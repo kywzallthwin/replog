@@ -5,6 +5,10 @@ import { addSetSchema, sessionExerciseSchema, startSessionSchema, updateSetSchem
 
 export const sessionsRouter = Router()
 
+function isUniqueConstraintError(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002'
+}
+
 function toSessionPayload(session: {
   id: string
   dayId: string | null
@@ -94,6 +98,19 @@ sessionsRouter.post('/', requireAuth, async (req, res) => {
     return
   }
 
+  const activeSession = await prisma.session.findFirst({
+    where: { userId, endedAt: null },
+    select: { id: true },
+  })
+
+  if (activeSession) {
+    res.status(409).json({
+      error: 'Finish or cancel the active workout before starting another',
+      activeSessionId: activeSession.id,
+    })
+    return
+  }
+
   const day = await prisma.day.findFirst({
     where: {
       id: parsedBody.data.dayId,
@@ -112,31 +129,50 @@ sessionsRouter.post('/', requireAuth, async (req, res) => {
     return
   }
 
-  const session = await prisma.session.create({
-    data: {
-      userId,
-      dayId: day.id,
-      dayNameSnapshot: day.name,
-      badgeColorSnapshot: day.badgeColor,
-      sessionExercises: {
-        create: day.dayExercises.map((dayExercise) => ({
-          exerciseId: dayExercise.exerciseId,
-          nameSnapshot: dayExercise.exercise.name,
-          order: dayExercise.order,
-        })),
+  let session
+
+  try {
+    session = await prisma.session.create({
+      data: {
+        userId,
+        dayId: day.id,
+        dayNameSnapshot: day.name,
+        badgeColorSnapshot: day.badgeColor,
+        sessionExercises: {
+          create: day.dayExercises.map((dayExercise) => ({
+            exerciseId: dayExercise.exerciseId,
+            nameSnapshot: dayExercise.exercise.name,
+            order: dayExercise.order,
+          })),
+        },
       },
-    },
-    include: {
-      sessionExercises: {
-        orderBy: { order: 'asc' },
-        include: {
-          setLogs: {
-            orderBy: { order: 'asc' },
+      include: {
+        sessionExercises: {
+          orderBy: { order: 'asc' },
+          include: {
+            setLogs: {
+              orderBy: { order: 'asc' },
+            },
           },
         },
       },
-    },
-  })
+    })
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error
+    }
+
+    const activeSessionAfterRace = await prisma.session.findFirst({
+      where: { userId, endedAt: null },
+      select: { id: true },
+    })
+
+    res.status(409).json({
+      error: 'Finish or cancel the active workout before starting another',
+      activeSessionId: activeSessionAfterRace?.id,
+    })
+    return
+  }
 
   res.status(201).json({ session: toSessionPayload(session) })
 })
@@ -220,6 +256,46 @@ sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
   res.json({ session: toSessionPayload(session) })
 })
 
+sessionsRouter.delete('/:sessionId', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId) {
+    res.status(400).json({ error: 'Invalid session id' })
+    return
+  }
+
+  const deleted = await prisma.session.deleteMany({
+    where: {
+      id: sessionId,
+      userId,
+      endedAt: null,
+    },
+  })
+
+  if (deleted.count > 0) {
+    res.status(204).send()
+    return
+  }
+
+  const session = await prisma.session.findFirst({
+    where: { id: sessionId, userId },
+    select: { endedAt: true },
+  })
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' })
+    return
+  }
+
+  res.status(409).json({ error: 'Finished workouts cannot be cancelled' })
+})
+
 sessionsRouter.post('/:sessionId/exercises', requireAuth, async (req, res) => {
   const userId = req.userId
   const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
@@ -267,6 +343,15 @@ sessionsRouter.post('/:sessionId/exercises', requireAuth, async (req, res) => {
 
   if (!exercise) {
     res.status(404).json({ error: 'Exercise not found' })
+    return
+  }
+
+  const existingSessionExercise = await prisma.sessionExercise.findFirst({
+    where: { sessionId, exerciseId: exercise.id },
+  })
+
+  if (existingSessionExercise) {
+    res.status(409).json({ error: 'Exercise is already in this workout' })
     return
   }
 
@@ -342,6 +427,19 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId', requireAuth, as
 
   if (!exercise) {
     res.status(404).json({ error: 'Exercise not found' })
+    return
+  }
+
+  const existingSessionExercise = await prisma.sessionExercise.findFirst({
+    where: {
+      sessionId,
+      exerciseId: exercise.id,
+      id: { not: sessionExerciseId },
+    },
+  })
+
+  if (existingSessionExercise) {
+    res.status(409).json({ error: 'Exercise is already in this workout' })
     return
   }
 
@@ -673,14 +771,35 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
   const endedAt = new Date()
   const durationSec = Math.floor((endedAt.getTime() - session.startedAt.getTime()) / 1000)
 
-  const updatedSession = await prisma.session.update({
+  const finished = await prisma.session.updateMany({
     where: {
       id: sessionId,
+      userId,
+      endedAt: null,
     },
     data: {
       endedAt,
       durationSec,
     },
+  })
+
+  if (finished.count === 0) {
+    const currentSession = await prisma.session.findFirst({
+      where: { id: sessionId, userId },
+      select: { endedAt: true },
+    })
+
+    if (!currentSession) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+
+    res.status(409).json({ error: 'Workout has already been finished' })
+    return
+  }
+
+  const updatedSession = await prisma.session.findUniqueOrThrow({
+    where: { id: sessionId },
     include: {
       sessionExercises: {
         orderBy: { order: 'asc' },

@@ -20,6 +20,7 @@ export type DashboardSession = {
 }
 
 export type DashboardData = {
+  activeSession: DashboardSession | null
   activeProgram: {
     id: string
     name: string

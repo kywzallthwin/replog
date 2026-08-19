@@ -175,3 +175,7 @@ export async function finishSession(sessionId: string) {
 
   return response.data.session
 }
+
+export async function cancelSession(sessionId: string) {
+  await api.delete(`/sessions/${sessionId}`)
+}

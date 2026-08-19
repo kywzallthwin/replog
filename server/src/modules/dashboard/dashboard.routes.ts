@@ -37,9 +37,16 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
     },
   })
 
-  const [recentSessions, workoutCount, latestSession, setLogs] = await Promise.all([
+  const [activeSession, recentSessions, workoutCount, latestSession, setLogs] = await Promise.all([
+    prisma.session.findFirst({
+      where: { userId, endedAt: null },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        sessionExercises: true,
+      },
+    }),
     prisma.session.findMany({
-      where: { userId },
+      where: { userId, endedAt: { not: null } },
       orderBy: { startedAt: 'desc' },
       take: 3,
       include: {
@@ -47,17 +54,17 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
       },
     }),
     prisma.session.count({
-      where: { userId },
+      where: { userId, endedAt: { not: null } },
     }),
     prisma.session.findFirst({
-      where: { userId },
+      where: { userId, endedAt: { not: null } },
       orderBy: { startedAt: 'desc' },
       include: { day: true },
     }),
     prisma.setLog.findMany({
       where: {
         sessionExercise: {
-          session: { userId },
+          session: { userId, endedAt: { not: null } },
         },
       },
       select: {
@@ -75,6 +82,17 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
     days.find((day) => day.order === (latestDayOrder ?? 0) + 1) ?? days[0] ?? null
 
   res.json({
+    activeSession: activeSession
+      ? {
+          id: activeSession.id,
+          dayName: activeSession.dayNameSnapshot,
+          badgeColor: activeSession.badgeColorSnapshot,
+          startedAt: activeSession.startedAt,
+          endedAt: activeSession.endedAt,
+          durationSec: activeSession.durationSec,
+          exerciseCount: activeSession.sessionExercises.length,
+        }
+      : null,
     activeProgram: activeProgram
       ? {
           id: activeProgram.id,
