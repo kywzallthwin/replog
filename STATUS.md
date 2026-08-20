@@ -2,7 +2,7 @@
 
 ## Current Phase
 - MVP feature implementation is substantially complete through authentication, Google OAuth, dashboard, workouts, history, progress, profile, Program editing, password recovery, revised exercise pickers, and custom exercise creation. Local authentication connectivity and dashboard request latency were corrected in the latest session.
-- Current priority is mobile-first visual QA and polish. Day badge colors now appear consistently on Dashboard, Program, Workout, and History; Dashboard day-picker controls use a single colored pill instead of a nested white pill; mobile navigation now uses the preferred edge-to-edge bar with Lucide line icons and a short top active indicator; coarse-pointer controls now provide rounded press feedback, with dedicated treatments for grouped Profile rows and Program icon/swatch controls. Treat 375px phone layouts as the primary acceptance target; verify mobile before larger breakpoints. Desktop responsive polish is optional unless it affects mobile behavior.
+- Current priority is mobile-first visual QA and polish. Day badge colors now appear consistently on Dashboard, Program, Workout, and History; Dashboard day-picker controls use a single colored pill instead of a nested white pill; mobile navigation now uses the preferred edge-to-edge bar with Lucide line icons and a short top active indicator; coarse-pointer controls now provide rounded press feedback, with dedicated treatments for grouped Profile rows and Program icon/swatch controls; all application dropdowns now use the shared fluid listbox treatment. Treat 375px phone layouts as the primary acceptance target; verify mobile before larger breakpoints. Desktop responsive polish is optional unless it affects mobile behavior.
 
 ## Confirmed State
 - Root workspace: `D:\coding\project\workout`
@@ -26,7 +26,7 @@
 - User-owned custom exercise creation with category validation, normalized duplicate-name conflicts, immediate picker availability, and duplicate attachment protection.
 - History page with finished-session API, month grouping, empty state, and read-only workout links.
 - Progress page with exercise selection, Epley estimated-1RM PB, stats, session history, trend text, source links, and safe table overflow.
-- Program editor with day add/rename/recolor/delete and exercise add/remove/reorder.
+- Program editor with day add/rename/recolor/delete, exercise add/remove, and grip-only drag-and-drop exercise reorder.
 - Persistent navigation with mobile bottom tabs and desktop top navigation.
 - Mobile polish covering safe-area spacing, dynamic viewport sizing, 44px controls, numeric inputs, focus states, long-content handling, and constrained accessible dialogs.
 
@@ -43,16 +43,17 @@
 - Single-active-session migration applied successfully; duplicate unfinished sessions were marked completed while each user kept the newest active session.
 
 ## Next Actions
-1. [ ] Manual browser check of login and dashboard after restarting both dev servers.
-2. [ ] Manual mobile browser spot-check at `375px` and approximately `430px` for all primary routes, including the new day badge placements.
-3. [ ] Verify mobile bottom navigation active states, safe-area clearance, and that final content is not obscured.
-4. [ ] Verify History and Progress populated/empty states, table behavior, links, and month grouping on mobile.
-5. [ ] Verify Program add/edit/delete/recolor/exercise reorder flows and modal reachability on short mobile viewports.
- 6. [ ] Verify revised Workout and Program exercise pickers, custom creation, set/exercise delete, and cancel-workout confirmation dialogs with the mobile keyboard and narrow heights.
-7. [ ] Manually verify active workout flow at `375px`: start, navigate away, resume, finish/cancel, then start another workout.
-8. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
-9. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
-10. [ ] Add a valid `RESEND_API_KEY` to ignored `server/.env` and manually verify actual reset-email delivery.
+1. [ ] Manually verify fluid dropdowns at `375px` and approximately `430px`, including Add Set, Edit Set, Progress, and custom exercise category.
+2. [ ] Manual browser check of login and dashboard after restarting both dev servers.
+3. [ ] Manual mobile browser spot-check at `375px` and approximately `430px` for all primary routes, including the new day badge placements.
+4. [ ] Verify mobile bottom navigation active states, safe-area clearance, and that final content is not obscured.
+5. [ ] Verify History and Progress populated/empty states, table behavior, links, and month grouping on mobile.
+6. [ ] Verify Program add/edit/delete/recolor/exercise reorder flows and modal reachability on short mobile viewports.
+7. [ ] Verify revised Workout and Program exercise pickers, custom creation, set/exercise delete, and cancel-workout confirmation dialogs with the mobile keyboard and narrow heights.
+8. [ ] Manually verify active workout flow at `375px`: start, navigate away, resume, finish/cancel, then start another workout.
+9. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
+10. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
+11. [ ] Add a valid `RESEND_API_KEY` to ignored `server/.env` and manually verify actual reset-email delivery.
 
 ## Deferred Backlog
 - Rest timer, last-time exercise references, and workout notes.
@@ -67,6 +68,11 @@
 - No other blockers are recorded.
 
 ## Recent Notes
+- 2026-08-20: Fixed the FluidSelect edge-placement flash after scrolling by calculating placement before opening, anchoring upward menus with `bottom`, and using direction-specific opening animation without transform collisions. Client lint/build and `git diff --check` pass; rendered mobile verification remains pending.
+- 2026-08-20: Replaced all native application dropdowns with the shared portal-positioned `FluidSelect`, including Progress exercise selection, Workout set kinds, and custom exercise category. It provides the dark selected row/checkmark treatment, animated opening, internal scrolling, outside-tap/Escape dismissal, keyboard navigation, and viewport-aware placement. Client build/lint and `git diff --check` pass; rendered mobile verification remains pending.
+- 2026-08-20: Changed Program touch sorting to a 250ms long-press activation and removed the grip's `touch-action: none`, allowing normal vertical scrolling from the right-side drag control while preserving mouse and keyboard sorting. Client build/lint and diff checks pass; physical mobile verification remains pending.
+- 2026-08-20: Moved the Program exercise drag grip to the far-right edge of each row for right-thumb access, with the remove control immediately before it. Client build/lint and diff checks pass; rendered mobile verification remains pending.
+- 2026-08-20: Replaced Program exercise up/down controls with a grip-only drag-and-drop interaction supporting touch, mouse, and keyboard sorting within each day. Added optimistic persistence, rollback handling, and a position-based reorder API. Client build/lint, server typecheck, and diff checks pass; rendered mobile verification is pending.
 - 2026-08-20: Added matching rounded hover, pressed, and mobile touch feedback to the Dashboard `Progress` link while preserving its 44px target and Progress navigation. Client lint/build and diff checks pass.
 - 2026-08-20: Added rounded hover, pressed, and mobile touch feedback to the Dashboard Recent Sessions `View all` link while preserving its 44px target and History navigation. Client lint/build and diff checks pass.
 - 2026-08-20: Refined the active Dashboard state by removing the misleading disabled Start Workout button and hiding Suggested Today while a workout is active. Resume Workout is now the sole primary action; a subtle lock message and muted locked day pills explain the restriction. Client lint/build and diff checks pass.
