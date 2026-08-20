@@ -81,7 +81,7 @@ export type RemoveDayExerciseInput = {
 export type ReorderDayExerciseInput = {
   dayId: string
   dayExerciseId: string
-  direction: 'up' | 'down'
+  targetIndex: number
 }
 
 export const programQueryKey = ['programs', 'active'] as const
@@ -129,7 +129,7 @@ export async function removeDayExercise(input: RemoveDayExerciseInput) {
 export async function reorderDayExercise(input: ReorderDayExerciseInput) {
   const response = await api.patch<DayExercisesResponse>(
     `/programs/days/${input.dayId}/exercises/${input.dayExerciseId}/reorder`,
-    { direction: input.direction },
+    { targetIndex: input.targetIndex },
   )
 
   return response.data.exercises

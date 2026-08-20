@@ -26,5 +26,5 @@ export const dayExerciseSchema = z.object({
 })
 
 export const reorderDayExerciseSchema = z.object({
-  direction: z.enum(['up', 'down']),
+  targetIndex: z.number().int().min(0),
 })

@@ -2,6 +2,24 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   addDay,
   addDayExercise,
   deleteDay,
@@ -13,6 +31,7 @@ import {
   DAY_BADGE_COLORS,
   type DayBadgeColor,
   type DayExerciseItem,
+  type Program,
   type ProgramDay,
 } from '../lib/programs'
 import { dashboardQueryKey } from '../lib/dashboard'
@@ -40,6 +59,82 @@ function dayCategorySubtitle(day: ProgramDay) {
   const categories = new Set(day.exercises.map((exercise) => formatCategory(exercise.category)))
 
   return categories.size ? [...categories].join(' + ') : 'No exercises yet'
+}
+
+type SortableExerciseRowProps = {
+  exercise: DayExerciseItem
+  isReordering: boolean
+  onRemove: () => void
+}
+
+function SortableExerciseRow({ exercise, isReordering, onRemove }: SortableExerciseRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: exercise.id, disabled: isReordering })
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={`flex items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${
+        isDragging ? 'relative z-10 rounded-[10px] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]' : ''
+      }`}
+    >
+      <span className="min-w-0 grow break-words font-medium text-slate-700">{exercise.name}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        data-press="icon"
+        data-press-tone="red"
+        title="Remove exercise"
+        aria-label={`Remove ${exercise.name}`}
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        disabled={isReordering}
+        data-press="icon"
+        data-press-tone="slate"
+        title="Drag to reorder"
+        aria-label={`Drag ${exercise.name} to reorder`}
+        className="grid h-11 w-11 shrink-0 cursor-grab place-items-center rounded-full text-slate-300 transition hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing disabled:cursor-not-allowed disabled:text-slate-200"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18" fill="currentColor" aria-hidden="true">
+          <circle cx="3" cy="2" r="1.25" />
+          <circle cx="11" cy="2" r="1.25" />
+          <circle cx="3" cy="9" r="1.25" />
+          <circle cx="11" cy="9" r="1.25" />
+          <circle cx="3" cy="16" r="1.25" />
+          <circle cx="11" cy="16" r="1.25" />
+        </svg>
+      </button>
+    </div>
+  )
 }
 
 export function ProgramPage() {
@@ -112,7 +207,56 @@ export function ProgramPage() {
   })
   const reorderDayExerciseMutation = useMutation({
     mutationFn: reorderDayExercise,
-    onSuccess: async () => {
+    onMutate: async ({ dayId, dayExerciseId, targetIndex }) => {
+      await queryClient.cancelQueries({ queryKey: programQueryKey })
+      const previousProgram = queryClient.getQueryData<Program | null>(programQueryKey)
+
+      queryClient.setQueryData<Program | null>(programQueryKey, (currentProgram) => {
+        if (!currentProgram) {
+          return currentProgram
+        }
+
+        return {
+          ...currentProgram,
+          days: currentProgram.days.map((day) => {
+            if (day.id !== dayId) {
+              return day
+            }
+
+            const sourceIndex = day.exercises.findIndex((exercise) => exercise.id === dayExerciseId)
+            if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= day.exercises.length) {
+              return day
+            }
+
+            return {
+              ...day,
+              exercises: arrayMove(day.exercises, sourceIndex, targetIndex).map((exercise, index) => ({
+                ...exercise,
+                order: index + 1,
+              })),
+            }
+          }),
+        }
+      })
+
+      return { previousProgram }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousProgram !== undefined) {
+        queryClient.setQueryData(programQueryKey, context.previousProgram)
+      }
+    },
+    onSuccess: async (exercises, { dayId }) => {
+      queryClient.setQueryData<Program | null>(programQueryKey, (currentProgram) => {
+        if (!currentProgram) {
+          return currentProgram
+        }
+
+        return {
+          ...currentProgram,
+          days: currentProgram.days.map((day) => day.id === dayId ? { ...day, exercises } : day),
+        }
+      })
       await invalidateProgramData()
     },
   })
@@ -226,9 +370,35 @@ export function ProgramPage() {
     })
   }
 
-  function handleReorder(dayId: string, exercise: DayExerciseItem, direction: 'up' | 'down') {
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  function handleDragEnd(day: ProgramDay, event: DragEndEvent) {
+    if (!event.over || event.active.id === event.over.id) {
+      return
+    }
+
+    const sourceIndex = day.exercises.findIndex((exercise) => exercise.id === String(event.active.id))
+    const targetIndex = day.exercises.findIndex((exercise) => exercise.id === String(event.over?.id))
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return
+    }
+
     reorderDayExerciseMutation.reset()
-    reorderDayExerciseMutation.mutate({ dayId, dayExerciseId: exercise.id, direction })
+    reorderDayExerciseMutation.mutate({
+      dayId: day.id,
+      dayExerciseId: String(event.active.id),
+      targetIndex,
+    })
   }
 
   return (
@@ -313,65 +483,27 @@ export function ProgramPage() {
                 </div>
 
                 {day.exercises.length ? (
-                  <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
-                    {day.exercises.map((exercise, index) => (
-                      <div
-                        key={exercise.id}
-                        className="flex items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0"
-                      >
-                        <span aria-hidden="true" className="shrink-0 text-slate-300">{'⠿'}</span>
-                        <span className="min-w-0 grow break-words font-medium text-slate-700">{exercise.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleReorder(day.id, exercise, 'up')}
-                          disabled={index === 0 || reorderDayExerciseMutation.isPending}
-                          data-press="icon"
-                          data-press-tone="slate"
-                          title="Move up"
-                          aria-label={`Move ${exercise.name} up`}
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
-                        >
-                          {'↑'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleReorder(day.id, exercise, 'down')}
-                          disabled={index === day.exercises.length - 1 || reorderDayExerciseMutation.isPending}
-                          data-press="icon"
-                          data-press-tone="slate"
-                          title="Move down"
-                          aria-label={`Move ${exercise.name} down`}
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
-                        >
-                          {'↓'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExercise(day.id, exercise)}
-                          data-press="icon"
-                          data-press-tone="red"
-                          title="Remove exercise"
-                          aria-label={`Remove ${exercise.name}`}
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        </button>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event) => handleDragEnd(day, event)}
+                  >
+                    <SortableContext
+                      items={day.exercises.map((exercise) => exercise.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
+                        {day.exercises.map((exercise) => (
+                          <SortableExerciseRow
+                            key={exercise.id}
+                            exercise={exercise}
+                            isReordering={reorderDayExerciseMutation.isPending}
+                            onRemove={() => handleRemoveExercise(day.id, exercise)}
+                          />
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </SortableContext>
+                  </DndContext>
                 ) : null}
 
                 <div className="mt-3">

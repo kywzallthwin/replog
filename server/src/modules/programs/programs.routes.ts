@@ -398,29 +398,42 @@ programsRouter.patch('/days/:dayId/exercises/:dayExerciseId/reorder', requireAut
     return
   }
 
-  const direction = parsedBody.data.direction
-  const neighborOrder = direction === 'up' ? target.order - 1 : target.order + 1
-
-  const neighbor = await prisma.dayExercise.findFirst({
-    where: { dayId, order: neighborOrder },
-  })
-
-  if (!neighbor) {
-    res.status(409).json({ error: direction === 'up' ? 'Exercise is already first' : 'Exercise is already last' })
-    return
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.dayExercise.update({ where: { id: target.id }, data: { order: -1 } })
-    await tx.dayExercise.update({ where: { id: neighbor.id }, data: { order: target.order } })
-    await tx.dayExercise.update({ where: { id: target.id }, data: { order: neighborOrder } })
-  })
-
-  const exercises = await prisma.dayExercise.findMany({
+  const exercisesInDay = await prisma.dayExercise.findMany({
     where: { dayId },
     orderBy: { order: 'asc' },
     include: { exercise: true },
   })
+  const sourceIndex = exercisesInDay.findIndex((exercise) => exercise.id === target.id)
+  const targetIndex = parsedBody.data.targetIndex
+  let orderedExercises = exercisesInDay
 
-  res.json({ exercises: exercises.map(toDayExercisePayload) })
+  if (sourceIndex < 0 || targetIndex >= exercisesInDay.length) {
+    res.status(400).json({ error: 'Invalid target exercise position' })
+    return
+  }
+
+  if (sourceIndex !== targetIndex) {
+    const reordered = [...exercisesInDay]
+    const [movedExercise] = reordered.splice(sourceIndex, 1)
+
+    if (!movedExercise) {
+      res.status(400).json({ error: 'Invalid target exercise position' })
+      return
+    }
+
+    reordered.splice(targetIndex, 0, movedExercise)
+    orderedExercises = reordered
+
+    await prisma.$transaction(async (tx) => {
+      for (const [index, exercise] of reordered.entries()) {
+        await tx.dayExercise.update({ where: { id: exercise.id }, data: { order: -(index + 1) } })
+      }
+
+      for (const [index, exercise] of reordered.entries()) {
+        await tx.dayExercise.update({ where: { id: exercise.id }, data: { order: index + 1 } })
+      }
+    })
+  }
+
+  res.json({ exercises: orderedExercises.map((exercise, index) => toDayExercisePayload({ ...exercise, order: index + 1 })) })
 })
