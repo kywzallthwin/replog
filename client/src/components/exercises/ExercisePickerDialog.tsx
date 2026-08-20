@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { createExercise, exercisesQueryKey, type ExerciseCategory, type ExerciseOption } from '../../lib/exercises'
 import type { Program } from '../../lib/programs'
+import { FluidSelect } from '../forms/FluidSelect'
 
 type PickerSource = 'program' | 'all'
 
@@ -98,17 +99,12 @@ function NewExerciseForm({
         </label>
         <label className="mt-4 block">
           <span className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Category</span>
-          <select
+          <FluidSelect
             value={category}
-            onChange={(event) => setCategory(event.target.value as ExerciseCategory)}
-            className="h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:border-slate-900"
-          >
-            {categoryOrder.map((option) => (
-              <option key={option} value={option}>
-                {categoryLabels[option]}
-              </option>
-            ))}
-          </select>
+            options={categoryOrder.map((option) => ({ value: option, label: categoryLabels[option] }))}
+            onValueChange={(nextCategory) => setCategory(nextCategory as ExerciseCategory)}
+            ariaLabel="Exercise category"
+          />
         </label>
         {formError || error ? (
           <p className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{formError || error}</p>

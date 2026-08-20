@@ -5,6 +5,40 @@
   outline-offset: 2px;
 }
 
+@keyframes fluid-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fluid-select-in-above {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fluid-select-menu {
+  animation: fluid-select-in 150ms ease-out;
+  transform-origin: top center;
+}
+
+.fluid-select-menu[data-placement="above"] {
+  animation-name: fluid-select-in-above;
+  transform-origin: bottom center;
+}
+
 @media (hover: none) and (pointer: coarse) {
   :where(button, a[href], [role="button"]):not([data-press="row"]):not([data-press="icon"]):not([data-press="swatch"]) {
     -webkit-tap-highlight-color: transparent;
@@ -93,5 +127,11 @@
   :where([data-press="icon"]:active),
   :where([data-press="swatch"]:active) {
     scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fluid-select-menu {
+    animation: none;
   }
 }

@@ -23,6 +23,7 @@ import { getBadgeClass } from '../lib/badgeColors'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
 import { getActiveProgram, programQueryKey } from '../lib/programs'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
+import { FluidSelect } from '../components/forms/FluidSelect'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 import { useWorkoutTimer } from '../lib/useWorkoutTimer'
 
@@ -33,6 +34,12 @@ type ExercisePickerState =
 type DeleteConfirmationState =
   | { type: 'set'; exercise: WorkoutExercise; set: WorkoutSet }
   | { type: 'exercise'; exercise: WorkoutExercise }
+
+const setKindOptions = [
+  { value: 'NORMAL', label: 'Normal' },
+  { value: 'WARMUP', label: 'Warm-up' },
+  { value: 'DROP', label: 'Drop' },
+] as const
 
 function formatStartedAt(startedAt: string) {
   return new Intl.DateTimeFormat('en', {
@@ -216,15 +223,12 @@ function EditSetForm({
       <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr]">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
-          <select
+          <FluidSelect
             value={kind}
-            onChange={(event) => setKind(event.target.value as SetKind)}
-            className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-900"
-          >
-            <option value="NORMAL">Normal</option>
-            <option value="WARMUP">Warm-up</option>
-            <option value="DROP">Drop</option>
-          </select>
+            options={[...setKindOptions]}
+            onValueChange={(nextKind) => setKind(nextKind as SetKind)}
+            ariaLabel="Set kind"
+          />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
@@ -702,15 +706,12 @@ export function WorkoutPage() {
                       <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr]">
                         <label className="block">
                           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
-                          <select
+                          <FluidSelect
                             value={kind}
-                            onChange={(event) => setKind(event.target.value as SetKind)}
-                            className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-slate-900"
-                          >
-                            <option value="NORMAL">Normal</option>
-                            <option value="WARMUP">Warm-up</option>
-                            <option value="DROP">Drop</option>
-                          </select>
+                            options={[...setKindOptions]}
+                            onValueChange={(nextKind) => setKind(nextKind as SetKind)}
+                            ariaLabel="Set kind"
+                          />
                         </label>
                         <label className="block">
                           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
