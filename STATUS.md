@@ -39,7 +39,7 @@
 - `git diff --check` passes.
 
 ## Next Actions
-- Manually verify the Programs library and editor at 375px, 430px, and desktop widths, including edge-positioned action menus.
+- Manually verify the Programs library and editor at 375px, 430px, and desktop widths, including edge-positioned action menus and the Copy from dropdown.
 - Verify switching is blocked during an active workout and that history retains the previous program snapshot.
 - Consider adding API search/category filtering for the exercise catalog.
 - Continue with deferred product features or production hardening after the new flow is accepted.
@@ -67,4 +67,5 @@
 - 2026-08-22: Added dedicated Delete buttons to program cards and the Program editor, with active-program protection and a reusable monochrome confirmation dialog.
 - 2026-08-22: Moved program deletion back into three-dot menus and restyled the confirmation action as a red outlined control matching the reference.
 - 2026-08-22: Replaced clipped Program library/editor dropdowns with a shared portal menu that clamps horizontally, opens above crowded bottom areas, and stays above fixed navigation/timer UI.
+- 2026-08-23: Replaced the native Copy from selector in the New routine dialog with the shared viewport-aware FluidSelect listbox, including selected-state checkmark, keyboard navigation, internal scrolling, and outside/Escape dismissal.
 - 2026-08-22: Changed the server development command from `tsx watch src/index.ts` to `tsx src/index.ts` because Node 25 watch mode could leave the API unbound on port 4000. Direct startup now prints the listening message; server typecheck passes.

@@ -16,6 +16,7 @@ import {
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
+import { FluidSelect } from '../components/forms/FluidSelect'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog, type ProgramDeleteTarget } from '../components/programs/ProgramDeleteDialog'
 
@@ -375,17 +376,16 @@ export function ProgramLibraryPage() {
             {createModal.mode === 'copy' ? (
               <label className="mt-4 block">
                 <span className="mb-1.5 block text-sm font-semibold text-slate-700">Copy from</span>
-                <select
+                <FluidSelect
                   value={createModal.sourceProgramId ?? ''}
-                  onChange={(event) => {
-                    const sourceProgram = programs.find((program) => program.id === event.target.value)
-                    setCreateModal({ mode: 'copy', sourceProgramId: event.target.value })
+                  ariaLabel="Copy from"
+                  options={programs.map((program) => ({ value: program.id, label: program.name }))}
+                  onValueChange={(programId) => {
+                    const sourceProgram = programs.find((program) => program.id === programId)
+                    setCreateModal({ mode: 'copy', sourceProgramId: programId })
                     setProgramName(sourceProgram ? `${sourceProgram.name} Copy` : 'Program Copy')
                   }}
-                  className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
-                >
-                  {programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
-                </select>
+                />
               </label>
             ) : null}
 
