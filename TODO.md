@@ -1,8 +1,8 @@
 # TODO.md
 
-## Future Guide Page
+## Deferred Guide Page
 
-- [ ] Build `/guide` before final project wrap-up.
+- [ ] Build `/guide` in a future release.
 
 ### First Guide Entry: Estimated 1RM Personal Best
 

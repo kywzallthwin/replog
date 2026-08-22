@@ -149,6 +149,17 @@
     .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; font-weight: 600; }
     .settings-row:last-child { border-bottom: 0; }
 
+     /* Monochrome program library direction: hierarchy comes from weight, spacing, and one ink accent. */
+     .program-library-card { position: relative; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 20px; background: #fff; padding: 18px; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
+     .program-library-card.active { border-color: #cbd5e1; box-shadow: 0 4px 14px rgba(15,23,42,.10); }
+     .program-library-card.active::before { position: absolute; inset: 0 auto 0 0; width: 4px; background: #0f172a; content: ''; }
+     .program-library-card h2 { font-size: 18px; }
+     .program-library-card .program-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 7px; color: #64748b; font-size: 12px; font-weight: 700; }
+     .program-library-card .program-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+     .program-library-card .program-actions .btn { width: auto; padding: 9px 12px; border-radius: 10px; font-size: 12px; }
+     .program-library-card .program-actions .btn-icon { width: 36px; height: 36px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; font-size: 18px; }
+     .program-library-add { display: flex; align-items: center; justify-content: center; min-height: 54px; border: 1px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; color: #475569; font-size: 13px; font-weight: 800; }
+
     .pb-card { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 24px; padding: 20px; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
     .pb-card .tiny { color: #16a34a; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; overflow: hidden; border-radius: 14px; }
@@ -412,6 +423,34 @@
           <main class="app"><div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1></div></div><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div><button class="btn btn-white btn-small">Swap</button></div></div></main>
           <div class="modal-overlay"><div class="modal"><div class="modal-title">New Exercise</div><p class="sub" style="margin-bottom:14px;">Create a custom exercise you can add to any workout.</p><div class="field"><label>Name</label><input class="input" value="Cable Fly" /></div><div class="field"><label>Category</label><select><option>Chest</option><option>Back</option><option>Shoulders</option><option>Legs</option><option>Arms</option><option>Core</option></select></div><div class="row" style="margin-top:6px;"><button class="btn btn-white btn-small" style="flex:1;">Cancel</button><button class="btn btn-dark btn-small" style="flex:1;">Save Exercise</button></div></div></div>
         </div>
+      </div>
+    </div>
+
+    <div id="program-library-monochrome">
+      <p class="label">Route /program (program library - monochrome)</p>
+      <div class="phone">
+        <main class="app">
+          <div class="top" style="margin-bottom:18px;">
+            <div><div class="brand-small">RepLog</div><h1>Programs</h1></div>
+            <button class="btn btn-dark btn-small">+ New Program</button>
+          </div>
+          <p class="sub" style="line-height:1.55;margin-bottom:20px;">Try different routines without losing the workouts you have already logged.</p>
+          <div class="tiny" style="margin-bottom:9px;">Active program</div>
+          <div class="program-library-card active" style="margin-bottom:18px;">
+            <div class="row" style="align-items:flex-start;">
+              <div style="min-width:0;"><h2>Example Program</h2><div class="program-meta"><span>4 training days</span><span>·</span><span>18 exercises</span></div></div>
+              <span class="badge badge-neutral">ACTIVE</span>
+            </div>
+            <div class="program-actions"><button class="btn btn-dark btn-small">View and edit</button><button class="btn-icon" aria-label="More program actions">···</button></div>
+          </div>
+          <div class="tiny" style="margin-bottom:9px;">Other programs</div>
+          <div class="stack" style="gap:10px;">
+            <div class="program-library-card"><h2>Beginner Full Body</h2><div class="program-meta"><span>3 training days</span><span>·</span><span>15 exercises</span></div><div class="program-actions"><button class="btn btn-white btn-small">Make active</button><button class="btn btn-white btn-small">Edit</button><button class="btn-icon" aria-label="More program actions">···</button></div></div>
+            <div class="program-library-card"><h2>Upper / Lower</h2><div class="program-meta"><span>4 training days</span><span>·</span><span>19 exercises</span></div><div class="program-actions"><button class="btn btn-white btn-small">Make active</button><button class="btn btn-white btn-small">Edit</button><button class="btn-icon" aria-label="More program actions">···</button></div></div>
+            <div class="program-library-add">+ Create another program</div>
+          </div>
+          <div class="tabbar"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
+        </main>
       </div>
     </div>
 

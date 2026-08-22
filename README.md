@@ -9,12 +9,14 @@ The app helps lifters keep a structured program, record active workouts, review 
 - Email/password authentication with protected routes and secure HTTP-only cookie sessions
 - Optional Google OAuth sign-in and account linking
 - Dashboard with routine days, suggested workouts, recent sessions, and training statistics
+- Multiple editable programs with beginner templates, blank routines, copying, and active-program switching
 - Active workout logging with warm-up, normal, and drop sets
 - Add, swap, remove, search, and reorder exercises during a workout
-- Program editing for days, colors, names, exercises, and exercise order
+- Program editing for names, days, colors, exercises, and exercise order
 - Workout history grouped by month
 - Progress tracking with estimated one-rep-max personal bests, session history, and trends
 - Profile editing, password changes, and password recovery
+- User-owned custom exercise creation with duplicate protection
 - Mobile bottom navigation and responsive layouts designed around 375px phone screens
 
 ## Tech stack
@@ -27,7 +29,7 @@ The app helps lifters keep a structured program, record active workouts, review 
 
 ### Requirements
 
-- Node.js 25.6.1 or a compatible recent Node.js release
+- Node.js 20.19+ (or a supported Node.js 22/24+ release)
 - npm
 
 ### Install
@@ -45,7 +47,7 @@ cp server/.env.example server/.env
 
 On PowerShell, use `Copy-Item` instead of `cp` if needed.
 
-The server uses SQLite for local development. The Prisma schema, migration, generated client, seed data, and starter program are included in the repository.
+The server uses SQLite for local development. Prisma Client is generated automatically during workspace installation. The migration and seed data are included in the repository.
 
 ### Run the app
 
@@ -56,6 +58,12 @@ npm run dev
 ```
 
 The client runs at `http://localhost:5173` and the API runs at `http://localhost:4000` by default.
+
+To apply migrations to an existing local database:
+
+```bash
+npm run migrate:deploy -w server
+```
 
 ### Verify changes
 
@@ -78,9 +86,9 @@ Password-reset email delivery is optional for local development and requires `RE
 
 ## Project status
 
-The MVP includes authentication, dashboard, program editing, workout logging, history, progress, profile management, and password recovery. Current work is focused on mobile visual QA and polish.
+The MVP includes authentication, dashboard, multiple program management, workout logging, history, progress, profile management, password recovery, and custom exercise creation. Existing mobile and desktop acceptance is complete; the new Programs library still needs rendered browser verification.
 
-Deferred ideas include a rest timer, last-time exercise references, workout notes, custom exercises, unit preferences, an estimated-1RM chart, and whole-day program reordering.
+Deferred ideas include a guide page, rest timer, last-time exercise references, workout notes, unit preferences, an estimated-1RM chart, and whole-day program reordering.
 
 ## Repository layout
 
