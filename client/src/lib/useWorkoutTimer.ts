@@ -10,6 +10,15 @@ function getElapsedSeconds(startedAt: string) {
   return Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000))
 }
 
+export function formatWorkoutDuration(totalSeconds: number) {
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const pad = (value: number) => value.toString().padStart(2, '0')
+
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`
+}
+
 export function useWorkoutTimer(startedAt: string) {
   const [elapsedSeconds, setElapsedSeconds] = useState(() => getElapsedSeconds(startedAt))
 

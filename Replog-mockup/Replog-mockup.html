@@ -43,7 +43,7 @@
     .dot { width: 10px; height: 10px; border-radius: 999px; }
     .url { flex: 1; border-radius: 999px; background: #f8fafc; color: #94a3b8; font-size: 12px; padding: 5px 12px; }
 
-    .app { min-height: 640px; background: #f1f5f9; padding: 22px 16px; }
+     .app { position: relative; min-height: 640px; background: #f1f5f9; padding: 22px 16px; }
     .app.desktop-app { min-height: 670px; padding: 30px 38px; }
     .max { max-width: 1000px; margin: 0 auto; }
     .auth-shell { min-height: 640px; background: #f1f5f9; padding: 30px 16px; }
@@ -191,7 +191,10 @@
     .workout-duration-header .duration-meta { display: inline-flex; align-items: center; gap: 6px; color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .07em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
     .workout-duration-header .duration-meta::before { width: 7px; height: 7px; border-radius: 999px; background: #22c55e; content: ''; }
     .workout-duration-header .duration-value { color: #0f172a; font-size: 28px; font-weight: 900; letter-spacing: -.05em; line-height: .9; }
-    .picker-tabs { display: flex; gap: 4px; margin-bottom: 12px; padding: 4px; border-radius: 10px; background: #f1f5f9; }
+     .active-workout-time { position: absolute; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 3; display: flex; min-width: 76px; min-height: 44px; align-items: center; justify-content: center; margin: 0; padding: 0 14px; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; background: #0f172a; color: #fff; font: inherit; font-size: 17px; font-variant-numeric: tabular-nums; font-weight: 900; letter-spacing: -.03em; box-shadow: 0 8px 20px rgba(15,23,42,.22), 0 2px 5px rgba(15,23,42,.12); }
+     .active-workout-time:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+     .active-workout-time.edge { right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); }
+     .picker-tabs { display: flex; gap: 4px; margin-bottom: 12px; padding: 4px; border-radius: 10px; background: #f1f5f9; }
     .picker-tab { flex: 1; border: 0; border-radius: 8px; background: transparent; color: #64748b; font-size: 11px; font-weight: 800; padding: 9px 8px; }
     .picker-tab.active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.1); }
     .option.disabled { color: #94a3b8; }
@@ -316,12 +319,13 @@
           <p class="sub" style="font-weight:700;margin-bottom:8px;">Finish or cancel this workout before starting another.</p>
           <div class="pill-row" style="margin-bottom:22px;opacity:.55;"><div class="pill">PUSH</div><div class="pill">PULL</div><div class="pill">LEGS</div><div class="pill active">TORSO A</div><div class="pill">LOWER+ARMS B</div></div>
           <div class="row" style="margin-bottom:10px;"><div class="tiny">Recent Sessions</div><strong style="font-size:12px;">View all</strong></div>
-          <div class="stack">
-            <div class="soft-card row"><div><strong>Mon 29 Jun <span class="badge badge-neutral">LOWER+ARMS B</span></strong><p class="sub">6 exercises - Finished - Duration: 48 min</p></div><span class="muted">&gt;</span></div>
-            <div class="soft-card row"><div><strong>Sat 27 Jun <span class="badge badge-neutral">TORSO A</span></strong><p class="sub">6 exercises - In progress</p></div><span class="muted">&gt;</span></div>
-          </div>
-          <div class="card" style="margin-top:18px;"><div class="row" style="margin-bottom:12px;"><h3>Your Stats</h3><strong style="font-size:12px;">Progress</strong></div><div class="stats"><div class="stat"><div class="stat-value">24</div><div class="stat-label">Workouts</div></div><div class="stat"><div class="stat-value">432</div><div class="stat-label">Sets</div></div><div class="stat"><div class="stat-value">8.6k</div><div class="stat-label">Lifted</div></div></div></div>
-          <div class="tabbar"><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
+           <div class="stack">
+             <div class="soft-card row"><div><strong>Mon 29 Jun <span class="badge badge-neutral">LOWER+ARMS B</span></strong><p class="sub">6 exercises - Finished - Duration: 48 min</p></div><span class="muted">&gt;</span></div>
+             <div class="soft-card row"><div><strong>Sat 27 Jun <span class="badge badge-neutral">TORSO A</span></strong><p class="sub">6 exercises - In progress</p></div><span class="muted">&gt;</span></div>
+           </div>
+           <div class="card" style="margin-top:18px;"><div class="row" style="margin-bottom:12px;"><h3>Your Stats</h3><strong style="font-size:12px;">Progress</strong></div><div class="stats"><div class="stat"><div class="stat-value">24</div><div class="stat-label">Workouts</div></div><div class="stat"><div class="stat-value">432</div><div class="stat-label">Sets</div></div><div class="stat"><div class="stat-value">8.6k</div><div class="stat-label">Lifted</div></div></div></div>
+           <button class="active-workout-time" type="button" aria-label="Resume active workout" data-active-workout-duration>42:18</button>
+           <div class="tabbar"><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -329,9 +333,10 @@
     <div>
       <p class="label">Navigation concept B / edge-to-edge</p>
       <div class="phone">
-        <main class="app" style="min-height:300px;display:flex;flex-direction:column;justify-content:flex-end;">
-          <div class="surface" style="margin-bottom:auto;"><div class="tiny">Alternative navigation direction</div><h2 style="margin-top:8px;">Clean and grounded</h2><p class="sub">A full-width bar keeps the page edge clear while the top indicator makes the current destination easy to scan.</p></div>
-          <div class="tabbar-edge"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
+         <main class="app" style="min-height:300px;display:flex;flex-direction:column;justify-content:flex-end;">
+           <div class="surface" style="margin-bottom:auto;"><div class="tiny">Alternative navigation direction</div><h2 style="margin-top:8px;">Clean and grounded</h2><p class="sub">A full-width bar keeps the page edge clear while the top indicator makes the current destination easy to scan.</p></div>
+           <button class="active-workout-time edge" type="button" aria-label="Resume active workout" data-active-workout-duration>42:18</button>
+           <div class="tabbar-edge"><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span>Home</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h14"/><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/></svg></span>History</div><div class="tabbar-item active"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19 10 13l4 3 6-8"/><path d="M15 8h5v5"/></svg></span>Progress</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>Program</div><div class="tabbar-item"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.3 3.2-5 7-5s6.2 1.7 7 5"/></svg></span>Profile</div></div>
         </main>
       </div>
     </div>
@@ -582,7 +587,7 @@
 
   <div class="note">
     <strong>Design source:</strong> this mockup is the design spec RepLog gets built to match, not documentation of what's already shipped. It covers protected full-page routes, auth card shell, dashboard/profile actions, session add/swap/remove controls, in-app delete confirmation for both sets and exercises, history grouping, and estimated 1RM progress language. It also documents the History and Progress empty states new accounts see first, plus a forward-looking mock of the planned (not yet built) <code>/guide</code> route from <code>TODO.md</code>. Primary/brand color is near-black monochrome; category day badges keep their own accent colors.
-    <br /><br /><strong>Mobile-first rules:</strong> the built mobile layout is the primary target; desktop frames are an optional responsive stretch. The primary bottom navigation uses a refined floating dock with recognizable line icons, while the comparison frame above shows an edge-to-edge alternative with a short top active indicator. Both directions use consistent 44px tap targets and <code>env(safe-area-inset-bottom)</code> padding when fixed to the viewport. This mock keeps the docks sticky inside each phone frame to preview the same proportions. Weight and reps inputs open numeric keyboards (<code>inputmode="decimal"</code> / <code>"numeric"</code>). The rest timer stays visible while scrolling during an active workout.
+     <br /><br /><strong>Mobile-first rules:</strong> the built mobile layout is the primary target; desktop frames are an optional responsive stretch. The primary bottom navigation uses a refined floating dock with recognizable line icons, while the comparison frame above shows an edge-to-edge alternative with a short top active indicator. Both directions use consistent 44px tap targets and <code>env(safe-area-inset-bottom)</code> padding when fixed to the viewport. This mock keeps the docks sticky inside each phone frame and floats the active-workout time capsule above them. Weight and reps inputs open numeric keyboards (<code>inputmode="decimal"</code> / <code>"numeric"</code>). The rest timer stays visible while scrolling during an active workout.
     <div class="palette">
       <div class="swatch"><div style="background:#f1f5f9"></div>App BG</div>
       <div class="swatch"><div style="background:#fff"></div>Card</div>
@@ -596,7 +601,7 @@
   </div>
 <script>
   (() => {
-    const timerNodes = document.querySelectorAll('[data-workout-duration]')
+    const timerNodes = document.querySelectorAll('[data-workout-duration], [data-active-workout-duration]')
     if (!timerNodes.length) return
 
     const storageKey = 'replog-mockup-workout-started-at'

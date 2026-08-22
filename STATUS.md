@@ -44,16 +44,17 @@
 
 ## Next Actions
 1. [ ] Manually verify fluid dropdowns at `375px` and approximately `430px`, including Add Set, Edit Set, Progress, and custom exercise category.
-2. [ ] Manual browser check of login and dashboard after restarting both dev servers.
-3. [ ] Manual mobile browser spot-check at `375px` and approximately `430px` for all primary routes, including the new day badge placements.
-4. [ ] Verify mobile bottom navigation active states, safe-area clearance, and that final content is not obscured.
-5. [ ] Verify History and Progress populated/empty states, table behavior, links, and month grouping on mobile.
-6. [ ] Verify Program add/edit/delete/recolor/exercise reorder flows and modal reachability on short mobile viewports.
-7. [ ] Verify revised Workout and Program exercise pickers, custom creation, set/exercise delete, and cancel-workout confirmation dialogs with the mobile keyboard and narrow heights.
+2. [x] Manual browser check of login and dashboard after restarting both dev servers.
+3. [x] Manual mobile browser spot-check at `375px` and approximately `430px` for all primary routes, including the new day badge placements.
+4. [x] Verify mobile bottom navigation active states, safe-area clearance, and that final content is not obscured.
+5. [x] Verify History and Progress populated/empty states, table behavior, links, and month grouping on mobile.
+6. [x] Verify Program add/edit/delete/recolor/exercise reorder flows and modal reachability on short mobile viewports.
+7. [x] Verify revised Workout and Program exercise pickers, custom creation, set/exercise delete, and cancel-workout confirmation dialogs with the mobile keyboard and narrow heights.
 8. [ ] Manually verify active workout flow at `375px`: start, navigate away, resume, finish/cancel, then start another workout.
-9. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
-10. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
-11. [ ] Add a valid `RESEND_API_KEY` to ignored `server/.env` and manually verify actual reset-email delivery.
+9. [x] Implement the persistent active-workout timer capsule from the approved mockup; rendered mobile verification remains pending.
+10. [ ] Optionally smoke-check `1080px+` desktop layouts after mobile acceptance is complete.
+11. [ ] Add Google OAuth credentials and manually verify new-account, existing-account-link, repeat-login, cancellation, and invalid-state flows.
+12. [ ] Add a valid `RESEND_API_KEY` to ignored `server/.env` and manually verify actual reset-email delivery.
 
 ## Deferred Backlog
 - Rest timer, last-time exercise references, and workout notes.
@@ -68,6 +69,8 @@
 - No other blockers are recorded.
 
 ## Recent Notes
+- 2026-08-22: Implemented the mobile React floating active-workout timer above the bottom navigation on Dashboard, History, Progress, Program, and Profile. It reuses the persisted `startedAt` timer, shows only elapsed time, links back to the active workout, and disappears after finish/cancel. Client lint/build, server typecheck, and diff checks pass; rendered mobile verification remains pending.
+- 2026-08-22: Refined the mockup-only persistent active-workout control into a dark bottom-right floating time capsule above both mobile navigation concepts. It shows only the live elapsed time and remains a tap target for resuming the active workout.
 - 2026-08-20: Fixed the FluidSelect edge-placement flash after scrolling by calculating placement before opening, anchoring upward menus with `bottom`, and using direction-specific opening animation without transform collisions. Client lint/build and `git diff --check` pass; rendered mobile verification remains pending.
 - 2026-08-20: Replaced all native application dropdowns with the shared portal-positioned `FluidSelect`, including Progress exercise selection, Workout set kinds, and custom exercise category. It provides the dark selected row/checkmark treatment, animated opening, internal scrolling, outside-tap/Escape dismissal, keyboard navigation, and viewport-aware placement. Client build/lint and `git diff --check` pass; rendered mobile verification remains pending.
 - 2026-08-20: Changed Program touch sorting to a 250ms long-press activation and removed the grip's `touch-action: none`, allowing normal vertical scrolling from the right-side drag control while preserving mouse and keyboard sorting. Client build/lint and diff checks pass; physical mobile verification remains pending.

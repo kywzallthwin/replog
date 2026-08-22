@@ -25,7 +25,7 @@ import { getActiveProgram, programQueryKey } from '../lib/programs'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
-import { useWorkoutTimer } from '../lib/useWorkoutTimer'
+import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -48,15 +48,6 @@ function formatStartedAt(startedAt: string) {
     day: 'numeric',
     month: 'short',
   }).format(new Date(startedAt))
-}
-
-function formatWorkoutDuration(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  const pad = (value: number) => value.toString().padStart(2, '0')
-
-  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`
 }
 
 function WorkoutDuration({ startedAt }: { startedAt: string }) {
