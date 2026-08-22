@@ -122,19 +122,21 @@ async function main() {
       ownerId: user.id,
       name: { not: "Example Program" },
     },
-    data: { isActive: false },
+    data: { isActive: false, activeKey: null },
   });
 
   const program = existingProgram
     ? await prisma.program.update({
         where: { id: existingProgram.id },
-        data: { isActive: true },
+        data: { isActive: true, activeKey: "active" },
       })
     : await prisma.program.create({
         data: {
           ownerId: user.id,
           name: "Example Program",
+          nameKey: "example program",
           isActive: true,
+          activeKey: "active",
         },
       });
 

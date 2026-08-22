@@ -4,9 +4,8 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider            = "prisma-client"
-  output              = "../src/generated/prisma"
-  importFileExtension = "ts"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -64,10 +63,15 @@ model Program {
   name      String
   isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
+  nameKey   String
+  activeKey String?
   owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   days      Day[]
+  sessions  Session[]
 
   @@index([ownerId])
+  @@unique([ownerId, nameKey])
+  @@unique([ownerId, activeKey])
 }
 
 model Day {
@@ -97,19 +101,23 @@ model DayExercise {
 }
 
 model Session {
-  id                 String            @id @default(cuid())
-  userId             String
-  dayId              String?
-  dayNameSnapshot    String
-  badgeColorSnapshot String
-  startedAt          DateTime          @default(now())
-  endedAt            DateTime?
-  durationSec        Int?
-  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  day                Day?              @relation(fields: [dayId], references: [id], onDelete: SetNull)
-  sessionExercises   SessionExercise[]
+  id                  String            @id @default(cuid())
+  userId              String
+  programId           String?
+  programNameSnapshot String?
+  dayId               String?
+  dayNameSnapshot     String
+  badgeColorSnapshot  String
+  startedAt           DateTime          @default(now())
+  endedAt             DateTime?
+  durationSec         Int?
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  program             Program?          @relation(fields: [programId], references: [id], onDelete: SetNull)
+  day                 Day?              @relation(fields: [dayId], references: [id], onDelete: SetNull)
+  sessionExercises    SessionExercise[]
 
   @@index([dayId])
+  @@index([programId])
   @@index([userId, startedAt])
 }
 
