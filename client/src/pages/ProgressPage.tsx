@@ -39,6 +39,14 @@ function formatProgress(progressKg: number) {
   return `${progressKg > 0 ? '+' : '-'}${formattedValue} kg`
 }
 
+function getTrendLabel(progressKg: number, sessionCount: number) {
+  if (sessionCount < 2 || progressKg === 0) {
+    return 'steady'
+  }
+
+  return progressKg > 0 ? 'up' : 'down'
+}
+
 export function ProgressPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const exerciseId = searchParams.get('exerciseId')
@@ -178,8 +186,8 @@ export function ProgressPage() {
                   <div className="mt-4 flex flex-wrap items-center gap-2 rounded-[14px] bg-slate-50 px-4 py-3 text-sm text-slate-500">
                     <span className="font-semibold text-slate-700">Estimated 1RM trend:</span>
                     <span className="break-words">{progress.trendEstimatedOneRepMaxKg.map((weightKg) => Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)).join(' -> ')} kg</span>
-                    <span className={progress.stats.progressKg >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-500'}>
-                      {progress.stats.progressKg >= 0 ? 'up' : 'down'}
+                    <span className={progress.stats.progressKg > 0 ? 'font-bold text-green-600' : progress.stats.progressKg < 0 ? 'font-bold text-red-500' : 'font-bold text-slate-500'}>
+                      {getTrendLabel(progress.stats.progressKg, progress.stats.sessionCount)}
                     </span>
                   </div>
                 </>

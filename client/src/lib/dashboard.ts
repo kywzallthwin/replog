@@ -11,6 +11,7 @@ export type DashboardDay = {
 
 export type DashboardSession = {
   id: string
+  programName: string | null
   dayName: string
   badgeColor: string
   startedAt: string

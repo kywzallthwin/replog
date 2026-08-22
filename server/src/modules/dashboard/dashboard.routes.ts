@@ -85,6 +85,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
     activeSession: activeSession
       ? {
           id: activeSession.id,
+          programName: activeSession.programNameSnapshot,
           dayName: activeSession.dayNameSnapshot,
           badgeColor: activeSession.badgeColorSnapshot,
           startedAt: activeSession.startedAt,
@@ -124,6 +125,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
       : null,
     recentSessions: recentSessions.map((session) => ({
       id: session.id,
+      programName: session.programNameSnapshot,
       dayName: session.dayNameSnapshot,
       badgeColor: session.badgeColorSnapshot,
       startedAt: session.startedAt,

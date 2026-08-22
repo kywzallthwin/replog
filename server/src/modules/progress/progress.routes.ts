@@ -75,6 +75,12 @@ progressRouter.get('/', requireAuth, async (req, res) => {
   }
 
   const exercises = [...exerciseMap.values()].sort((a, b) => a.name.localeCompare(b.name))
+
+  if (requestedExerciseId && !exercises.some((exercise) => exercise.id === requestedExerciseId)) {
+    res.status(404).json({ error: 'Exercise progress not found' })
+    return
+  }
+
   const selectedExercise =
     exercises.find((exercise) => exercise.id === requestedExerciseId) ?? exercises[0] ?? null
 

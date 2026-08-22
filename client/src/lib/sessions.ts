@@ -20,6 +20,8 @@ export type WorkoutExercise = {
 
 export type WorkoutSession = {
   id: string
+  programId: string | null
+  programName: string | null
   dayId: string | null
   dayName: string
   badgeColor: string
@@ -31,6 +33,7 @@ export type WorkoutSession = {
 
 export type WorkoutHistorySession = {
   id: string
+  programName: string | null
   dayName: string
   badgeColor: string
   startedAt: string

@@ -11,6 +11,8 @@ function isUniqueConstraintError(error: unknown) {
 
 function toSessionPayload(session: {
   id: string
+  programId: string | null
+  programNameSnapshot: string | null
   dayId: string | null
   dayNameSnapshot: string
   badgeColorSnapshot: string
@@ -33,6 +35,8 @@ function toSessionPayload(session: {
 }) {
   return {
     id: session.id,
+    programId: session.programId,
+    programName: session.programNameSnapshot,
     dayId: session.dayId,
     dayName: session.dayNameSnapshot,
     badgeColor: session.badgeColorSnapshot,
@@ -114,9 +118,15 @@ sessionsRouter.post('/', requireAuth, async (req, res) => {
   const day = await prisma.day.findFirst({
     where: {
       id: parsedBody.data.dayId,
-      program: { ownerId: userId },
+      program: { ownerId: userId, isActive: true },
     },
     include: {
+      program: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       dayExercises: {
         orderBy: { order: 'asc' },
         include: { exercise: true },
@@ -135,6 +145,8 @@ sessionsRouter.post('/', requireAuth, async (req, res) => {
     session = await prisma.session.create({
       data: {
         userId,
+        programId: day.program.id,
+        programNameSnapshot: day.program.name,
         dayId: day.id,
         dayNameSnapshot: day.name,
         badgeColorSnapshot: day.badgeColor,
@@ -203,6 +215,7 @@ sessionsRouter.get('/history', requireAuth, async (req, res) => {
   res.json({
     sessions: sessions.map((session) => ({
       id: session.id,
+      programName: session.programNameSnapshot,
       dayName: session.dayNameSnapshot,
       badgeColor: session.badgeColorSnapshot,
       startedAt: session.startedAt,
@@ -405,7 +418,12 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId', requireAuth, as
       sessionId,
       session: { userId },
     },
-    include: { session: true },
+    include: {
+      session: true,
+      setLogs: {
+        select: { id: true },
+      },
+    },
   })
 
   if (!sessionExercise) {
@@ -415,6 +433,11 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId', requireAuth, as
 
   if (sessionExercise.session.endedAt) {
     res.status(409).json({ error: 'Finished workouts cannot be edited' })
+    return
+  }
+
+  if (sessionExercise.setLogs.length > 0) {
+    res.status(409).json({ error: 'Exercises with logged sets cannot be swapped' })
     return
   }
 

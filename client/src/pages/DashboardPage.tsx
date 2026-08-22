@@ -153,7 +153,9 @@ export function DashboardPage() {
             <div>
               {dashboard.activeSession ? (
                 <section className="mb-5 rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(15,23,42,0.12)]">
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Workout in progress</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                    Workout in progress{dashboard.activeSession.programName ? ` · ${dashboard.activeSession.programName}` : ''}
+                  </p>
                   <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(dashboard.activeSession.badgeColor)}`}>
                     {dashboard.activeSession.dayName}
                   </span>
@@ -172,7 +174,9 @@ export function DashboardPage() {
                 </section>
               ) : null}
               <section className={`mb-5 rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)] ${dashboard.activeSession ? 'hidden' : ''}`}>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Suggested today</p>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Suggested today{dashboard.activeProgram ? ` · ${dashboard.activeProgram.name}` : ''}
+                </p>
                 {dashboard.suggestedDay ? (
                   <>
                     <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(dashboard.suggestedDay.badgeColor)}`}>
@@ -261,7 +265,7 @@ export function DashboardPage() {
                             </span>
                           </p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {session.exerciseCount} exercises · {formatDuration(session.durationSec, session.endedAt)}
+                            {session.programName ? `${session.programName} · ` : ''}{session.exerciseCount} exercises · {formatDuration(session.durationSec, session.endedAt)}
                           </p>
                         </div>
                         <span className="text-lg text-slate-300">{String.fromCharCode(0x203a)}</span>

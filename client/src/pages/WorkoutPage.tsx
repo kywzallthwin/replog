@@ -21,7 +21,7 @@ import {
 import { dashboardQueryKey } from '../lib/dashboard'
 import { getBadgeClass } from '../lib/badgeColors'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
-import { getActiveProgram, programQueryKey } from '../lib/programs'
+import { activeProgramQueryKey, getActiveProgram } from '../lib/programs'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
@@ -50,6 +50,14 @@ function formatStartedAt(startedAt: string) {
   }).format(new Date(startedAt))
 }
 
+function formatCompletedDuration(durationSec: number | null) {
+  if (durationSec === null) {
+    return 'Duration unavailable'
+  }
+
+  return `${Math.max(1, Math.round(durationSec / 60))} min`
+}
+
 function WorkoutDuration({ startedAt }: { startedAt: string }) {
   const elapsedSeconds = useWorkoutTimer(startedAt)
   const duration = formatWorkoutDuration(elapsedSeconds)
@@ -68,7 +76,7 @@ function WorkoutDuration({ startedAt }: { startedAt: string }) {
   )
 }
 
-function formatSetKind(kind: SetKind, order: number) {
+function formatSetKind(kind: SetKind, setNumber: number) {
   if (kind === 'WARMUP') {
     return 'WU'
   }
@@ -77,7 +85,7 @@ function formatSetKind(kind: SetKind, order: number) {
     return 'DROP'
   }
 
-  return order.toString()
+  return setNumber.toString()
 }
 
 function getSetBadgeClass(kind: SetKind) {
@@ -94,11 +102,13 @@ function getSetBadgeClass(kind: SetKind) {
 
 function SetRow({
   set,
+  setNumber,
   isFinished,
   onEdit,
   onDelete,
 }: {
   set: WorkoutSet
+  setNumber: number
   isFinished: boolean
   onEdit: () => void
   onDelete: () => void
@@ -106,7 +116,7 @@ function SetRow({
   return (
     <div className="flex items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0">
       <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold tracking-[0.04em] ${getSetBadgeClass(set.kind)}`}>
-        {formatSetKind(set.kind, set.order)}
+        {formatSetKind(set.kind, setNumber)}
       </span>
       <span className="font-bold text-slate-900">{set.weightKg} kg</span>
       <span className="text-xs text-slate-300">x</span>
@@ -313,7 +323,7 @@ export function WorkoutPage() {
     isError: isProgramError,
     isPending: isProgramPending,
   } = useQuery({
-    queryKey: programQueryKey,
+    queryKey: activeProgramQueryKey,
     queryFn: getActiveProgram,
     enabled: Boolean(exercisePicker),
     retry: false,
@@ -573,9 +583,20 @@ export function WorkoutPage() {
             <h1 className="truncate text-[15px] font-bold text-slate-900">
               {session?.dayName ?? 'Workout'}
             </h1>
-            {session ? <p className="text-xs text-slate-500">Started {formatStartedAt(session.startedAt)}</p> : null}
+            {session ? (
+              <p className="text-xs text-slate-500">
+                {session.programName ? `${session.programName} · ` : ''}Started {formatStartedAt(session.startedAt)}
+              </p>
+            ) : null}
           </div>
-          {session && !session.endedAt ? <WorkoutDuration startedAt={session.startedAt} /> : <div className="w-[72px] shrink-0" />}
+          {session && !session.endedAt ? (
+            <WorkoutDuration startedAt={session.startedAt} />
+          ) : session ? (
+            <div className="flex shrink-0 flex-col items-end gap-1 py-1 text-right">
+              <span className="text-[9px] font-extrabold uppercase tracking-[0.07em] text-slate-500">Workout duration</span>
+              <span className="text-sm font-black text-slate-900">{formatCompletedDuration(session.durationSec)}</span>
+            </div>
+          ) : null}
         </header>
 
         {isPending ? (
@@ -605,7 +626,8 @@ export function WorkoutPage() {
                 {session.dayName}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Started {formatStartedAt(session.startedAt)} · {session.exercises.length} exercises
+                {session.programName ? `${session.programName} · ` : ''}
+                {session.endedAt ? `Finished in ${formatCompletedDuration(session.durationSec)}` : `Started ${formatStartedAt(session.startedAt)}`} · {session.exercises.length} exercises
               </p>
             </div>
 
@@ -677,15 +699,22 @@ export function WorkoutPage() {
                   </div>
                   {exercise.sets.length ? (
                     <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
-                      {exercise.sets.map((set) => (
-                        <SetRow
-                          key={set.id}
-                          set={set}
-                          isFinished={isFinished}
-                          onEdit={() => openEditSetForm(exercise, set)}
-                          onDelete={() => handleDeleteSet(exercise, set)}
-                        />
-                      ))}
+                      {exercise.sets.map((set, setIndex) => {
+                        const setNumber = exercise.sets
+                          .slice(0, setIndex + 1)
+                          .filter((candidate) => candidate.kind === 'NORMAL').length
+
+                        return (
+                          <SetRow
+                            key={set.id}
+                            set={set}
+                            setNumber={setNumber}
+                            isFinished={isFinished}
+                            onEdit={() => openEditSetForm(exercise, set)}
+                            onDelete={() => handleDeleteSet(exercise, set)}
+                          />
+                        )
+                      })}
                     </div>
                   ) : null}
                   {!isFinished && activeExerciseId === exercise.id ? (

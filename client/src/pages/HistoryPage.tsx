@@ -123,7 +123,7 @@ export function HistoryPage() {
                         {formatSessionDate(session.startedAt)}
                       </p>
                       <p className="mt-2 text-sm text-slate-500">
-                        {session.exerciseCount} exercises · {session.setCount} sets · {formatDuration(session.durationSec)}
+                        {session.programName ? `${session.programName} · ` : ''}{session.exerciseCount} exercises · {session.setCount} sets · {formatDuration(session.durationSec)}
                       </p>
                     </Link>
                   ))}
