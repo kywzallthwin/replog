@@ -10,7 +10,7 @@ import { progressRouter } from './modules/progress/progress.routes.js'
 import { sessionsRouter } from './modules/sessions/sessions.routes.js'
 import { usersRouter } from './modules/users/users.routes.js'
 
-const app = express()
+export const app = express()
 
 app.use(
   cors({
@@ -33,6 +33,8 @@ app.use('/progress', progressRouter)
 app.use('/sessions', sessionsRouter)
 app.use('/users', usersRouter)
 
-app.listen(env.PORT, () => {
-  console.log(`Server listening on http://localhost:${env.PORT}`)
-})
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(env.PORT, () => {
+    console.log(`Server listening on http://localhost:${env.PORT}`)
+  })
+}

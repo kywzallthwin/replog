@@ -12,13 +12,26 @@ export const DAY_BADGE_COLORS = [
 ] as const
 
 export const createDaySchema = z.object({
-  name: z.string().min(1).max(60),
+  name: z.string().trim().min(1).max(60),
   badgeColor: z.enum(DAY_BADGE_COLORS),
 })
 
 export const updateDaySchema = z.object({
-  name: z.string().min(1).max(60).optional(),
+  name: z.string().trim().min(1).max(60).optional(),
   badgeColor: z.enum(DAY_BADGE_COLORS).optional(),
+}).refine((value) => value.name !== undefined || value.badgeColor !== undefined, {
+  message: 'At least one day field is required',
+})
+
+export const createProgramSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  source: z.enum(['blank', 'template', 'copy']),
+  templateId: z.string().min(1).optional(),
+  sourceProgramId: z.string().min(1).optional(),
+})
+
+export const updateProgramSchema = z.object({
+  name: z.string().trim().min(1).max(80),
 })
 
 export const dayExerciseSchema = z.object({
