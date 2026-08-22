@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage'
 import { ProgressPage } from './pages/ProgressPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ProgramPage } from './pages/ProgramPage'
+import { ProgramLibraryPage } from './pages/ProgramLibraryPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { WorkoutPage } from './pages/WorkoutPage'
@@ -77,6 +78,14 @@ export const router = createBrowserRouter([
   },
   {
     path: '/program',
+    element: (
+      <RequireAuth>
+        <ProgramLibraryPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/program/:programId',
     element: (
       <RequireAuth>
         <ProgramPage />

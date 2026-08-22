@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   DndContext,
   KeyboardSensor,
@@ -22,25 +23,31 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   addDay,
   addDayExercise,
+  activateProgram,
   deleteDay,
+  deleteProgram,
   programQueryKey,
+  activeProgramQueryKey,
+  programsQueryKey,
   removeDayExercise,
   reorderDayExercise,
   updateDay,
-  getActiveProgram,
+  getProgram,
   DAY_BADGE_COLORS,
   type DayBadgeColor,
   type DayExerciseItem,
   type Program,
   type ProgramDay,
 } from '../lib/programs'
-import { dashboardQueryKey } from '../lib/dashboard'
+import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
 import { getBadgeClass } from '../lib/badgeColors'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
+import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
+import { ProgramDeleteDialog } from '../components/programs/ProgramDeleteDialog'
 
 type DayModalState = { mode: 'add' } | { mode: 'edit'; day: ProgramDay } | null
 
@@ -138,6 +145,9 @@ function SortableExerciseRow({ exercise, isReordering, onRemove }: SortableExerc
 }
 
 export function ProgramPage() {
+  const { programId: routeProgramId } = useParams<{ programId: string }>()
+  const programId = routeProgramId ?? ''
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [dayModal, setDayModal] = useState<DayModalState>(null)
   const [dayName, setDayName] = useState('')
@@ -146,12 +156,16 @@ export function ProgramPage() {
   const [exercisePicker, setExercisePicker] = useState<ExercisePickerState>(null)
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState>(null)
-  useBodyScrollLock(Boolean(dayModal || exercisePicker || deleteConfirmation))
+  const [activationBlocked, setActivationBlocked] = useState(false)
+  const [programDeleteDialogOpen, setProgramDeleteDialogOpen] = useState(false)
+  const [programMenuOpen, setProgramMenuOpen] = useState(false)
+  useBodyScrollLock(Boolean(dayModal || exercisePicker || deleteConfirmation || programDeleteDialogOpen))
 
   const { data: program, isError, isPending } = useQuery({
-    queryKey: programQueryKey,
-    queryFn: getActiveProgram,
+    queryKey: programQueryKey(programId),
+    queryFn: () => getProgram(programId),
     retry: false,
+    enabled: Boolean(programId),
   })
 
   const {
@@ -163,11 +177,35 @@ export function ProgramPage() {
     queryFn: getExercises,
     enabled: Boolean(exercisePicker),
   })
+  const { data: dashboard } = useQuery({
+    queryKey: dashboardQueryKey,
+    queryFn: getDashboard,
+    retry: false,
+  })
 
   async function invalidateProgramData() {
-    await queryClient.invalidateQueries({ queryKey: programQueryKey })
+    await queryClient.invalidateQueries({ queryKey: programQueryKey(programId) })
+    await queryClient.invalidateQueries({ queryKey: programsQueryKey })
+    await queryClient.invalidateQueries({ queryKey: activeProgramQueryKey })
     await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
   }
+
+  const activateProgramMutation = useMutation({
+    mutationFn: () => activateProgram(programId),
+    onSuccess: async () => {
+      setActivationBlocked(false)
+      await invalidateProgramData()
+    },
+    onError: () => setActivationBlocked(true),
+  })
+  const deleteProgramMutation = useMutation({
+    mutationFn: () => deleteProgram(programId),
+    onSuccess: async () => {
+      await invalidateProgramData()
+      setProgramDeleteDialogOpen(false)
+      navigate('/program')
+    },
+  })
 
   const addDayMutation = useMutation({
     mutationFn: addDay,
@@ -208,10 +246,10 @@ export function ProgramPage() {
   const reorderDayExerciseMutation = useMutation({
     mutationFn: reorderDayExercise,
     onMutate: async ({ dayId, dayExerciseId, targetIndex }) => {
-      await queryClient.cancelQueries({ queryKey: programQueryKey })
-      const previousProgram = queryClient.getQueryData<Program | null>(programQueryKey)
+      await queryClient.cancelQueries({ queryKey: programQueryKey(programId) })
+      const previousProgram = queryClient.getQueryData<Program | null>(programQueryKey(programId))
 
-      queryClient.setQueryData<Program | null>(programQueryKey, (currentProgram) => {
+      queryClient.setQueryData<Program | null>(programQueryKey(programId), (currentProgram) => {
         if (!currentProgram) {
           return currentProgram
         }
@@ -243,11 +281,11 @@ export function ProgramPage() {
     },
     onError: (_error, _variables, context) => {
       if (context?.previousProgram !== undefined) {
-        queryClient.setQueryData(programQueryKey, context.previousProgram)
+        queryClient.setQueryData(programQueryKey(programId), context.previousProgram)
       }
     },
     onSuccess: async (exercises, { dayId }) => {
-      queryClient.setQueryData<Program | null>(programQueryKey, (currentProgram) => {
+      queryClient.setQueryData<Program | null>(programQueryKey(programId), (currentProgram) => {
         if (!currentProgram) {
           return currentProgram
         }
@@ -306,11 +344,11 @@ export function ProgramPage() {
     }
 
     if (dayModal.mode === 'add') {
-      addDayMutation.mutate({ name: dayName.trim(), badgeColor: dayBadgeColor })
+      addDayMutation.mutate({ programId, name: dayName.trim(), badgeColor: dayBadgeColor })
       return
     }
 
-    updateDayMutation.mutate({ dayId: dayModal.day.id, name: dayName.trim(), badgeColor: dayBadgeColor })
+    updateDayMutation.mutate({ programId, dayId: dayModal.day.id, name: dayName.trim(), badgeColor: dayBadgeColor })
   }
 
   function handleDeleteDayClick(day: ProgramDay) {
@@ -335,7 +373,7 @@ export function ProgramPage() {
       return
     }
 
-    addDayExerciseMutation.mutate({ dayId: exercisePicker.dayId, exerciseId: selectedExerciseId })
+    addDayExerciseMutation.mutate({ programId, dayId: exercisePicker.dayId, exerciseId: selectedExerciseId })
   }
 
   function handleRemoveExercise(dayId: string, exercise: DayExerciseItem) {
@@ -360,11 +398,12 @@ export function ProgramPage() {
     }
 
     if (deleteConfirmation.type === 'day') {
-      deleteDayMutation.mutate({ dayId: deleteConfirmation.day.id })
+      deleteDayMutation.mutate({ programId, dayId: deleteConfirmation.day.id })
       return
     }
 
     removeDayExerciseMutation.mutate({
+      programId,
       dayId: deleteConfirmation.dayId,
       dayExerciseId: deleteConfirmation.exercise.id,
     })
@@ -395,29 +434,89 @@ export function ProgramPage() {
 
     reorderDayExerciseMutation.reset()
     reorderDayExerciseMutation.mutate({
+      programId,
       dayId: day.id,
       dayExerciseId: String(event.active.id),
       targetIndex,
     })
   }
 
+  function handleActivateProgram() {
+    if (activateProgramMutation.isPending) {
+      return
+    }
+
+    if (dashboard?.activeSession) {
+      activateProgramMutation.reset()
+      setActivationBlocked(true)
+      return
+    }
+
+    setActivationBlocked(false)
+    activateProgramMutation.reset()
+    activateProgramMutation.mutate()
+  }
+
+  function openProgramDeleteDialog() {
+    deleteProgramMutation.reset()
+    setProgramMenuOpen(false)
+    setProgramDeleteDialogOpen(true)
+  }
+
   return (
     <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto max-w-5xl">
-        <header className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-500">Profile</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Edit Program</h1>
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <Link to="/program" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-500 transition hover:text-slate-900">
+              Programs
+            </Link>
+            <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Program editor</p>
+            <h1 className="mt-1 truncate text-3xl font-bold tracking-[-0.03em] text-slate-900">
+              {program?.name ?? 'Edit Program'}
+            </h1>
           </div>
           <TopNav />
-          <button
-            type="button"
-            onClick={openAddDayModal}
-            className="min-h-11 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800"
-          >
-            + Add Day
-          </button>
+          <div className="flex items-center gap-2">
+            {program && !program.isActive ? (
+              <button
+                type="button"
+                onClick={handleActivateProgram}
+                disabled={activateProgramMutation.isPending}
+                className="min-h-11 rounded-[13px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+              >
+                {activateProgramMutation.isPending ? 'Activating...' : 'Make active'}
+              </button>
+            ) : null}
+            {program ? (
+              <ProgramActionsMenu
+                programName={program.name}
+                isOpen={programMenuOpen}
+                onToggle={() => setProgramMenuOpen((isOpen) => !isOpen)}
+                onDelete={openProgramDeleteDialog}
+                deleteDisabled={program.isActive || deleteProgramMutation.isPending}
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={openAddDayModal}
+              disabled={!program}
+              className="min-h-11 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              + Add Day
+            </button>
+          </div>
         </header>
+
+        {activationBlocked || activateProgramMutation.isError ? (
+          <p role="alert" className="mb-4 rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600">
+            Finish or cancel the active workout before switching programs.
+          </p>
+        ) : null}
+
+        {program?.isActive ? (
+          <p className="mb-4 text-xs font-semibold text-slate-400">Activate another program before deleting this one.</p>
+        ) : null}
 
         {isPending ? (
           <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
@@ -704,6 +803,27 @@ export function ProgramPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {programDeleteDialogOpen && program ? (
+        <ProgramDeleteDialog
+          program={{
+            id: program.id,
+            name: program.name,
+            isActive: program.isActive,
+            dayCount: program.days.length,
+            exerciseCount: program.days.reduce((count, day) => count + day.exercises.length, 0),
+          }}
+          isDeleting={deleteProgramMutation.isPending}
+          error={deleteProgramMutation.isError ? 'Unable to delete this program. Please try again.' : undefined}
+          onCancel={() => {
+            if (!deleteProgramMutation.isPending) {
+              deleteProgramMutation.reset()
+              setProgramDeleteDialogOpen(false)
+            }
+          }}
+          onConfirm={() => deleteProgramMutation.mutate()}
+        />
       ) : null}
     </main>
   )

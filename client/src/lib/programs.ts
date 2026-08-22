@@ -37,8 +37,32 @@ export type Program = {
   days: ProgramDay[]
 }
 
+export type ProgramSummary = {
+  id: string
+  name: string
+  isActive: boolean
+  dayCount: number
+  exerciseCount: number
+}
+
+export type ProgramTemplate = {
+  id: string
+  name: string
+  description: string
+  days: number
+  exerciseCount: number
+}
+
 type ProgramResponse = {
   program: Program | null
+}
+
+type ProgramsResponse = {
+  programs: ProgramSummary[]
+}
+
+type TemplatesResponse = {
+  templates: ProgramTemplate[]
 }
 
 type DayResponse = {
@@ -54,37 +78,70 @@ type DayExercisesResponse = {
 }
 
 export type AddDayInput = {
+  programId: string
   name: string
   badgeColor: DayBadgeColor
 }
 
 export type UpdateDayInput = {
+  programId: string
   dayId: string
   name?: string
   badgeColor?: DayBadgeColor
 }
 
 export type DeleteDayInput = {
+  programId: string
   dayId: string
 }
 
 export type AddDayExerciseInput = {
+  programId: string
   dayId: string
   exerciseId: string
 }
 
 export type RemoveDayExerciseInput = {
+  programId: string
   dayId: string
   dayExerciseId: string
 }
 
 export type ReorderDayExerciseInput = {
+  programId: string
   dayId: string
   dayExerciseId: string
   targetIndex: number
 }
 
-export const programQueryKey = ['programs', 'active'] as const
+export type CreateProgramInput = {
+  name: string
+  source: 'blank' | 'template' | 'copy'
+  templateId?: string
+  sourceProgramId?: string
+}
+
+export const programsQueryKey = ['programs'] as const
+export const activeProgramQueryKey = ['programs', 'active'] as const
+export const programQueryKey = (programId: string) => ['programs', programId] as const
+
+export async function getPrograms() {
+  const response = await api.get<ProgramsResponse>('/programs')
+
+  return response.data.programs
+}
+
+export async function getProgramTemplates() {
+  const response = await api.get<TemplatesResponse>('/programs/templates')
+
+  return response.data.templates
+}
+
+export async function getProgram(programId: string) {
+  const response = await api.get<ProgramResponse>(`/programs/${programId}`)
+
+  return response.data.program
+}
 
 export async function getActiveProgram() {
   const response = await api.get<ProgramResponse>('/programs/active')
@@ -92,8 +149,30 @@ export async function getActiveProgram() {
   return response.data.program
 }
 
+export async function createProgram(input: CreateProgramInput) {
+  const response = await api.post<ProgramResponse>('/programs', input)
+
+  return response.data.program
+}
+
+export async function updateProgram(programId: string, name: string) {
+  const response = await api.patch<ProgramResponse>(`/programs/${programId}`, { name })
+
+  return response.data.program
+}
+
+export async function activateProgram(programId: string) {
+  const response = await api.post<ProgramResponse>(`/programs/${programId}/activate`)
+
+  return response.data.program
+}
+
+export async function deleteProgram(programId: string) {
+  await api.delete(`/programs/${programId}`)
+}
+
 export async function addDay(input: AddDayInput) {
-  const response = await api.post<DayResponse>('/programs/active/days', {
+  const response = await api.post<DayResponse>(`/programs/${input.programId}/days`, {
     name: input.name,
     badgeColor: input.badgeColor,
   })
@@ -102,7 +181,7 @@ export async function addDay(input: AddDayInput) {
 }
 
 export async function updateDay(input: UpdateDayInput) {
-  const response = await api.patch<DayResponse>(`/programs/days/${input.dayId}`, {
+  const response = await api.patch<DayResponse>(`/programs/${input.programId}/days/${input.dayId}`, {
     name: input.name,
     badgeColor: input.badgeColor,
   })
@@ -111,24 +190,25 @@ export async function updateDay(input: UpdateDayInput) {
 }
 
 export async function deleteDay(input: DeleteDayInput) {
-  await api.delete(`/programs/days/${input.dayId}`)
+  await api.delete(`/programs/${input.programId}/days/${input.dayId}`)
 }
 
 export async function addDayExercise(input: AddDayExerciseInput) {
-  const response = await api.post<DayExerciseResponse>(`/programs/days/${input.dayId}/exercises`, {
-    exerciseId: input.exerciseId,
-  })
+  const response = await api.post<DayExerciseResponse>(
+    `/programs/${input.programId}/days/${input.dayId}/exercises`,
+    { exerciseId: input.exerciseId },
+  )
 
   return response.data.exercise
 }
 
 export async function removeDayExercise(input: RemoveDayExerciseInput) {
-  await api.delete(`/programs/days/${input.dayId}/exercises/${input.dayExerciseId}`)
+  await api.delete(`/programs/${input.programId}/days/${input.dayId}/exercises/${input.dayExerciseId}`)
 }
 
 export async function reorderDayExercise(input: ReorderDayExerciseInput) {
   const response = await api.patch<DayExercisesResponse>(
-    `/programs/days/${input.dayId}/exercises/${input.dayExerciseId}/reorder`,
+    `/programs/${input.programId}/days/${input.dayId}/exercises/${input.dayExerciseId}/reorder`,
     { targetIndex: input.targetIndex },
   )
 

@@ -100,7 +100,7 @@ export function ProfilePage() {
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>
             <Link data-press="row" to="/program" className="flex min-h-11 items-center justify-between bg-white px-4 py-4">
-              <span className="text-sm font-medium text-slate-900">Edit Program</span>
+              <span className="text-sm font-medium text-slate-900">Programs</span>
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>
           </div>
