@@ -4,7 +4,10 @@
   "description": "A mobile-first workout tracker for planning routines, logging sets, and tracking strength progress.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npm run build -w client && npm run build -w server",
+    "lint": "npm run lint -w client",
+    "typecheck": "npm run typecheck -w server",
+    "test": "npm run test -w server",
     "dev": "concurrently -k -n client,server -c blue,green \"npm run dev -w client\" \"npm run dev -w server\""
   },
   "workspaces": [
@@ -21,6 +24,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+  },
   "devDependencies": {
     "concurrently": "^10.0.3"
   }
