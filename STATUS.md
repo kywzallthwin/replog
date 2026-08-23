@@ -41,7 +41,7 @@
 
 ## Next Actions
 - Manually verify the Programs library/editor and the numeric drop-field Add Set flow at 375px, 430px, and desktop widths, including edge-positioned action menus and the Copy from dropdown.
-- Manually verify Add Set/Edit Set note wrapping and multiple drop-row behavior at 375px, 430px, and desktop widths.
+- Manually verify Add Set/Edit Set note wrapping, multiple drop-row behavior, Repeat chain behavior, and first-set warm-up defaults at 375px, 430px, and desktop widths.
 - Verify switching is blocked during an active workout and that history retains the previous program snapshot.
 - Consider adding API search/category filtering for the exercise catalog.
 - Continue with deferred product features or production hardening after the new flow is accepted.
@@ -66,3 +66,4 @@
 - 2026-08-23: Removed the workout-level notes card and structured form-quality controls; optional 300-character per-set notes remain. Removed their API/schema paths and applied the cleanup migration. Full build, lint, typecheck, tests, migration deploy, and `git diff --check` pass.
 - 2026-08-23: Added an interactive drop-set logging concept to `Replog-mockup/Replog-mockup.html`; it now shows numeric optional drop rows instead of notation entry.
 - 2026-08-24: Built numeric drop-chain logging end to end. Add Set supports multiple optional weight/reps drop rows, saves the full chain atomically, groups drops under their normal parent, and no longer offers Quick Log or post-save `+ Drop`. Build, typecheck, tests, migration deploy, Prisma validation, and diff check pass.
+- 2026-08-24: Repeat now displays only `Repeat`, duplicates the latest normal-plus-drop chain atomically, converts a repeated warm-up into a normal set, and Add Set defaults the first new set to warm-up and later sets to normal while Edit Set retains Drop.

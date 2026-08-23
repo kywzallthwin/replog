@@ -155,6 +155,23 @@ function getLatestSet(exercise: WorkoutExercise) {
   return exercise.sets[exercise.sets.length - 1] ?? null
 }
 
+function getRepeatSetGroup(exercise: WorkoutExercise) {
+  const latestSet = getLatestSet(exercise)
+
+  if (!latestSet) {
+    return []
+  }
+
+  const rootSet = latestSet.parentSetId
+    ? exercise.sets.find((set) => set.id === latestSet.parentSetId) ?? latestSet
+    : latestSet
+  const dropSets = exercise.sets
+    .filter((set) => set.parentSetId === rootSet.id)
+    .sort((left, right) => left.order - right.order)
+
+  return [rootSet, ...dropSets]
+}
+
 function getSuggestedSet(exercise: WorkoutExercise) {
   const latestNormalSet = [...exercise.sets].reverse().find((set) => set.kind === 'NORMAL')
 
@@ -303,7 +320,7 @@ function EditSetForm({
           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
           <FluidSelect
             value={kind}
-                             options={[...addSetKindOptions]}
+            options={[...setKindOptions]}
             onValueChange={(nextKind) => setKind(nextKind as SetKind)}
             ariaLabel="Set kind"
           />
@@ -558,7 +575,7 @@ export function WorkoutPage() {
     setEditingSet(null)
     addSetMutation.reset()
     addSetChainMutation.reset()
-    setKind('NORMAL')
+    setKind(exercise.sets.length === 0 ? 'WARMUP' : 'NORMAL')
     setSetFeedbackNote('')
     setWeightKg(suggestedSet?.weightKg.toString() ?? '')
     setReps(suggestedSet?.reps.toString() ?? '')
@@ -688,21 +705,35 @@ export function WorkoutPage() {
   }
 
   function handleRepeatSet(exercise: WorkoutExercise) {
-    const latestSet = getLatestSet(exercise)
+    const repeatGroup = getRepeatSetGroup(exercise)
+    const sourceSet = repeatGroup[0]
 
-    if (!sessionId || !latestSet || addSetMutation.isPending || addSetChainMutation.isPending) {
+    if (!sessionId || !sourceSet || addSetMutation.isPending || addSetChainMutation.isPending) {
       return
     }
 
     setActiveExerciseId(null)
     setEditingSet(null)
     setFormError('')
+    if (repeatGroup.length > 1) {
+      addSetChainMutation.mutate({
+        sessionId,
+        sessionExerciseId: exercise.id,
+        sets: repeatGroup.map((set, index) => ({
+          kind: index === 0 ? 'NORMAL' : 'DROP',
+          weightKg: set.weightKg,
+          reps: set.reps,
+        })),
+      })
+      return
+    }
+
     addSetMutation.mutate({
       sessionId,
       sessionExerciseId: exercise.id,
-      kind: latestSet.kind,
-      weightKg: latestSet.weightKg,
-      reps: latestSet.reps,
+      kind: sourceSet.kind === 'WARMUP' ? 'NORMAL' : sourceSet.kind,
+      weightKg: sourceSet.weightKg,
+      reps: sourceSet.reps,
     })
   }
 
@@ -879,10 +910,11 @@ export function WorkoutPage() {
                           <button
                             type="button"
                             onClick={() => handleRepeatSet(exercise)}
+                            aria-label="Repeat last set"
                             disabled={addSetMutation.isPending || addSetChainMutation.isPending}
                             className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
                           >
-                            Repeat {latestSet.weightKg} kg x {latestSet.reps}
+                            Repeat
                           </button>
                         ) : null}
                         <button
@@ -948,14 +980,14 @@ export function WorkoutPage() {
                           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
                           <FluidSelect
                             value={kind}
-                            options={[...setKindOptions]}
-                             onValueChange={(nextKind) => {
-                               const nextSetKind = nextKind as SetKind
-                               setKind(nextSetKind)
-                               if (nextSetKind !== 'NORMAL') {
-                                 setDropDrafts([])
-                               }
-                             }}
+                            options={[...addSetKindOptions]}
+                            onValueChange={(nextKind) => {
+                              const nextSetKind = nextKind as SetKind
+                              setKind(nextSetKind)
+                              if (nextSetKind !== 'NORMAL') {
+                                setDropDrafts([])
+                              }
+                            }}
                             ariaLabel="Set kind"
                           />
                         </label>
