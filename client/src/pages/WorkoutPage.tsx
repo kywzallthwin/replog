@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   addSessionExercise,
   addSet,
+  addSetChain,
   cancelSession,
   deleteSet,
   finishSession,
@@ -18,6 +19,7 @@ import {
   type WorkoutExercise,
   type WorkoutSet,
 } from '../lib/sessions'
+import { hasValidSetNotation, parseSetNotation } from '../lib/setNotation'
 import { dashboardQueryKey } from '../lib/dashboard'
 import { getBadgeClass } from '../lib/badgeColors'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
@@ -160,17 +162,21 @@ function SetRow({
   set,
   setNumber,
   isFinished,
+  isDropChild,
   onEdit,
   onDelete,
+  onAddDrop,
 }: {
   set: WorkoutSet
   setNumber: number
   isFinished: boolean
+  isDropChild: boolean
   onEdit: () => void
   onDelete: () => void
+  onAddDrop: () => void
 }) {
   return (
-    <div className="flex items-start gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0">
+    <div className={`flex items-start gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${isDropChild ? 'ml-5 border-l-2 border-l-slate-200 pl-3' : ''}`}>
       <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold tracking-[0.04em] ${getSetBadgeClass(set.kind)}`}>
         {formatSetKind(set.kind, setNumber)}
       </span>
@@ -184,6 +190,15 @@ function SetRow({
       </div>
       {isFinished ? null : (
         <div className="flex items-center gap-1">
+          {set.kind === 'NORMAL' ? (
+            <button
+              type="button"
+              onClick={onAddDrop}
+              className="min-h-11 rounded-full px-2 text-[11px] font-bold text-blue-600 transition hover:bg-blue-50"
+            >
+              + Drop
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onEdit}
@@ -364,6 +379,97 @@ function EditSetForm({
   )
 }
 
+function QuickEntryForm({
+  notation,
+  parentSet,
+  isSaving,
+  isError,
+  formError,
+  onChange,
+  onCancel,
+  onSubmit,
+}: {
+  notation: string
+  parentSet: WorkoutSet | null
+  isSaving: boolean
+  isError: boolean
+  formError: string
+  onChange: (value: string) => void
+  onCancel: () => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+}) {
+  const parsedSets = parseSetNotation(notation, parentSet?.id)
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="mt-3 rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+    >
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Quick entry</p>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            {parentSet
+              ? `Drop after ${parentSet.weightKg} kg x ${parentSet.reps}. Add more drops by separating values.`
+              : 'Spaces separate sets. Use > for an immediate drop.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-11 rounded-full px-2 text-xs font-bold text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+        >
+          Close
+        </button>
+      </div>
+      <input
+        value={notation}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={parentSet ? '39k2r' : '32k13r 45k8r 45k4r>39k2r'}
+        aria-label={parentSet ? 'Drop set notation' : 'Quick set notation'}
+        className="h-12 w-full rounded-[11px] border border-slate-200 bg-white px-3 font-mono text-sm font-bold text-slate-900 outline-none focus:border-slate-900"
+        autoFocus
+      />
+      <div className="mt-3 rounded-[11px] bg-slate-50 px-3 py-2.5" aria-live="polite">
+        {parsedSets.length ? (
+          parsedSets.map((set, index) => (
+            <div key={`${set.weightKg}-${set.reps}-${index}`} className={`flex min-h-8 items-center gap-2 text-sm ${set.kind === 'DROP' ? 'pl-5 text-slate-500' : ''}`}>
+              {set.kind === 'DROP' ? <span className="text-slate-300">↳</span> : null}
+              <span className={`rounded-full px-2 py-1 text-[10px] font-bold tracking-[0.04em] ${set.kind === 'DROP' ? 'bg-blue-50 text-blue-700' : 'bg-white text-slate-500'}`}>
+                {set.kind === 'DROP' ? 'DROP' : parentSet ? 'DROP' : index + 1}
+              </span>
+              <strong className="text-slate-900">{set.weightKg} kg x {set.reps}</strong>
+            </div>
+          ))
+        ) : (
+          <p className="text-xs font-medium text-slate-400">Preview appears here before saving.</p>
+        )}
+      </div>
+      {formError || isError ? (
+        <p className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+          {formError || 'Unable to save the set chain. Please try again.'}
+        </p>
+      ) : null}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="submit"
+          disabled={isSaving || !parsedSets.length}
+          className="min-h-11 rounded-[12px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+        >
+          {isSaving ? 'Saving...' : `Save ${parsedSets.length || ''} ${parsedSets.length === 1 ? 'set' : 'sets'}`}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export function WorkoutPage() {
   const { sessionId } = useParams()
   const [searchParams] = useSearchParams()
@@ -371,6 +477,10 @@ export function WorkoutPage() {
   const queryClient = useQueryClient()
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null)
   const [editingSet, setEditingSet] = useState<{ exerciseId: string; set: WorkoutSet } | null>(null)
+  const [entryMode, setEntryMode] = useState<'form' | 'quick'>('form')
+  const [quickNotation, setQuickNotation] = useState('')
+  const [quickParentSet, setQuickParentSet] = useState<WorkoutSet | null>(null)
+  const [quickFormError, setQuickFormError] = useState('')
   const [kind, setKind] = useState<SetKind>('NORMAL')
   const [setFeedbackNote, setSetFeedbackNote] = useState('')
   const [weightKg, setWeightKg] = useState('')
@@ -424,6 +534,20 @@ export function WorkoutPage() {
       setWeightKg(variables.weightKg.toString())
       setReps(variables.reps.toString())
       setFormError('')
+      restTimer.start()
+    },
+  })
+  const addSetChainMutation = useMutation({
+    mutationFn: addSetChain,
+    onSuccess: async () => {
+      if (sessionId) {
+        await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
+      }
+
+      setQuickNotation('')
+      setQuickParentSet(null)
+      setQuickFormError('')
+      setActiveExerciseId(null)
       restTimer.start()
     },
   })
@@ -527,10 +651,24 @@ export function WorkoutPage() {
 
     setActiveExerciseId(exercise.id)
     setEditingSet(null)
+    setEntryMode('form')
+    setQuickNotation('')
+    setQuickParentSet(null)
+    setQuickFormError('')
     setKind('NORMAL')
     setSetFeedbackNote('')
     setWeightKg(suggestedSet?.weightKg.toString() ?? '')
     setReps(suggestedSet?.reps.toString() ?? '')
+    setFormError('')
+  }
+
+  function openQuickEntryForm(exercise: WorkoutExercise, parentSet: WorkoutSet | null = null) {
+    setActiveExerciseId(exercise.id)
+    setEditingSet(null)
+    setEntryMode('quick')
+    setQuickParentSet(parentSet)
+    setQuickNotation('')
+    setQuickFormError('')
     setFormError('')
   }
 
@@ -599,6 +737,40 @@ export function WorkoutPage() {
       notes: setFeedbackNote.trim() || null,
       weightKg: parsedWeightKg,
       reps: parsedReps,
+    })
+  }
+
+  function handleQuickEntry(event: FormEvent<HTMLFormElement>, exercise: WorkoutExercise) {
+    event.preventDefault()
+    setQuickFormError('')
+
+    if (!sessionId) {
+      setQuickFormError('Missing workout session')
+      return
+    }
+
+    if (!hasValidSetNotation(quickNotation, quickParentSet?.id)) {
+      setQuickFormError('Use notation like 32k13r 45k8r 45k4r>39k2r')
+      return
+    }
+
+    const parsedSets = parseSetNotation(quickNotation, quickParentSet?.id)
+
+    if (parsedSets.some((set) => !Number.isFinite(set.weightKg) || set.weightKg < 0 || set.weightKg > 1000)) {
+      setQuickFormError('Each weight must be between 0 and 1000 kg')
+      return
+    }
+
+    if (parsedSets.some((set) => !Number.isInteger(set.reps) || set.reps < 1 || set.reps > 1000)) {
+      setQuickFormError('Each set must have between 1 and 1000 reps')
+      return
+    }
+
+    addSetChainMutation.mutate({
+      sessionId,
+      sessionExerciseId: exercise.id,
+      parentSetId: quickParentSet?.id,
+      sets: parsedSets,
     })
   }
 
@@ -783,13 +955,20 @@ export function WorkoutPage() {
                         >
                           Swap
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openAddSetForm(exercise)}
+                         <button
+                           type="button"
+                           onClick={() => openAddSetForm(exercise)}
                           className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-                        >
-                          Add Set
-                        </button>
+                         >
+                           Add Set
+                         </button>
+                         <button
+                           type="button"
+                           onClick={() => openQuickEntryForm(exercise)}
+                           className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                         >
+                           Quick Log
+                         </button>
                         {latestSet ? (
                           <button
                             type="button"
@@ -838,17 +1017,35 @@ export function WorkoutPage() {
                         return (
                           <SetRow
                             key={set.id}
-                            set={set}
-                            setNumber={setNumber}
-                            isFinished={isFinished}
-                            onEdit={() => openEditSetForm(exercise, set)}
-                            onDelete={() => handleDeleteSet(exercise, set)}
-                          />
+                           set={set}
+                           setNumber={setNumber}
+                           isFinished={isFinished}
+                           isDropChild={Boolean(set.parentSetId)}
+                           onEdit={() => openEditSetForm(exercise, set)}
+                           onDelete={() => handleDeleteSet(exercise, set)}
+                           onAddDrop={() => openQuickEntryForm(exercise, set)}
+                         />
                         )
                       })}
                     </div>
                   ) : null}
-                  {!isFinished && activeExerciseId === exercise.id ? (
+                  {!isFinished && activeExerciseId === exercise.id && entryMode === 'quick' ? (
+                    <QuickEntryForm
+                      notation={quickNotation}
+                      parentSet={quickParentSet}
+                      isSaving={addSetChainMutation.isPending}
+                      isError={addSetChainMutation.isError}
+                      formError={quickFormError}
+                      onChange={(value) => {
+                        setQuickNotation(value)
+                        setQuickFormError('')
+                        addSetChainMutation.reset()
+                      }}
+                      onCancel={() => setActiveExerciseId(null)}
+                      onSubmit={(event) => handleQuickEntry(event, exercise)}
+                    />
+                  ) : null}
+                  {!isFinished && activeExerciseId === exercise.id && entryMode === 'form' ? (
                     <form
                       onSubmit={(event) => handleAddSet(event, exercise)}
                       className="mt-3 rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"

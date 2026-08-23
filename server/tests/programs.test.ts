@@ -84,6 +84,31 @@ test('users can create, switch, copy, and safely edit multiple programs', async 
     assert.equal(addSetResponse.status, 201, addSetResponse.text)
     assert.equal(addSetResponse.body.set.notes, 'Last 2 reps had partial range.')
 
+    const chainResponse = await agent
+      .post(`/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/batch`)
+      .send({
+        sets: [
+          { kind: 'NORMAL', weightKg: 18, reps: 6 },
+          { kind: 'DROP', weightKg: 15, reps: 4 },
+          { kind: 'DROP', weightKg: 12, reps: 5 },
+        ],
+      })
+    assert.equal(chainResponse.status, 201, chainResponse.text)
+    assert.equal(chainResponse.body.sets.length, 3)
+    const chainRootId = chainResponse.body.sets[0].id as string
+    assert.equal(chainResponse.body.sets[0].parentSetId, null)
+    assert.equal(chainResponse.body.sets[1].parentSetId, chainRootId)
+    assert.equal(chainResponse.body.sets[2].parentSetId, chainRootId)
+
+    const dropResponse = await agent
+      .post(`/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/batch`)
+      .send({
+        parentSetId: addSetResponse.body.set.id,
+        sets: [{ kind: 'DROP', weightKg: 17.5, reps: 5 }],
+      })
+    assert.equal(dropResponse.status, 201, dropResponse.text)
+    assert.equal(dropResponse.body.sets[0].parentSetId, addSetResponse.body.set.id)
+
     const updateSetResponse = await agent
       .patch(`/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)
       .send({ notes: 'Full depth throughout.' })
@@ -93,6 +118,7 @@ test('users can create, switch, copy, and safely edit multiple programs', async 
     const setDetailsResponse = await agent.get(`/sessions/${sessionId}`)
     assert.equal(setDetailsResponse.status, 200, setDetailsResponse.text)
     assert.equal(setDetailsResponse.body.session.exercises[0].sets[0].notes, 'Full depth throughout.')
+    assert.equal(setDetailsResponse.body.session.exercises[0].sets.length, 5)
 
     const invalidSetNoteResponse = await agent
       .patch(`/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)

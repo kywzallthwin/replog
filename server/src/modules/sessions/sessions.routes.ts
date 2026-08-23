@@ -3,6 +3,7 @@ import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
 import {
   addSetSchema,
+  addSetChainSchema,
   sessionExerciseSchema,
   startSessionSchema,
   updateSetSchema,
@@ -32,6 +33,7 @@ function toSessionPayload(session: {
     setLogs: Array<{
       id: string
       kind: string
+      parentSetId: string | null
       notes: string | null
       weightKg: number
       reps: number
@@ -57,6 +59,7 @@ function toSessionPayload(session: {
       sets: sessionExercise.setLogs.map((setLog) => ({
         id: setLog.id,
         kind: setLog.kind,
+        parentSetId: setLog.parentSetId,
         notes: setLog.notes,
         weightKg: setLog.weightKg,
         reps: setLog.reps,
@@ -73,9 +76,10 @@ function toSessionExercisePayload(sessionExercise: {
   nameSnapshot: string
   order: number
   setLogs: Array<{
-    id: string
-    kind: string
-    notes: string | null
+      id: string
+      kind: string
+      parentSetId: string | null
+      notes: string | null
     weightKg: number
     reps: number
     order: number
@@ -89,6 +93,7 @@ function toSessionExercisePayload(sessionExercise: {
     sets: sessionExercise.setLogs.map((setLog) => ({
       id: setLog.id,
       kind: setLog.kind,
+      parentSetId: setLog.parentSetId,
       notes: setLog.notes,
       weightKg: setLog.weightKg,
       reps: setLog.reps,
@@ -667,11 +672,122 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets', requireAuth
     set: {
       id: setLog.id,
       kind: setLog.kind,
+      parentSetId: setLog.parentSetId,
       notes: setLog.notes,
       weightKg: setLog.weightKg,
       reps: setLog.reps,
       order: setLog.order,
     },
+  })
+})
+
+sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets/batch', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+  const sessionExerciseId = typeof req.params.sessionExerciseId === 'string' ? req.params.sessionExerciseId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId || !sessionExerciseId) {
+    res.status(400).json({ error: 'Invalid session or exercise id' })
+    return
+  }
+
+  const parsedBody = addSetChainSchema.safeParse(req.body)
+
+  if (!parsedBody.success) {
+    res.status(400).json({ error: 'Invalid request body', fields: parsedBody.error.flatten().fieldErrors })
+    return
+  }
+
+  const { parentSetId, sets } = parsedBody.data
+  const expectedKind = parentSetId ? 'DROP' : undefined
+  const hasValidKinds = parentSetId
+    ? sets.every((set) => set.kind === expectedKind)
+    : sets[0]?.kind === 'NORMAL' && sets.slice(1).every((set) => set.kind === 'DROP')
+
+  if (!hasValidKinds) {
+    res.status(400).json({ error: parentSetId ? 'Drop chains can only contain drop sets' : 'A chain must start with a normal set' })
+    return
+  }
+
+  const sessionExercise = await prisma.sessionExercise.findFirst({
+    where: {
+      id: sessionExerciseId,
+      sessionId,
+      session: { userId },
+    },
+    include: { session: true },
+  })
+
+  if (!sessionExercise) {
+    res.status(404).json({ error: 'Session exercise not found' })
+    return
+  }
+
+  if (sessionExercise.session.endedAt) {
+    res.status(409).json({ error: 'Finished workouts cannot be edited' })
+    return
+  }
+
+  if (parentSetId) {
+    const parentSet = await prisma.setLog.findFirst({
+      where: {
+        id: parentSetId,
+        sessionExerciseId,
+        kind: 'NORMAL',
+        parentSetId: null,
+      },
+    })
+
+    if (!parentSet) {
+      res.status(404).json({ error: 'Parent normal set not found' })
+      return
+    }
+  }
+
+  const setLogs = await prisma.$transaction(async (tx) => {
+    const latestSet = await tx.setLog.findFirst({
+      where: { sessionExerciseId },
+      orderBy: { order: 'desc' },
+    })
+    let nextOrder = (latestSet?.order ?? 0) + 1
+    let rootSetId = parentSetId ?? null
+    const createdSets = []
+
+    for (const set of sets) {
+      const setLog = await tx.setLog.create({
+        data: {
+          sessionExerciseId,
+          parentSetId: rootSetId,
+          kind: set.kind,
+          notes: set.notes || null,
+          weightKg: set.weightKg,
+          reps: set.reps,
+          order: nextOrder,
+        },
+      })
+      createdSets.push(setLog)
+      rootSetId ??= setLog.id
+      nextOrder += 1
+    }
+
+    return createdSets
+  })
+
+  res.status(201).json({
+    sets: setLogs.map((setLog) => ({
+      id: setLog.id,
+      kind: setLog.kind,
+      parentSetId: setLog.parentSetId,
+      notes: setLog.notes,
+      weightKg: setLog.weightKg,
+      reps: setLog.reps,
+      order: setLog.order,
+    })),
   })
 })
 
@@ -757,6 +873,7 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/sets/:setId', req
     set: {
       id: setLog.id,
       kind: setLog.kind,
+      parentSetId: setLog.parentSetId,
       notes: setLog.notes,
       weightKg: setLog.weightKg,
       reps: setLog.reps,

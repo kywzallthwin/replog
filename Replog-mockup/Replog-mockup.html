@@ -213,8 +213,36 @@
     .option.disabled .radio { border-color: #e2e8f0; background: #f8fafc; }
     .option-note { margin-left: auto; color: #94a3b8; font-size: 10px; font-weight: 700; }
     .cancel-copy { color: #64748b; font-size: 14px; line-height: 1.45; margin: 8px 0 16px; }
-    .chart { border-radius: 14px; background: #f8fafc; padding: 14px; }
-    .chart svg { display: block; width: 100%; height: auto; }
+     .chart { border-radius: 14px; background: #f8fafc; padding: 14px; }
+     .chart svg { display: block; width: 100%; height: auto; }
+     .drop-feature { max-width: 1120px; margin: 0 auto; }
+     .drop-feature-copy { max-width: 620px; margin-bottom: 18px; }
+     .drop-feature-copy h2 { margin-top: 7px; }
+     .drop-feature-copy p { color: #64748b; font-size: 14px; line-height: 1.5; margin-top: 7px; }
+     .quick-entry { border: 1px solid #cbd5e1; border-radius: 16px; background: #fff; padding: 13px; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+     .quick-entry-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+     .quick-entry-label { color: #334155; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+     .quick-entry-help { color: #94a3b8; font-size: 11px; font-weight: 700; }
+     .quick-entry-input { width: 100%; border: 0; outline: 0; color: #0f172a; font: 700 16px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+     .quick-entry-input::placeholder { color: #cbd5e1; }
+     .quick-preview { margin-top: 10px; border-radius: 12px; background: #f8fafc; padding: 10px; }
+     .quick-preview-row { display: flex; align-items: center; gap: 8px; min-height: 27px; color: #475569; font-size: 13px; }
+     .quick-preview-row strong { color: #0f172a; }
+     .quick-preview-drop { padding-left: 25px; color: #64748b; }
+     .quick-preview-drop::before { content: '↳'; color: #94a3b8; margin-right: 8px; }
+     .quick-preview-empty { color: #94a3b8; font-size: 12px; }
+     .quick-actions { display: flex; gap: 8px; margin-top: 10px; }
+     .quick-actions .btn { flex: 1; }
+     .drop-chain { border-top: 1px solid #f1f5f9; margin-top: 2px; padding-top: 2px; }
+     .drop-chain .set-row { border-bottom: 0; }
+     .drop-chain .set-row.drop-child { padding: 4px 14px 10px 48px; color: #64748b; font-size: 13px; }
+     .drop-chain .set-row.drop-child .badge { margin-left: -34px; }
+     .drop-chain .set-row.drop-child strong { color: #475569; }
+     .drop-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: 12px; background: #f8fafc; padding: 11px 12px; margin-top: 12px; }
+     .drop-summary strong { font-size: 13px; }
+     .drop-summary span { color: #64748b; font-size: 11px; font-weight: 700; text-align: right; }
+     .drop-add { margin-left: auto; border: 0; background: transparent; color: #475569; font-size: 11px; font-weight: 800; padding: 7px 0 7px 8px; }
+     .drop-add:hover { color: #0f172a; }
 
     @media (max-width: 760px) {
       body { padding: 26px 12px; }
@@ -594,8 +622,54 @@
           </div>
         </main>
       </div>
+     </div>
+   </div>
+
+  <h2 class="section-title">Drop-set logging concept</h2>
+  <section class="drop-feature">
+    <div class="drop-feature-copy">
+      <div class="tiny">Fast entry, accurate history</div>
+      <h2>Log the whole chain without repeating the form</h2>
+      <p>Spaces separate working sets. A <code>&gt;</code> joins immediate drops. RepLog previews every record before saving and keeps drops visually attached to the set that started the chain.</p>
     </div>
-  </div>
+    <div class="grid">
+      <div>
+        <p class="label">Mobile / quick notation</p>
+        <div class="phone">
+          <main class="app">
+            <div class="top workout-top"><div><div class="brand-small">Back day</div><h1>PECK DECK</h1><p class="sub">Set entry · 3 sets logged</p></div><div class="workout-duration-header"><div class="duration-meta">Workout duration</div><div class="duration-value">32:13</div></div></div>
+            <div class="exercise-card">
+              <div class="exercise-head"><div class="exercise-title">Peck Deck</div><div class="exercise-actions"><button class="btn btn-white btn-small">Add Set</button></div></div>
+              <div class="last-ref">Last time: 45 kg × 7 · Mon 22 Jun</div>
+              <div class="set-row"><span class="badge badge-neutral">1</span><strong>32 kg</strong><span class="muted">x</span><span>13</span><span class="spacer"></span><button class="btn-icon blue">e</button></div>
+              <div class="set-row"><span class="badge badge-neutral">2</span><strong>45 kg</strong><span class="muted">x</span><span>8</span><span class="spacer"></span><button class="btn-icon blue">e</button></div>
+              <div class="drop-chain">
+                <div class="set-row"><span class="badge badge-neutral">3</span><strong>45 kg</strong><span class="muted">x</span><span>4</span><button class="drop-add" type="button" data-fill-drop>Add drop +</button></div>
+                <div class="set-row drop-child"><span class="badge badge-drop">DROP</span><strong>39 kg</strong><span class="muted">x</span><span>2</span><span class="spacer"></span><button class="btn-icon blue">e</button></div>
+              </div>
+            </div>
+            <div class="quick-entry" style="margin-top:14px;">
+              <div class="quick-entry-head"><span class="quick-entry-label">Quick entry</span><span class="quick-entry-help">kg / reps</span></div>
+              <input class="quick-entry-input" data-quick-entry value="32k13r 45k8r 45k4r>39k2r" aria-label="Quick set notation" />
+              <div class="quick-preview" data-quick-preview aria-live="polite"></div>
+              <div class="quick-actions"><button class="btn btn-white btn-small" type="button" data-clear-entry>Clear</button><button class="btn btn-dark btn-small" type="button" data-save-entry>Save 4 records</button></div>
+            </div>
+            <div class="timer" style="margin-top:14px;"><div><div style="font-size:10px;letter-spacing:.08em;opacity:.65;">REST TIMER</div><div class="t-val">1:30</div></div><div style="display:flex;gap:6px;"><button class="t-btn">+15s</button><button class="t-btn">Skip</button></div></div>
+          </main>
+        </div>
+      </div>
+      <div>
+        <p class="label">Desktop / grouped history</p>
+        <div class="desktop">
+          <div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/workout/12</div></div>
+          <main class="app desktop-app"><div class="max">
+            <div class="top"><div><div class="brand-small">Dashboard</div><h1>TORSO A</h1><p class="sub">Started 1 Jul, 09:14</p></div><button class="btn btn-green btn-small">Finish Workout</button></div>
+            <div class="two"><div class="stack"><div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Peck Deck</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button></div></div><div class="last-ref">Last time: 45 kg × 7 · Mon 22 Jun</div><div class="set-row"><span class="badge badge-neutral">1</span><strong>32 kg</strong><span>x</span><span>13</span><span class="spacer"></span><button class="btn-icon blue">e</button></div><div class="set-row"><span class="badge badge-neutral">2</span><strong>45 kg</strong><span>x</span><span>8</span><span class="spacer"></span><button class="btn-icon blue">e</button></div><div class="drop-chain"><div class="set-row"><span class="badge badge-neutral">3</span><strong>45 kg</strong><span>x</span><span>4</span><span class="spacer"></span><span class="badge badge-neutral">1 drop</span><button class="btn-icon blue">e</button></div><div class="set-row drop-child"><span class="badge badge-drop">DROP</span><strong>39 kg</strong><span class="muted">x</span><span>2</span><span class="spacer"></span><button class="btn-icon blue">e</button></div></div><div class="drop-summary"><strong>3 working sets · 1 drop</strong><span>Progress uses working sets only<br />Volume includes every record</span></div></div></div><aside class="card"><div class="tiny" style="margin-bottom:10px;">Quick entry</div><div class="quick-entry"><input class="quick-entry-input" value="45k4r&gt;39k2r" aria-label="Desktop quick set notation" /><div class="quick-preview"><div class="quick-preview-row"><span class="badge badge-neutral">3</span><strong>45 kg × 4</strong></div><div class="quick-preview-row quick-preview-drop"><span class="badge badge-drop">DROP</span><strong>39 kg × 2</strong></div></div><button class="btn btn-dark btn-small" style="width:100%;margin-top:10px;">Save chain</button></div><p class="hint" style="margin-top:12px;">Use <code>&gt;</code> for an immediate drop or tap <strong>+ Drop</strong> after any normal set.</p></aside></div>
+          </div></main>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <h2 class="section-title">Desktop snapshots (optional — build is mobile-first)</h2>
   <div class="grid">
@@ -640,6 +714,63 @@
     </div>
   </div>
 <script>
+  (() => {
+    const input = document.querySelector('[data-quick-entry]')
+    const preview = document.querySelector('[data-quick-preview]')
+    const clearButton = document.querySelector('[data-clear-entry]')
+    const saveButton = document.querySelector('[data-save-entry]')
+    const fillDropButton = document.querySelector('[data-fill-drop]')
+
+    if (!input || !preview || !clearButton || !saveButton) return
+
+    const setPattern = /(\d+(?:\.\d+)?)\s*k\s*(\d+)\s*r/gi
+
+    const parseNotation = (value) => {
+      const sets = []
+      let previousEnd = 0
+      let match
+
+      setPattern.lastIndex = 0
+      while ((match = setPattern.exec(value)) !== null) {
+        const separator = value.slice(previousEnd, match.index)
+        const isDrop = sets.length > 0 && (separator.includes('>') || separator.length === 0)
+        sets.push({ weight: match[1], reps: match[2], isDrop })
+        previousEnd = setPattern.lastIndex
+      }
+
+      return sets
+    }
+
+    const renderPreview = () => {
+      const sets = parseNotation(input.value)
+      preview.innerHTML = sets.length
+        ? sets.map((set, index) => `<div class="quick-preview-row ${set.isDrop ? 'quick-preview-drop' : ''}"><span class="badge ${set.isDrop ? 'badge-drop' : 'badge-neutral'}">${set.isDrop ? 'DROP' : index + 1}</span><strong>${set.weight} kg × ${set.reps}</strong></div>`).join('')
+        : '<div class="quick-preview-empty">Try 32k13r 45k8r 45k4r&gt;39k2r</div>'
+      saveButton.textContent = sets.length ? `Save ${sets.length} records` : 'Save records'
+    }
+
+    input.addEventListener('input', renderPreview)
+    clearButton.addEventListener('click', () => {
+      input.value = ''
+      renderPreview()
+      input.focus()
+    })
+    saveButton.addEventListener('click', () => {
+      const count = parseNotation(input.value).length
+      if (!count) return
+      saveButton.textContent = `${count} records saved`
+      saveButton.classList.remove('btn-dark')
+      saveButton.classList.add('btn-green')
+    })
+    fillDropButton?.addEventListener('click', () => {
+      input.value = '45k4r>39k2r'
+      renderPreview()
+      input.focus()
+    })
+
+    renderPreview()
+  })()
+
   (() => {
     const timerNodes = document.querySelectorAll('[data-workout-duration], [data-active-workout-duration]')
     if (!timerNodes.length) return

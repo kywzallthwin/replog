@@ -138,12 +138,16 @@ model SessionExercise {
 model SetLog {
   id                String          @id @default(cuid())
   sessionExerciseId String
+  parentSetId       String?
   kind              SetKind         @default(NORMAL)
   notes             String?
   weightKg          Float
   reps              Int
   order             Int
   sessionExercise   SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+  parentSet         SetLog?         @relation("DropSetParent", fields: [parentSetId], references: [id], onDelete: Cascade)
+  dropSets          SetLog[]        @relation("DropSetParent")
 
   @@unique([sessionExerciseId, order])
+  @@index([parentSetId])
 }

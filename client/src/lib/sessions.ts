@@ -3,6 +3,7 @@ import { api } from './api'
 export type WorkoutSet = {
   id: string
   kind: SetKind
+  parentSetId: string | null
   notes: string | null
   weightKg: number
   reps: number
@@ -64,6 +65,10 @@ type SetResponse = {
   set: WorkoutSet
 }
 
+type SetChainResponse = {
+  sets: WorkoutSet[]
+}
+
 type SessionExerciseResponse = {
   exercise: WorkoutExercise
 }
@@ -75,6 +80,18 @@ export type AddSetInput = {
   notes?: string | null
   weightKg: number
   reps: number
+}
+
+export type AddSetChainInput = {
+  sessionId: string
+  sessionExerciseId: string
+  parentSetId?: string
+  sets: Array<{
+    kind: 'NORMAL' | 'DROP'
+    notes?: string | null
+    weightKg: number
+    reps: number
+  }>
 }
 
 export type UpdateSetInput = {
@@ -166,6 +183,18 @@ export async function addSet(input: AddSetInput) {
   )
 
   return response.data.set
+}
+
+export async function addSetChain(input: AddSetChainInput) {
+  const response = await api.post<SetChainResponse>(
+    `/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}/sets/batch`,
+    {
+      parentSetId: input.parentSetId,
+      sets: input.sets,
+    },
+  )
+
+  return response.data.sets
 }
 
 export async function updateSet(input: UpdateSetInput) {

@@ -40,7 +40,7 @@
 - `git diff --check` passes.
 
 ## Next Actions
-- Manually verify the Programs library and editor at 375px, 430px, and desktop widths, including edge-positioned action menus and the Copy from dropdown.
+- Manually verify the Programs library/editor and the new drop-set mockup at 375px, 430px, and desktop widths, including edge-positioned action menus and the Copy from dropdown.
 - Manually verify Add Set/Edit Set note wrapping at 375px, 430px, and desktop widths.
 - Verify switching is blocked during an active workout and that history retains the previous program snapshot.
 - Consider adding API search/category filtering for the exercise catalog.
@@ -64,3 +64,5 @@
 - 2026-08-23: Added a static green active-status dot inside the floating workout timer capsule in the React app and mockup. Targeted timer/navigation lint, full client lint, client build, and `git diff --check` pass.
 - 2026-08-23: Reduced active workout set-entry friction with smart prefill, persistent set-entry values, and a one-tap `Repeat` action. Client build and lint pass.
 - 2026-08-23: Removed the workout-level notes card and structured form-quality controls; optional 300-character per-set notes remain. Removed their API/schema paths and applied the cleanup migration. Full build, lint, typecheck, tests, migration deploy, and `git diff --check` pass.
+- 2026-08-23: Added an interactive drop-set logging concept to `Replog-mockup/Replog-mockup.html`: quick notation preview, one-tap `+ Drop`, grouped normal/drop display, and explicit progress/volume treatment.
+- 2026-08-24: Built drop-chain logging end to end. Quick notation and one-tap drops save atomically, drop records link to their normal parent, workout rows indent grouped drops, and normal-only progress behavior is preserved. Build, typecheck, tests, migration deploy, Prisma validation, and diff check pass.
