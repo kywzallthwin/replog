@@ -13,7 +13,6 @@ import {
   sessionHistoryQueryKey,
   sessionQueryKey,
   swapSessionExercise,
-  updateSessionNotes,
   updateSet,
   type SetKind,
   type WorkoutExercise,
@@ -171,14 +170,18 @@ function SetRow({
   onDelete: () => void
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0">
+    <div className="flex items-start gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0">
       <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold tracking-[0.04em] ${getSetBadgeClass(set.kind)}`}>
         {formatSetKind(set.kind, setNumber)}
       </span>
-      <span className="font-bold text-slate-900">{set.weightKg} kg</span>
-      <span className="text-xs text-slate-300">x</span>
-      <span className="font-medium text-slate-600">{set.reps}</span>
-      <span className="grow" />
+      <div className="min-w-0 grow">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-bold text-slate-900">{set.weightKg} kg</span>
+          <span className="text-xs text-slate-300">x</span>
+          <span className="font-medium text-slate-600">{set.reps}</span>
+        </div>
+        {set.notes ? <p className="mt-1 truncate text-xs font-medium text-slate-500">{set.notes}</p> : null}
+      </div>
       {isFinished ? null : (
         <div className="flex items-center gap-1">
           <button
@@ -245,9 +248,15 @@ function EditSetForm({
   isSaving: boolean
   isError: boolean
   onCancel: () => void
-  onSave: (values: { kind: SetKind; weightKg: number; reps: number }) => void
+  onSave: (values: {
+    kind: SetKind
+    notes: string | null
+    weightKg: number
+    reps: number
+  }) => void
 }) {
   const [kind, setKind] = useState<SetKind>(set.kind)
+  const [notes, setNotes] = useState(set.notes ?? '')
   const [weightKg, setWeightKg] = useState(set.weightKg.toString())
   const [reps, setReps] = useState(set.reps.toString())
   const [formError, setFormError] = useState('')
@@ -269,7 +278,7 @@ function EditSetForm({
       return
     }
 
-    onSave({ kind, weightKg: parsedWeightKg, reps: parsedReps })
+    onSave({ kind, notes: notes.trim() || null, weightKg: parsedWeightKg, reps: parsedReps })
   }
 
   return (
@@ -317,6 +326,19 @@ function EditSetForm({
           />
         </label>
       </div>
+      <label className="mt-4 block">
+        <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+          Set note <span className="font-medium normal-case tracking-normal text-slate-300">(optional)</span>
+        </span>
+        <textarea
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          maxLength={300}
+          rows={2}
+          placeholder="e.g. Last 2 reps were partial"
+          className="w-full resize-y rounded-[10px] border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-900 outline-none focus:border-slate-900"
+        />
+      </label>
       {formError || isError ? (
         <p className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
           {formError || 'Unable to save set. Please try again.'}
@@ -350,6 +372,7 @@ export function WorkoutPage() {
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null)
   const [editingSet, setEditingSet] = useState<{ exerciseId: string; set: WorkoutSet } | null>(null)
   const [kind, setKind] = useState<SetKind>('NORMAL')
+  const [setFeedbackNote, setSetFeedbackNote] = useState('')
   const [weightKg, setWeightKg] = useState('')
   const [reps, setReps] = useState('')
   const [formError, setFormError] = useState('')
@@ -357,8 +380,6 @@ export function WorkoutPage() {
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
   const [cancelConfirmation, setCancelConfirmation] = useState(false)
-  const [notes, setNotes] = useState('')
-  const [notesSessionId, setNotesSessionId] = useState<string | null>(null)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
   const keepWorkoutButtonRef = useRef<HTMLButtonElement>(null)
   useBodyScrollLock(Boolean(exercisePicker || deleteConfirmation || cancelConfirmation))
@@ -391,14 +412,6 @@ export function WorkoutPage() {
   const headerLink = source === 'history' ? '/history' : source === 'progress' ? '/progress' : '/dashboard'
   const headerLinkLabel = source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
   const restTimer = useRestTimer(sessionId, Boolean(session && !session.endedAt))
-  const saveNotesMutation = useMutation({
-    mutationFn: ({ id, value }: { id: string; value: string }) => updateSessionNotes(id, value),
-    onSuccess: (updatedSession) => {
-      if (sessionId) {
-        queryClient.setQueryData(sessionQueryKey(sessionId), updatedSession)
-      }
-    },
-  })
   const addSetMutation = useMutation({
     mutationFn: addSet,
     onSuccess: async (_set, variables) => {
@@ -407,6 +420,7 @@ export function WorkoutPage() {
       }
 
       setKind('NORMAL')
+      setSetFeedbackNote('')
       setWeightKg(variables.weightKg.toString())
       setReps(variables.reps.toString())
       setFormError('')
@@ -476,12 +490,7 @@ export function WorkoutPage() {
   const deleteConfirmationIsPending = deleteSetMutation.isPending || removeSessionExerciseMutation.isPending
   const deleteConfirmationHasError = deleteSetMutation.isError || removeSessionExerciseMutation.isError
   const finishSessionMutation = useMutation({
-    mutationFn: ({ id, value }: { id: string; value: string }) =>
-      (async () => {
-        await updateSessionNotes(id, value)
-
-        return finishSession(id)
-      })(),
+    mutationFn: finishSession,
     onSuccess: async (updatedSession) => {
       if (sessionId) {
         queryClient.setQueryData(sessionQueryKey(sessionId), updatedSession)
@@ -513,22 +522,13 @@ export function WorkoutPage() {
     }
   }, [cancelConfirmation])
 
-  function saveNotes() {
-    const effectiveNotes = session && notesSessionId === session.id ? notes : session?.notes ?? ''
-
-    if (!session || session.endedAt || effectiveNotes === (session.notes ?? '') || saveNotesMutation.isPending) {
-      return
-    }
-
-    saveNotesMutation.mutate({ id: session.id, value: effectiveNotes })
-  }
-
   function openAddSetForm(exercise: WorkoutExercise) {
     const suggestedSet = getSuggestedSet(exercise)
 
     setActiveExerciseId(exercise.id)
     setEditingSet(null)
     setKind('NORMAL')
+    setSetFeedbackNote('')
     setWeightKg(suggestedSet?.weightKg.toString() ?? '')
     setReps(suggestedSet?.reps.toString() ?? '')
     setFormError('')
@@ -596,6 +596,7 @@ export function WorkoutPage() {
       sessionId,
       sessionExerciseId: exercise.id,
       kind,
+      notes: setFeedbackNote.trim() || null,
       weightKg: parsedWeightKg,
       reps: parsedReps,
     })
@@ -675,8 +676,6 @@ export function WorkoutPage() {
     })
   }
 
-  const effectiveNotes = session && notesSessionId === session.id ? notes : session?.notes ?? ''
-
   return (
     <main className="min-h-dvh bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-4xl overflow-hidden rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
@@ -744,43 +743,6 @@ export function WorkoutPage() {
                 onSkip={restTimer.skip}
               />
             ) : null}
-
-            <section className="mb-5 rounded-[16px] border border-slate-100 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Workout notes</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {session.endedAt ? 'Notes saved with this workout.' : 'Add anything you want to remember.'}
-                  </p>
-                </div>
-                {!session.endedAt && effectiveNotes !== (session.notes ?? '') ? (
-                  <span className="text-xs font-semibold text-slate-400">Unsaved</span>
-                ) : null}
-              </div>
-              {session.endedAt ? (
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                  {session.notes || 'No notes added.'}
-                </p>
-              ) : (
-                <textarea
-                  value={effectiveNotes}
-                  maxLength={2000}
-                  onChange={(event) => {
-                    setNotesSessionId(session.id)
-                    setNotes(event.target.value)
-                  }}
-                  onBlur={saveNotes}
-                  placeholder="How did it feel? Any tweaks?"
-                  rows={3}
-                  className="mt-3 w-full resize-y rounded-[12px] border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-slate-900"
-                />
-              )}
-              {saveNotesMutation.isError ? (
-                <p className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                  Unable to save notes. Please try again.
-                </p>
-              ) : null}
-            </section>
 
             <div className="space-y-3">
               {session.exercises.map((exercise, index) => {
@@ -934,6 +896,19 @@ export function WorkoutPage() {
                           />
                         </label>
                       </div>
+                      <label className="mt-4 block">
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                          Set note <span className="font-medium normal-case tracking-normal text-slate-300">(optional)</span>
+                        </span>
+                        <textarea
+                          value={setFeedbackNote}
+                          onChange={(event) => setSetFeedbackNote(event.target.value)}
+                          maxLength={300}
+                          rows={2}
+                          placeholder="e.g. Last 2 reps were partial"
+                          className="w-full resize-y rounded-[10px] border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-900 outline-none focus:border-slate-900"
+                        />
+                      </label>
                       {formError || addSetMutation.isError ? (
                         <p className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                           {formError || 'Unable to add set. Please try again.'}
@@ -1012,7 +987,7 @@ export function WorkoutPage() {
                 </button>
                 <button
                   type="button"
-                   onClick={() => finishSessionMutation.mutate({ id: session.id, value: effectiveNotes })}
+                   onClick={() => finishSessionMutation.mutate(session.id)}
                   disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending}
                   className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-green-100 px-4 py-3 text-sm font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:bg-green-50 disabled:text-green-400"
                 >

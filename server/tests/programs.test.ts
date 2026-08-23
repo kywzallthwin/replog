@@ -77,26 +77,40 @@ test('users can create, switch, copy, and safely edit multiple programs', async 
 
     const addSetResponse = await agent.post(`/sessions/${sessionId}/exercises/${sessionExercise.id}/sets`).send({
       kind: 'NORMAL',
+      notes: 'Last 2 reps had partial range.',
       weightKg: 20,
       reps: 8,
     })
     assert.equal(addSetResponse.status, 201, addSetResponse.text)
+    assert.equal(addSetResponse.body.set.notes, 'Last 2 reps had partial range.')
+
+    const updateSetResponse = await agent
+      .patch(`/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)
+      .send({ notes: 'Full depth throughout.' })
+    assert.equal(updateSetResponse.status, 200, updateSetResponse.text)
+    assert.equal(updateSetResponse.body.set.notes, 'Full depth throughout.')
+
+    const setDetailsResponse = await agent.get(`/sessions/${sessionId}`)
+    assert.equal(setDetailsResponse.status, 200, setDetailsResponse.text)
+    assert.equal(setDetailsResponse.body.session.exercises[0].sets[0].notes, 'Full depth throughout.')
+
+    const invalidSetNoteResponse = await agent
+      .patch(`/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)
+      .send({ notes: 'x'.repeat(301) })
+    assert.equal(invalidSetNoteResponse.status, 400, invalidSetNoteResponse.text)
 
     const swapResponse = await agent
       .patch(`/sessions/${sessionId}/exercises/${sessionExercise.id}`)
       .send({ exerciseId: alternateExerciseId })
     assert.equal(swapResponse.status, 409, swapResponse.text)
 
-    const notesResponse = await agent.patch(`/sessions/${sessionId}/notes`).send({ notes: 'Felt strong today.' })
-    assert.equal(notesResponse.status, 200, notesResponse.text)
-    assert.equal(notesResponse.body.session.notes, 'Felt strong today.')
-
     const finishResponse = await agent.patch(`/sessions/${sessionId}/finish`)
     assert.equal(finishResponse.status, 200, finishResponse.text)
-    assert.equal(finishResponse.body.session.notes, 'Felt strong today.')
 
-    const completedNotesResponse = await agent.patch(`/sessions/${sessionId}/notes`).send({ notes: 'Should be rejected.' })
-    assert.equal(completedNotesResponse.status, 409, completedNotesResponse.text)
+    const completedSetUpdateResponse = await agent
+      .patch(`/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)
+      .send({ notes: 'Should be rejected.' })
+    assert.equal(completedSetUpdateResponse.status, 409, completedSetUpdateResponse.text)
 
     const nextSessionResponse = await agent.post('/sessions').send({ dayId: trialDay.id })
     assert.equal(nextSessionResponse.status, 201, nextSessionResponse.text)

@@ -3,6 +3,7 @@ import { api } from './api'
 export type WorkoutSet = {
   id: string
   kind: SetKind
+  notes: string | null
   weightKg: number
   reps: number
   order: number
@@ -36,7 +37,6 @@ export type WorkoutSession = {
   startedAt: string
   endedAt: string | null
   durationSec: number | null
-  notes: string | null
   exercises: WorkoutExercise[]
 }
 
@@ -68,14 +68,11 @@ type SessionExerciseResponse = {
   exercise: WorkoutExercise
 }
 
-type SessionNotesResponse = {
-  session: WorkoutSession
-}
-
 export type AddSetInput = {
   sessionId: string
   sessionExerciseId: string
   kind: SetKind
+  notes?: string | null
   weightKg: number
   reps: number
 }
@@ -85,6 +82,7 @@ export type UpdateSetInput = {
   sessionExerciseId: string
   setId: string
   kind: SetKind
+  notes?: string | null
   weightKg: number
   reps: number
 }
@@ -161,6 +159,7 @@ export async function addSet(input: AddSetInput) {
     `/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}/sets`,
     {
       kind: input.kind,
+      notes: input.notes,
       weightKg: input.weightKg,
       reps: input.reps,
     },
@@ -174,6 +173,7 @@ export async function updateSet(input: UpdateSetInput) {
     `/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}/sets/${input.setId}`,
     {
       kind: input.kind,
+      notes: input.notes,
       weightKg: input.weightKg,
       reps: input.reps,
     },
@@ -188,12 +188,6 @@ export async function deleteSet(input: DeleteSetInput) {
 
 export async function finishSession(sessionId: string) {
   const response = await api.patch<SessionResponse>(`/sessions/${sessionId}/finish`)
-
-  return response.data.session
-}
-
-export async function updateSessionNotes(sessionId: string, notes: string) {
-  const response = await api.patch<SessionNotesResponse>(`/sessions/${sessionId}/notes`, { notes })
 
   return response.data.session
 }

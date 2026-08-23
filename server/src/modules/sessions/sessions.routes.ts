@@ -5,7 +5,6 @@ import {
   addSetSchema,
   sessionExerciseSchema,
   startSessionSchema,
-  updateSessionNotesSchema,
   updateSetSchema,
 } from './sessions.schemas.js'
 
@@ -25,7 +24,6 @@ function toSessionPayload(session: {
   startedAt: Date
   endedAt: Date | null
   durationSec: number | null
-  notes: string | null
   sessionExercises: Array<{
     id: string
     exerciseId: string
@@ -34,6 +32,7 @@ function toSessionPayload(session: {
     setLogs: Array<{
       id: string
       kind: string
+      notes: string | null
       weightKg: number
       reps: number
       order: number
@@ -58,13 +57,13 @@ function toSessionPayload(session: {
       sets: sessionExercise.setLogs.map((setLog) => ({
         id: setLog.id,
         kind: setLog.kind,
+        notes: setLog.notes,
         weightKg: setLog.weightKg,
         reps: setLog.reps,
         order: setLog.order,
       })),
       lastTime: lastTimeReferences.get(sessionExercise.exerciseId) ?? null,
     })),
-    notes: session.notes,
   }
 }
 
@@ -76,6 +75,7 @@ function toSessionExercisePayload(sessionExercise: {
   setLogs: Array<{
     id: string
     kind: string
+    notes: string | null
     weightKg: number
     reps: number
     order: number
@@ -89,6 +89,7 @@ function toSessionExercisePayload(sessionExercise: {
     sets: sessionExercise.setLogs.map((setLog) => ({
       id: setLog.id,
       kind: setLog.kind,
+      notes: setLog.notes,
       weightKg: setLog.weightKg,
       reps: setLog.reps,
       order: setLog.order,
@@ -326,65 +327,6 @@ sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
     return
   }
 
-  const lastTimeReferences = await getLastTimeReferences(
-    userId,
-    session.id,
-    session.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
-  )
-
-  res.json({ session: toSessionPayload(session, lastTimeReferences) })
-})
-
-sessionsRouter.patch('/:sessionId/notes', requireAuth, async (req, res) => {
-  const parsedBody = updateSessionNotesSchema.safeParse(req.body)
-
-  if (!parsedBody.success) {
-    res.status(400).json({ error: 'Invalid request body', fields: parsedBody.error.flatten().fieldErrors })
-    return
-  }
-
-  const userId = req.userId
-  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
-
-  if (!userId) {
-    res.status(401).json({ error: 'Authentication required' })
-    return
-  }
-
-  if (!sessionId) {
-    res.status(400).json({ error: 'Invalid session id' })
-    return
-  }
-
-  const updated = await prisma.session.updateMany({
-    where: { id: sessionId, userId, endedAt: null },
-    data: { notes: parsedBody.data.notes || null },
-  })
-
-  if (updated.count === 0) {
-    const session = await prisma.session.findFirst({
-      where: { id: sessionId, userId },
-      select: { endedAt: true },
-    })
-
-    if (!session) {
-      res.status(404).json({ error: 'Session not found' })
-      return
-    }
-
-    res.status(409).json({ error: 'Completed workouts are read-only' })
-    return
-  }
-
-  const session = await prisma.session.findUniqueOrThrow({
-    where: { id: sessionId },
-    include: {
-      sessionExercises: {
-        orderBy: { order: 'asc' },
-        include: { setLogs: { orderBy: { order: 'asc' } } },
-      },
-    },
-  })
   const lastTimeReferences = await getLastTimeReferences(
     userId,
     session.id,
@@ -714,6 +656,7 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets', requireAuth
     data: {
       sessionExerciseId,
       kind: parsedBody.data.kind,
+      notes: parsedBody.data.notes || null,
       weightKg: parsedBody.data.weightKg,
       reps: parsedBody.data.reps,
       order: (latestSet?.order ?? 0) + 1,
@@ -724,6 +667,7 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets', requireAuth
     set: {
       id: setLog.id,
       kind: setLog.kind,
+      notes: setLog.notes,
       weightKg: setLog.weightKg,
       reps: setLog.reps,
       order: setLog.order,
@@ -785,28 +729,35 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/sets/:setId', req
     return
   }
 
-   const updateData: { kind?: 'WARMUP' | 'NORMAL' | 'DROP', weightKg?: number, reps?: number } = {};
-   if (parsedBody.data.kind) {
-    updateData.kind = parsedBody.data.kind;
-    }
-   if (parsedBody.data.weightKg !== undefined) {
-    updateData.weightKg = parsedBody.data.weightKg;
-    }
-   if (parsedBody.data.reps !== undefined) {
-    updateData.reps = parsedBody.data.reps;
-    }
+  const updateData: {
+    kind?: 'WARMUP' | 'NORMAL' | 'DROP'
+    notes?: string | null
+    weightKg?: number
+    reps?: number
+  } = {}
+  if (parsedBody.data.kind) {
+    updateData.kind = parsedBody.data.kind
+  }
+  if (parsedBody.data.notes !== undefined) {
+    updateData.notes = parsedBody.data.notes || null
+  }
+  if (parsedBody.data.weightKg !== undefined) {
+    updateData.weightKg = parsedBody.data.weightKg
+  }
+  if (parsedBody.data.reps !== undefined) {
+    updateData.reps = parsedBody.data.reps
+  }
 
   const setLog = await prisma.setLog.update({
     where: { id: setId },
-    data: updateData
+    data: updateData,
   })
-
-
 
   res.json({
     set: {
       id: setLog.id,
       kind: setLog.kind,
+      notes: setLog.notes,
       weightKg: setLog.weightKg,
       reps: setLog.reps,
       order: setLog.order,
