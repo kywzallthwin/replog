@@ -12,8 +12,9 @@ function ActiveWorkoutTimer({ sessionId, startedAt }: { sessionId: string; start
     <Link
       to={`/workout/${sessionId}?from=navigation`}
       aria-label={`Resume active workout, ${duration} elapsed`}
-      className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 inline-flex min-h-11 min-w-[76px] items-center justify-center rounded-full border border-white/10 bg-slate-900 px-3.5 py-2 text-[17px] font-black tracking-[-0.03em] tabular-nums text-white shadow-[0_8px_20px_rgba(15,23,42,0.22),0_2px_5px_rgba(15,23,42,0.12)] transition hover:bg-slate-800 active:scale-[0.97] lg:hidden"
+      className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 inline-flex min-h-11 min-w-[76px] items-center justify-center gap-1.5 rounded-full border border-white/10 bg-slate-900 px-3.5 py-2 text-[17px] font-black tracking-[-0.03em] tabular-nums text-white shadow-[0_8px_20px_rgba(15,23,42,0.22),0_2px_5px_rgba(15,23,42,0.12)] transition hover:bg-slate-800 active:scale-[0.97] lg:hidden"
     >
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400 ring-2 ring-green-400/20" aria-hidden="true" />
       {duration}
     </Link>
   )
