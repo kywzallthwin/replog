@@ -13,6 +13,7 @@ import {
   sessionHistoryQueryKey,
   sessionQueryKey,
   swapSessionExercise,
+  updateSessionNotes,
   updateSet,
   type SetKind,
   type WorkoutExercise,
@@ -26,6 +27,7 @@ import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDial
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
+import { useRestTimer } from '../lib/useRestTimer'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -56,6 +58,47 @@ function formatCompletedDuration(durationSec: number | null) {
   }
 
   return `${Math.max(1, Math.round(durationSec / 60))} min`
+}
+
+function formatLastTimeDate(date: string) {
+  return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(new Date(date))
+}
+
+function RestTimer({
+  formatted,
+  remainingSeconds,
+  onAdd,
+  onSkip,
+}: {
+  formatted: string
+  remainingSeconds: number
+  onAdd: () => void
+  onSkip: () => void
+}) {
+  return (
+    <div className="sticky top-3 z-20 mb-5 flex items-center justify-between gap-3 rounded-[16px] bg-slate-900 px-4 py-3 text-white shadow-[0_8px_24px_rgba(15,23,42,0.18)]">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Rest timer</p>
+        <p className="mt-1 text-2xl font-black tracking-[-0.04em]">{formatted}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onAdd}
+          className="min-h-11 rounded-[11px] border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-slate-800"
+        >
+          +15s
+        </button>
+        <button
+          type="button"
+          onClick={onSkip}
+          className="min-h-11 rounded-[11px] bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-100"
+        >
+          {remainingSeconds === 0 ? 'Dismiss' : 'Skip'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function WorkoutDuration({ startedAt }: { startedAt: string }) {
@@ -98,6 +141,20 @@ function getSetBadgeClass(kind: SetKind) {
   }
 
   return 'bg-slate-100 text-slate-500'
+}
+
+function getLatestSet(exercise: WorkoutExercise) {
+  return exercise.sets[exercise.sets.length - 1] ?? null
+}
+
+function getSuggestedSet(exercise: WorkoutExercise) {
+  const latestNormalSet = [...exercise.sets].reverse().find((set) => set.kind === 'NORMAL')
+
+  if (latestNormalSet) {
+    return latestNormalSet
+  }
+
+  return exercise.lastTime ?? getLatestSet(exercise)
 }
 
 function SetRow({
@@ -300,6 +357,8 @@ export function WorkoutPage() {
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
   const [cancelConfirmation, setCancelConfirmation] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [notesSessionId, setNotesSessionId] = useState<string | null>(null)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
   const keepWorkoutButtonRef = useRef<HTMLButtonElement>(null)
   useBodyScrollLock(Boolean(exercisePicker || deleteConfirmation || cancelConfirmation))
@@ -331,18 +390,27 @@ export function WorkoutPage() {
   const source = searchParams.get('from')
   const headerLink = source === 'history' ? '/history' : source === 'progress' ? '/progress' : '/dashboard'
   const headerLinkLabel = source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
+  const restTimer = useRestTimer(sessionId, Boolean(session && !session.endedAt))
+  const saveNotesMutation = useMutation({
+    mutationFn: ({ id, value }: { id: string; value: string }) => updateSessionNotes(id, value),
+    onSuccess: (updatedSession) => {
+      if (sessionId) {
+        queryClient.setQueryData(sessionQueryKey(sessionId), updatedSession)
+      }
+    },
+  })
   const addSetMutation = useMutation({
     mutationFn: addSet,
-    onSuccess: async () => {
+    onSuccess: async (_set, variables) => {
       if (sessionId) {
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
 
-      setActiveExerciseId(null)
       setKind('NORMAL')
-      setWeightKg('')
-      setReps('')
+      setWeightKg(variables.weightKg.toString())
+      setReps(variables.reps.toString())
       setFormError('')
+      restTimer.start()
     },
   })
   const addSessionExerciseMutation = useMutation({
@@ -408,7 +476,12 @@ export function WorkoutPage() {
   const deleteConfirmationIsPending = deleteSetMutation.isPending || removeSessionExerciseMutation.isPending
   const deleteConfirmationHasError = deleteSetMutation.isError || removeSessionExerciseMutation.isError
   const finishSessionMutation = useMutation({
-    mutationFn: finishSession,
+    mutationFn: ({ id, value }: { id: string; value: string }) =>
+      (async () => {
+        await updateSessionNotes(id, value)
+
+        return finishSession(id)
+      })(),
     onSuccess: async (updatedSession) => {
       if (sessionId) {
         queryClient.setQueryData(sessionQueryKey(sessionId), updatedSession)
@@ -417,7 +490,6 @@ export function WorkoutPage() {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
       await queryClient.invalidateQueries({ queryKey: ['progress'] })
-      navigate('/dashboard')
     },
   })
   const cancelSessionMutation = useMutation({
@@ -441,12 +513,24 @@ export function WorkoutPage() {
     }
   }, [cancelConfirmation])
 
+  function saveNotes() {
+    const effectiveNotes = session && notesSessionId === session.id ? notes : session?.notes ?? ''
+
+    if (!session || session.endedAt || effectiveNotes === (session.notes ?? '') || saveNotesMutation.isPending) {
+      return
+    }
+
+    saveNotesMutation.mutate({ id: session.id, value: effectiveNotes })
+  }
+
   function openAddSetForm(exercise: WorkoutExercise) {
+    const suggestedSet = getSuggestedSet(exercise)
+
     setActiveExerciseId(exercise.id)
     setEditingSet(null)
     setKind('NORMAL')
-    setWeightKg('')
-    setReps('')
+    setWeightKg(suggestedSet?.weightKg.toString() ?? '')
+    setReps(suggestedSet?.reps.toString() ?? '')
     setFormError('')
   }
 
@@ -517,6 +601,25 @@ export function WorkoutPage() {
     })
   }
 
+  function handleRepeatSet(exercise: WorkoutExercise) {
+    const latestSet = getLatestSet(exercise)
+
+    if (!sessionId || !latestSet || addSetMutation.isPending) {
+      return
+    }
+
+    setActiveExerciseId(null)
+    setEditingSet(null)
+    setFormError('')
+    addSetMutation.mutate({
+      sessionId,
+      sessionExerciseId: exercise.id,
+      kind: latestSet.kind,
+      weightKg: latestSet.weightKg,
+      reps: latestSet.reps,
+    })
+  }
+
   function openEditSetForm(exercise: WorkoutExercise, set: WorkoutSet) {
     setActiveExerciseId(null)
     setEditingSet({ exerciseId: exercise.id, set })
@@ -571,6 +674,8 @@ export function WorkoutPage() {
       sessionExerciseId: deleteConfirmation.exercise.id,
     })
   }
+
+  const effectiveNotes = session && notesSessionId === session.id ? notes : session?.notes ?? ''
 
   return (
     <main className="min-h-dvh bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
@@ -631,10 +736,57 @@ export function WorkoutPage() {
               </p>
             </div>
 
+            {!session.endedAt && restTimer.remainingSeconds !== null ? (
+              <RestTimer
+                formatted={restTimer.formatted ?? '0:00'}
+                remainingSeconds={restTimer.remainingSeconds}
+                onAdd={() => restTimer.addSeconds(15)}
+                onSkip={restTimer.skip}
+              />
+            ) : null}
+
+            <section className="mb-5 rounded-[16px] border border-slate-100 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Workout notes</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {session.endedAt ? 'Notes saved with this workout.' : 'Add anything you want to remember.'}
+                  </p>
+                </div>
+                {!session.endedAt && effectiveNotes !== (session.notes ?? '') ? (
+                  <span className="text-xs font-semibold text-slate-400">Unsaved</span>
+                ) : null}
+              </div>
+              {session.endedAt ? (
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  {session.notes || 'No notes added.'}
+                </p>
+              ) : (
+                <textarea
+                  value={effectiveNotes}
+                  maxLength={2000}
+                  onChange={(event) => {
+                    setNotesSessionId(session.id)
+                    setNotes(event.target.value)
+                  }}
+                  onBlur={saveNotes}
+                  placeholder="How did it feel? Any tweaks?"
+                  rows={3}
+                  className="mt-3 w-full resize-y rounded-[12px] border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-slate-900"
+                />
+              )}
+              {saveNotesMutation.isError ? (
+                <p className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                  Unable to save notes. Please try again.
+                </p>
+              ) : null}
+            </section>
+
             <div className="space-y-3">
               {session.exercises.map((exercise, index) => {
                 const isFinished = Boolean(session.endedAt)
                 const activeEdit = editingSet?.exerciseId === exercise.id ? editingSet.set : null
+                const latestSet = getLatestSet(exercise)
 
                 return (
                 <article
@@ -652,6 +804,13 @@ export function WorkoutPage() {
                       <p className="mt-1 text-sm text-slate-500">
                         {exercise.sets.length ? `${exercise.sets.length} sets logged` : 'No sets yet'}
                       </p>
+                      {exercise.lastTime ? (
+                        <p className="mt-2 text-xs font-semibold text-slate-400">
+                          Last time: {exercise.lastTime.weightKg} kg x {exercise.lastTime.reps} · {formatLastTimeDate(exercise.lastTime.performedAt)}
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs font-semibold text-slate-300">No previous performance</p>
+                      )}
                     </div>
                     {isFinished ? null : (
                       <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
@@ -669,6 +828,16 @@ export function WorkoutPage() {
                         >
                           Add Set
                         </button>
+                        {latestSet ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRepeatSet(exercise)}
+                            disabled={addSetMutation.isPending}
+                            className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+                          >
+                            Repeat {latestSet.weightKg} kg x {latestSet.reps}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => handleRemoveExercise(exercise)}
@@ -723,6 +892,9 @@ export function WorkoutPage() {
                       className="mt-3 rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
                     >
                       <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Add Set</p>
+                      <p className="mb-3 text-xs font-medium text-slate-500">
+                        Values are prefilled from your latest set. Adjust them only when needed.
+                      </p>
                       <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr]">
                         <label className="block">
                           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
@@ -812,8 +984,22 @@ export function WorkoutPage() {
             </div>
 
             {session.endedAt ? (
-              <div className="mt-5 rounded-[14px] bg-slate-100 px-4 py-3 text-center text-sm font-medium text-slate-500">
-                This workout was completed. Workout details are read-only.
+              <div className="mt-5 rounded-[14px] bg-slate-100 px-4 py-4 text-center">
+                <p className="text-sm font-medium text-slate-500">Workout summary complete. These details are read-only.</p>
+                <div className="mt-3 flex gap-2">
+                  <Link
+                    to="/dashboard"
+                    className="flex-1 rounded-[12px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    to="/history"
+                    className="flex-1 rounded-[12px] border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                  >
+                    History
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="mt-5 space-y-3">
@@ -826,7 +1012,7 @@ export function WorkoutPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => finishSessionMutation.mutate(session.id)}
+                   onClick={() => finishSessionMutation.mutate({ id: session.id, value: effectiveNotes })}
                   disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending}
                   className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-green-100 px-4 py-3 text-sm font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:bg-green-50 disabled:text-green-400"
                 >

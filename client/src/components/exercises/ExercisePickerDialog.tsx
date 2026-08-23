@@ -205,7 +205,9 @@ export function ExercisePickerDialog({
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      exercises: group.exercises.filter((exercise) => exercise.name.toLowerCase().includes(normalizedSearch)),
+      exercises: group.exercises.filter((exercise) =>
+        `${exercise.name} ${categoryLabels[exercise.category]}`.toLowerCase().includes(normalizedSearch),
+      ),
     }))
     .filter((group) => group.exercises.length > 0)
   const isSourcePending = source === 'program' ? programIsPending : isOptionsPending

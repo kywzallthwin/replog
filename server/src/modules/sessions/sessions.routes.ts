@@ -1,7 +1,13 @@
 import { Router } from 'express'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
-import { addSetSchema, sessionExerciseSchema, startSessionSchema, updateSetSchema } from './sessions.schemas.js'
+import {
+  addSetSchema,
+  sessionExerciseSchema,
+  startSessionSchema,
+  updateSessionNotesSchema,
+  updateSetSchema,
+} from './sessions.schemas.js'
 
 export const sessionsRouter = Router()
 
@@ -19,6 +25,7 @@ function toSessionPayload(session: {
   startedAt: Date
   endedAt: Date | null
   durationSec: number | null
+  notes: string | null
   sessionExercises: Array<{
     id: string
     exerciseId: string
@@ -32,7 +39,7 @@ function toSessionPayload(session: {
       order: number
     }>
   }>
-}) {
+}, lastTimeReferences = new Map<string, { sessionId: string; performedAt: Date; weightKg: number; reps: number }>()) {
   return {
     id: session.id,
     programId: session.programId,
@@ -55,7 +62,9 @@ function toSessionPayload(session: {
         reps: setLog.reps,
         order: setLog.order,
       })),
+      lastTime: lastTimeReferences.get(sessionExercise.exerciseId) ?? null,
     })),
+    notes: session.notes,
   }
 }
 
@@ -84,7 +93,58 @@ function toSessionExercisePayload(sessionExercise: {
       reps: setLog.reps,
       order: setLog.order,
     })),
+    lastTime: null,
   }
+}
+
+async function getLastTimeReferences(userId: string, sessionId: string, exerciseIds: string[]) {
+  const references = new Map<string, { sessionId: string; performedAt: Date; weightKg: number; reps: number }>()
+
+  if (!exerciseIds.length) {
+    return references
+  }
+
+  const previousExercises = await prisma.sessionExercise.findMany({
+    where: {
+      exerciseId: { in: exerciseIds },
+      session: {
+        userId,
+        id: { not: sessionId },
+        endedAt: { not: null },
+      },
+    },
+    orderBy: { session: { startedAt: 'desc' } },
+    include: {
+      session: { select: { id: true, startedAt: true } },
+      setLogs: {
+        where: { kind: 'NORMAL' },
+        orderBy: { order: 'asc' },
+      },
+    },
+  })
+
+  for (const previousExercise of previousExercises) {
+    if (references.has(previousExercise.exerciseId) || !previousExercise.setLogs.length) {
+      continue
+    }
+
+    const bestSet = [...previousExercise.setLogs].sort(
+      (left, right) => right.weightKg * (1 + right.reps / 30) - left.weightKg * (1 + left.reps / 30),
+    )[0]
+
+    if (!bestSet) {
+      continue
+    }
+
+    references.set(previousExercise.exerciseId, {
+      sessionId: previousExercise.session.id,
+      performedAt: previousExercise.session.startedAt,
+      weightKg: bestSet.weightKg,
+      reps: bestSet.reps,
+    })
+  }
+
+  return references
 }
 
 sessionsRouter.post('/', requireAuth, async (req, res) => {
@@ -266,7 +326,72 @@ sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
     return
   }
 
-  res.json({ session: toSessionPayload(session) })
+  const lastTimeReferences = await getLastTimeReferences(
+    userId,
+    session.id,
+    session.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
+  )
+
+  res.json({ session: toSessionPayload(session, lastTimeReferences) })
+})
+
+sessionsRouter.patch('/:sessionId/notes', requireAuth, async (req, res) => {
+  const parsedBody = updateSessionNotesSchema.safeParse(req.body)
+
+  if (!parsedBody.success) {
+    res.status(400).json({ error: 'Invalid request body', fields: parsedBody.error.flatten().fieldErrors })
+    return
+  }
+
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId) {
+    res.status(400).json({ error: 'Invalid session id' })
+    return
+  }
+
+  const updated = await prisma.session.updateMany({
+    where: { id: sessionId, userId, endedAt: null },
+    data: { notes: parsedBody.data.notes || null },
+  })
+
+  if (updated.count === 0) {
+    const session = await prisma.session.findFirst({
+      where: { id: sessionId, userId },
+      select: { endedAt: true },
+    })
+
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+
+    res.status(409).json({ error: 'Completed workouts are read-only' })
+    return
+  }
+
+  const session = await prisma.session.findUniqueOrThrow({
+    where: { id: sessionId },
+    include: {
+      sessionExercises: {
+        orderBy: { order: 'asc' },
+        include: { setLogs: { orderBy: { order: 'asc' } } },
+      },
+    },
+  })
+  const lastTimeReferences = await getLastTimeReferences(
+    userId,
+    session.id,
+    session.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
+  )
+
+  res.json({ session: toSessionPayload(session, lastTimeReferences) })
 })
 
 sessionsRouter.delete('/:sessionId', requireAuth, async (req, res) => {
@@ -835,5 +960,11 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
     },
   })
 
-  res.json({ session: toSessionPayload(updatedSession) })
+  const lastTimeReferences = await getLastTimeReferences(
+    userId,
+    updatedSession.id,
+    updatedSession.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
+  )
+
+  res.json({ session: toSessionPayload(updatedSession, lastTimeReferences) })
 })

@@ -16,6 +16,14 @@ export type WorkoutExercise = {
   name: string
   order: number
   sets: WorkoutSet[]
+  lastTime: LastTimeReference | null
+}
+
+export type LastTimeReference = {
+  sessionId: string
+  performedAt: string
+  weightKg: number
+  reps: number
 }
 
 export type WorkoutSession = {
@@ -28,6 +36,7 @@ export type WorkoutSession = {
   startedAt: string
   endedAt: string | null
   durationSec: number | null
+  notes: string | null
   exercises: WorkoutExercise[]
 }
 
@@ -57,6 +66,10 @@ type SetResponse = {
 
 type SessionExerciseResponse = {
   exercise: WorkoutExercise
+}
+
+type SessionNotesResponse = {
+  session: WorkoutSession
 }
 
 export type AddSetInput = {
@@ -175,6 +188,12 @@ export async function deleteSet(input: DeleteSetInput) {
 
 export async function finishSession(sessionId: string) {
   const response = await api.patch<SessionResponse>(`/sessions/${sessionId}/finish`)
+
+  return response.data.session
+}
+
+export async function updateSessionNotes(sessionId: string, notes: string) {
+  const response = await api.patch<SessionNotesResponse>(`/sessions/${sessionId}/notes`, { notes })
 
   return response.data.session
 }

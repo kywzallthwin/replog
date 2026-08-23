@@ -19,3 +19,7 @@ export const updateSetSchema = z.object({
 export const sessionExerciseSchema = z.object({
   exerciseId: z.string().min(1),
 })
+
+export const updateSessionNotesSchema = z.object({
+  notes: z.string().trim().max(2000),
+})

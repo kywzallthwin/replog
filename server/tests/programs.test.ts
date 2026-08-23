@@ -87,7 +87,30 @@ test('users can create, switch, copy, and safely edit multiple programs', async 
       .send({ exerciseId: alternateExerciseId })
     assert.equal(swapResponse.status, 409, swapResponse.text)
 
-    const cancelResponse = await agent.delete(`/sessions/${sessionId}`)
+    const notesResponse = await agent.patch(`/sessions/${sessionId}/notes`).send({ notes: 'Felt strong today.' })
+    assert.equal(notesResponse.status, 200, notesResponse.text)
+    assert.equal(notesResponse.body.session.notes, 'Felt strong today.')
+
+    const finishResponse = await agent.patch(`/sessions/${sessionId}/finish`)
+    assert.equal(finishResponse.status, 200, finishResponse.text)
+    assert.equal(finishResponse.body.session.notes, 'Felt strong today.')
+
+    const completedNotesResponse = await agent.patch(`/sessions/${sessionId}/notes`).send({ notes: 'Should be rejected.' })
+    assert.equal(completedNotesResponse.status, 409, completedNotesResponse.text)
+
+    const nextSessionResponse = await agent.post('/sessions').send({ dayId: trialDay.id })
+    assert.equal(nextSessionResponse.status, 201, nextSessionResponse.text)
+    const nextSessionId = nextSessionResponse.body.session.id as string
+    const nextSessionDetailsResponse = await agent.get(`/sessions/${nextSessionId}`)
+    assert.equal(nextSessionDetailsResponse.status, 200, nextSessionDetailsResponse.text)
+    assert.deepEqual(nextSessionDetailsResponse.body.session.exercises[0].lastTime, {
+      sessionId,
+      performedAt: nextSessionDetailsResponse.body.session.exercises[0].lastTime.performedAt,
+      weightKg: 20,
+      reps: 8,
+    })
+
+    const cancelResponse = await agent.delete(`/sessions/${nextSessionId}`)
     assert.equal(cancelResponse.status, 204, cancelResponse.text)
   } finally {
     await prisma.user.deleteMany({ where: { email } })
