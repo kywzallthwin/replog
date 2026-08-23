@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx src/index.ts",
     "generate": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
     "build": "npm run generate && tsc --outDir dist --rootDir .",
