@@ -1006,7 +1006,19 @@ export function WorkoutPage() {
                           />
                         </label>
                         <label className="block">
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Reps</span>
+                          <span className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                            <span>Reps</span>
+                            {kind === 'NORMAL' ? (
+                              <button
+                                type="button"
+                                onClick={addDropDraft}
+                                disabled={dropDrafts.length >= 10}
+                                className="-my-1 min-h-11 rounded-[9px] px-1.5 text-[11px] font-extrabold normal-case tracking-normal text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                              >
+                                + Drop
+                              </button>
+                            ) : null}
+                          </span>
                           <input
                             type="number"
                             inputMode="numeric"
@@ -1020,70 +1032,49 @@ export function WorkoutPage() {
                           />
                         </label>
                       </div>
-                      {kind === 'NORMAL' ? (
-                        <div className="mt-4 rounded-[12px] bg-slate-50 px-3 py-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Drop sets</p>
-                              <p className="mt-1 text-xs font-medium text-slate-400">Optional. Add each immediate weight and rep change.</p>
+                      {kind === 'NORMAL' && dropDrafts.length ? (
+                        <div className="mt-2 space-y-1.5">
+                          {dropDrafts.map((drop) => (
+                            <div key={drop.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_auto] items-center gap-1.5 rounded-[10px] bg-slate-50 px-2 py-1.5">
+                              <span className="rounded-full bg-blue-50 px-1.5 py-1 text-[9px] font-extrabold tracking-[0.04em] text-blue-700">DROP</span>
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                max="1000"
+                                step="0.5"
+                                value={drop.weightKg}
+                                onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
+                                aria-label="Drop weight kg"
+                                placeholder="kg"
+                                className="h-9 min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                required
+                              />
+                              <span className="text-[10px] font-bold text-slate-400">kg</span>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min="1"
+                                max="1000"
+                                step="1"
+                                value={drop.reps}
+                                onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
+                                aria-label="Drop reps"
+                                placeholder="reps"
+                                className="h-9 min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                required
+                              />
+                              <span className="text-[10px] font-bold text-slate-400">reps</span>
+                              <button
+                                type="button"
+                                onClick={() => removeDropDraft(drop.id)}
+                                aria-label="Remove drop"
+                                className="grid h-9 w-8 place-items-center rounded-full text-sm font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                              >
+                                x
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={addDropDraft}
-                              disabled={dropDrafts.length >= 10}
-                              className="min-h-11 shrink-0 rounded-[11px] border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
-                            >
-                              + Add drop
-                            </button>
-                          </div>
-                          {dropDrafts.length ? (
-                            <div className="mt-3 space-y-2">
-                              {dropDrafts.map((drop, index) => (
-                                <div key={drop.id} className="rounded-[10px] border border-slate-200 bg-white p-2.5">
-                                  <div className="mb-2 flex items-center justify-between gap-2">
-                                    <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">Drop {index + 1}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeDropDraft(drop.id)}
-                                      className="min-h-9 rounded-full px-2 text-[11px] font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <label className="block">
-                                      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
-                                      <input
-                                        type="number"
-                                        inputMode="decimal"
-                                        min="0"
-                                        max="1000"
-                                        step="0.5"
-                                        value={drop.weightKg}
-                                        onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
-                                        className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
-                                        required
-                                      />
-                                    </label>
-                                    <label className="block">
-                                      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Reps</span>
-                                      <input
-                                        type="number"
-                                        inputMode="numeric"
-                                        min="1"
-                                        max="1000"
-                                        step="1"
-                                        value={drop.reps}
-                                        onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
-                                        className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
-                                        required
-                                      />
-                                    </label>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
+                          ))}
                         </div>
                       ) : null}
                       <label className="mt-4 block">

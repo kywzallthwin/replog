@@ -41,7 +41,7 @@
 
 ## Next Actions
 - Manually verify the Programs library/editor and the numeric drop-field Add Set flow at 375px, 430px, and desktop widths, including edge-positioned action menus and the Copy from dropdown.
-- Manually verify Add Set/Edit Set note wrapping, multiple drop-row behavior, Repeat chain behavior, and first-set warm-up defaults at 375px, 430px, and desktop widths.
+- Manually verify the compact inline `+ Drop` control in the live Add Set form and mockup, plus Add Set/Edit Set note wrapping at 375px, 430px, and desktop widths, Repeat chain behavior, and first-set warm-up defaults.
 - Verify switching is blocked during an active workout and that history retains the previous program snapshot.
 - Consider adding API search/category filtering for the exercise catalog.
 - Continue with deferred product features or production hardening after the new flow is accepted.
@@ -67,3 +67,5 @@
 - 2026-08-23: Added an interactive drop-set logging concept to `Replog-mockup/Replog-mockup.html`; it now shows numeric optional drop rows instead of notation entry.
 - 2026-08-24: Built numeric drop-chain logging end to end. Add Set supports multiple optional weight/reps drop rows, saves the full chain atomically, groups drops under their normal parent, and no longer offers Quick Log or post-save `+ Drop`. Build, typecheck, tests, migration deploy, Prisma validation, and diff check pass.
 - 2026-08-24: Repeat now displays only `Repeat`, duplicates the latest normal-plus-drop chain atomically, converts a repeated warm-up into a normal set, and Add Set defaults the first new set to warm-up and later sets to normal while Edit Set retains Drop.
+- 2026-08-24: Simplified the drop-set mockup to a small inline `+ Drop` control beside Reps; added compact horizontal drop rows with add/remove interaction and removed the large visible Drop Sets panel.
+- 2026-08-24: Ported the compact inline drop interaction into the live Add Set form. `+ Drop` now sits beside Reps, and added drops use minimal horizontal weight/reps rows with remove controls.

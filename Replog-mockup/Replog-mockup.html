@@ -229,14 +229,21 @@
      .drop-summary span { color: #64748b; font-size: 11px; font-weight: 700; text-align: right; }
      .drop-add { margin-left: auto; border: 0; background: transparent; color: #475569; font-size: 11px; font-weight: 800; padding: 7px 0 7px 8px; }
      .drop-add:hover { color: #0f172a; }
-     .drop-fields { margin-top: 12px; border-radius: 12px; background: #f8fafc; padding: 12px; }
-     .drop-fields-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-     .drop-fields-title { color: #475569; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-     .drop-fields-help { color: #94a3b8; font-size: 11px; line-height: 1.4; margin-top: 4px; }
-     .drop-field-row { margin-top: 10px; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; padding: 10px; }
-     .drop-field-row-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
-     .drop-field-row-head span { color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-     .drop-field-row-head button { border: 0; background: transparent; color: #94a3b8; font-size: 10px; font-weight: 800; }
+     .compact-set-form { margin-top: 14px; }
+     .compact-set-grid { display: grid; gap: 10px; }
+     .compact-set-grid .field { margin: 0; }
+     .compact-set-grid .field label { color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+     .field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+     .field-label-row label { margin: 0 !important; }
+     .inline-drop-button { min-height: 32px; border: 0; border-radius: 8px; background: transparent; color: #2563eb; font-size: 11px; font-weight: 800; padding: 5px 7px; }
+     .inline-drop-button:hover { background: #eff6ff; }
+     .compact-drop-list { display: grid; gap: 7px; margin-top: 8px; }
+     .compact-drop-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto minmax(0,1fr) auto auto; align-items: center; gap: 6px; border-radius: 10px; background: #f8fafc; padding: 7px 8px; }
+     .compact-drop-row .input { min-width: 0; height: 36px; padding: 7px 8px; font-size: 13px; }
+     .compact-drop-unit { color: #94a3b8; font-size: 11px; font-weight: 700; }
+     .compact-drop-remove { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 999px; background: transparent; color: #94a3b8; font-size: 16px; }
+     .compact-drop-remove:hover { background: #fef2f2; color: #ef4444; }
+     .compact-drop-row .badge { font-size: 9px; padding: 4px 6px; }
      .drop-feature aside { display: none; }
 
     @media (max-width: 760px) {
@@ -643,11 +650,20 @@
                 <div class="set-row drop-child"><span class="badge badge-drop">DROP</span><strong>39 kg</strong><span class="muted">x</span><span>2</span><span class="spacer"></span><button class="btn-icon blue">e</button></div>
               </div>
             </div>
-             <div class="drop-fields">
-               <div class="drop-fields-head"><div><div class="drop-fields-title">Drop sets</div><div class="drop-fields-help">Optional. Add each immediate weight and rep change.</div></div><button class="btn btn-white btn-small">+ Add drop</button></div>
-               <div class="drop-field-row"><div class="drop-field-row-head"><span>Drop 1</span><button>Remove</button></div><div class="mini-grid"><div class="field"><label>Weight kg</label><input class="input" value="39" /></div><div class="field"><label>Reps</label><input class="input" value="2" /></div></div></div>
-               <div class="drop-field-row"><div class="drop-field-row-head"><span>Drop 2</span><button>Remove</button></div><div class="mini-grid"><div class="field"><label>Weight kg</label><input class="input" value="32" /></div><div class="field"><label>Reps</label><input class="input" value="3" /></div></div></div>
-             </div>
+              <div class="inline-form compact-set-form" data-drop-form>
+                <div class="tiny" style="margin-bottom:10px;">Add Set</div>
+                <p class="sub" style="margin:0 0 12px;">Values are prefilled from your latest set.</p>
+                <div class="compact-set-grid">
+                  <div class="field"><label>Kind</label><select><option>Normal</option><option>Warm-up</option></select></div>
+                  <div class="field"><label>Weight kg</label><input class="input" value="45" /></div>
+                  <div class="field">
+                    <div class="field-label-row"><label>Reps</label><button class="inline-drop-button" type="button" data-add-drop>+ Drop</button></div>
+                    <input class="input" value="4" />
+                  </div>
+                </div>
+                <div class="compact-drop-list" data-drop-list></div>
+                <div class="row" style="justify-content:flex-start;margin-top:12px;"><button class="btn btn-dark btn-small">Save Set + Drops</button><button class="btn btn-white btn-small">Cancel</button></div>
+              </div>
             <div class="timer" style="margin-top:14px;"><div><div style="font-size:10px;letter-spacing:.08em;opacity:.65;">REST TIMER</div><div class="t-val">1:30</div></div><div style="display:flex;gap:6px;"><button class="t-btn">+15s</button><button class="t-btn">Skip</button></div></div>
           </main>
         </div>
@@ -708,6 +724,31 @@
     </div>
   </div>
 <script>
+  (() => {
+    document.querySelectorAll('[data-drop-form]').forEach((form) => {
+      const addButton = form.querySelector('[data-add-drop]')
+      const list = form.querySelector('[data-drop-list]')
+
+      if (!addButton || !list) return
+
+      addButton.addEventListener('click', () => {
+        const dropNumber = list.querySelectorAll('[data-drop-row]').length + 1
+        const row = document.createElement('div')
+        row.className = 'compact-drop-row'
+        row.dataset.dropRow = ''
+        row.innerHTML = `<span class="badge badge-drop">DROP</span><input class="input" value="39" aria-label="Drop ${dropNumber} weight kg" /><span class="compact-drop-unit">kg</span><input class="input" value="2" aria-label="Drop ${dropNumber} reps" /><span class="compact-drop-unit">reps</span><button class="compact-drop-remove" type="button" data-remove-drop aria-label="Remove drop ${dropNumber}">×</button>`
+        list.append(row)
+        row.querySelector('input')?.focus()
+      })
+
+      list.addEventListener('click', (event) => {
+        const target = event.target
+        if (!(target instanceof Element) || !target.closest('[data-remove-drop]')) return
+        target.closest('[data-drop-row]')?.remove()
+      })
+    })
+  })()
+
   (() => {
     const timerNodes = document.querySelectorAll('[data-workout-duration], [data-active-workout-duration]')
     if (!timerNodes.length) return
