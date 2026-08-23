@@ -19,7 +19,6 @@ import {
   type WorkoutExercise,
   type WorkoutSet,
 } from '../lib/sessions'
-import { hasValidSetNotation, parseSetNotation } from '../lib/setNotation'
 import { dashboardQueryKey } from '../lib/dashboard'
 import { getBadgeClass } from '../lib/badgeColors'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
@@ -38,11 +37,19 @@ type DeleteConfirmationState =
   | { type: 'set'; exercise: WorkoutExercise; set: WorkoutSet }
   | { type: 'exercise'; exercise: WorkoutExercise }
 
+type DropDraft = {
+  id: number
+  weightKg: string
+  reps: string
+}
+
 const setKindOptions = [
   { value: 'NORMAL', label: 'Normal' },
   { value: 'WARMUP', label: 'Warm-up' },
   { value: 'DROP', label: 'Drop' },
 ] as const
+
+const addSetKindOptions = setKindOptions.filter((option) => option.value !== 'DROP')
 
 function formatStartedAt(startedAt: string) {
   return new Intl.DateTimeFormat('en', {
@@ -165,7 +172,6 @@ function SetRow({
   isDropChild,
   onEdit,
   onDelete,
-  onAddDrop,
 }: {
   set: WorkoutSet
   setNumber: number
@@ -173,7 +179,6 @@ function SetRow({
   isDropChild: boolean
   onEdit: () => void
   onDelete: () => void
-  onAddDrop: () => void
 }) {
   return (
     <div className={`flex items-start gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${isDropChild ? 'ml-5 border-l-2 border-l-slate-200 pl-3' : ''}`}>
@@ -190,15 +195,6 @@ function SetRow({
       </div>
       {isFinished ? null : (
         <div className="flex items-center gap-1">
-          {set.kind === 'NORMAL' ? (
-            <button
-              type="button"
-              onClick={onAddDrop}
-              className="min-h-11 rounded-full px-2 text-[11px] font-bold text-blue-600 transition hover:bg-blue-50"
-            >
-              + Drop
-            </button>
-          ) : null}
           <button
             type="button"
             onClick={onEdit}
@@ -307,7 +303,7 @@ function EditSetForm({
           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
           <FluidSelect
             value={kind}
-            options={[...setKindOptions]}
+                             options={[...addSetKindOptions]}
             onValueChange={(nextKind) => setKind(nextKind as SetKind)}
             ariaLabel="Set kind"
           />
@@ -379,97 +375,6 @@ function EditSetForm({
   )
 }
 
-function QuickEntryForm({
-  notation,
-  parentSet,
-  isSaving,
-  isError,
-  formError,
-  onChange,
-  onCancel,
-  onSubmit,
-}: {
-  notation: string
-  parentSet: WorkoutSet | null
-  isSaving: boolean
-  isError: boolean
-  formError: string
-  onChange: (value: string) => void
-  onCancel: () => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
-}) {
-  const parsedSets = parseSetNotation(notation, parentSet?.id)
-
-  return (
-    <form
-      onSubmit={onSubmit}
-      className="mt-3 rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
-    >
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Quick entry</p>
-          <p className="mt-1 text-xs font-medium text-slate-500">
-            {parentSet
-              ? `Drop after ${parentSet.weightKg} kg x ${parentSet.reps}. Add more drops by separating values.`
-              : 'Spaces separate sets. Use > for an immediate drop.'}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="min-h-11 rounded-full px-2 text-xs font-bold text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
-        >
-          Close
-        </button>
-      </div>
-      <input
-        value={notation}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={parentSet ? '39k2r' : '32k13r 45k8r 45k4r>39k2r'}
-        aria-label={parentSet ? 'Drop set notation' : 'Quick set notation'}
-        className="h-12 w-full rounded-[11px] border border-slate-200 bg-white px-3 font-mono text-sm font-bold text-slate-900 outline-none focus:border-slate-900"
-        autoFocus
-      />
-      <div className="mt-3 rounded-[11px] bg-slate-50 px-3 py-2.5" aria-live="polite">
-        {parsedSets.length ? (
-          parsedSets.map((set, index) => (
-            <div key={`${set.weightKg}-${set.reps}-${index}`} className={`flex min-h-8 items-center gap-2 text-sm ${set.kind === 'DROP' ? 'pl-5 text-slate-500' : ''}`}>
-              {set.kind === 'DROP' ? <span className="text-slate-300">↳</span> : null}
-              <span className={`rounded-full px-2 py-1 text-[10px] font-bold tracking-[0.04em] ${set.kind === 'DROP' ? 'bg-blue-50 text-blue-700' : 'bg-white text-slate-500'}`}>
-                {set.kind === 'DROP' ? 'DROP' : parentSet ? 'DROP' : index + 1}
-              </span>
-              <strong className="text-slate-900">{set.weightKg} kg x {set.reps}</strong>
-            </div>
-          ))
-        ) : (
-          <p className="text-xs font-medium text-slate-400">Preview appears here before saving.</p>
-        )}
-      </div>
-      {formError || isError ? (
-        <p className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-          {formError || 'Unable to save the set chain. Please try again.'}
-        </p>
-      ) : null}
-      <div className="mt-3 flex gap-2">
-        <button
-          type="submit"
-          disabled={isSaving || !parsedSets.length}
-          className="min-h-11 rounded-[12px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-        >
-          {isSaving ? 'Saving...' : `Save ${parsedSets.length || ''} ${parsedSets.length === 1 ? 'set' : 'sets'}`}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  )
-}
-
 export function WorkoutPage() {
   const { sessionId } = useParams()
   const [searchParams] = useSearchParams()
@@ -477,14 +382,11 @@ export function WorkoutPage() {
   const queryClient = useQueryClient()
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null)
   const [editingSet, setEditingSet] = useState<{ exerciseId: string; set: WorkoutSet } | null>(null)
-  const [entryMode, setEntryMode] = useState<'form' | 'quick'>('form')
-  const [quickNotation, setQuickNotation] = useState('')
-  const [quickParentSet, setQuickParentSet] = useState<WorkoutSet | null>(null)
-  const [quickFormError, setQuickFormError] = useState('')
   const [kind, setKind] = useState<SetKind>('NORMAL')
   const [setFeedbackNote, setSetFeedbackNote] = useState('')
   const [weightKg, setWeightKg] = useState('')
   const [reps, setReps] = useState('')
+  const [dropDrafts, setDropDrafts] = useState<DropDraft[]>([])
   const [formError, setFormError] = useState('')
   const [exercisePicker, setExercisePicker] = useState<ExercisePickerState | null>(null)
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
@@ -492,6 +394,7 @@ export function WorkoutPage() {
   const [cancelConfirmation, setCancelConfirmation] = useState(false)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
   const keepWorkoutButtonRef = useRef<HTMLButtonElement>(null)
+  const dropIdRef = useRef(0)
   useBodyScrollLock(Boolean(exercisePicker || deleteConfirmation || cancelConfirmation))
   const { data: session, isError, isPending } = useQuery({
     queryKey: sessionQueryKey(sessionId ?? ''),
@@ -539,15 +442,17 @@ export function WorkoutPage() {
   })
   const addSetChainMutation = useMutation({
     mutationFn: addSetChain,
-    onSuccess: async () => {
+    onSuccess: async (_sets, variables) => {
       if (sessionId) {
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
 
-      setQuickNotation('')
-      setQuickParentSet(null)
-      setQuickFormError('')
-      setActiveExerciseId(null)
+      setKind('NORMAL')
+      setSetFeedbackNote('')
+      setWeightKg(variables.sets[0]?.weightKg.toString() ?? '')
+      setReps(variables.sets[0]?.reps.toString() ?? '')
+      setDropDrafts([])
+      setFormError('')
       restTimer.start()
     },
   })
@@ -651,25 +556,35 @@ export function WorkoutPage() {
 
     setActiveExerciseId(exercise.id)
     setEditingSet(null)
-    setEntryMode('form')
-    setQuickNotation('')
-    setQuickParentSet(null)
-    setQuickFormError('')
+    addSetMutation.reset()
+    addSetChainMutation.reset()
     setKind('NORMAL')
     setSetFeedbackNote('')
     setWeightKg(suggestedSet?.weightKg.toString() ?? '')
     setReps(suggestedSet?.reps.toString() ?? '')
+    setDropDrafts([])
     setFormError('')
   }
 
-  function openQuickEntryForm(exercise: WorkoutExercise, parentSet: WorkoutSet | null = null) {
-    setActiveExerciseId(exercise.id)
-    setEditingSet(null)
-    setEntryMode('quick')
-    setQuickParentSet(parentSet)
-    setQuickNotation('')
-    setQuickFormError('')
+  function addDropDraft() {
+    addSetChainMutation.reset()
     setFormError('')
+    setDropDrafts((current) => [
+      ...current,
+      { id: dropIdRef.current++, weightKg: '', reps: '' },
+    ])
+  }
+
+  function updateDropDraft(id: number, field: 'weightKg' | 'reps', value: string) {
+    setDropDrafts((current) => current.map((drop) => (drop.id === id ? { ...drop, [field]: value } : drop)))
+    setFormError('')
+    addSetChainMutation.reset()
+  }
+
+  function removeDropDraft(id: number) {
+    addSetChainMutation.reset()
+    setFormError('')
+    setDropDrafts((current) => current.filter((drop) => drop.id !== id))
   }
 
   function openAddExercisePicker() {
@@ -730,6 +645,38 @@ export function WorkoutPage() {
       return
     }
 
+    if (dropDrafts.length && kind !== 'NORMAL') {
+      setFormError('Drops can only be added to a normal set')
+      return
+    }
+
+    const parsedDrops = dropDrafts.map((drop) => ({
+      weightKg: Number(drop.weightKg),
+      reps: Number(drop.reps),
+    }))
+
+    if (parsedDrops.some((drop) => !Number.isFinite(drop.weightKg) || drop.weightKg < 0 || drop.weightKg > 1000)) {
+      setFormError('Enter a valid weight for every drop')
+      return
+    }
+
+    if (parsedDrops.some((drop) => !Number.isInteger(drop.reps) || drop.reps < 1 || drop.reps > 1000)) {
+      setFormError('Enter valid reps for every drop')
+      return
+    }
+
+    if (dropDrafts.length) {
+      addSetChainMutation.mutate({
+        sessionId,
+        sessionExerciseId: exercise.id,
+        sets: [
+          { kind: 'NORMAL', notes: setFeedbackNote.trim() || null, weightKg: parsedWeightKg, reps: parsedReps },
+          ...parsedDrops.map((drop) => ({ kind: 'DROP' as const, ...drop })),
+        ],
+      })
+      return
+    }
+
     addSetMutation.mutate({
       sessionId,
       sessionExerciseId: exercise.id,
@@ -740,44 +687,10 @@ export function WorkoutPage() {
     })
   }
 
-  function handleQuickEntry(event: FormEvent<HTMLFormElement>, exercise: WorkoutExercise) {
-    event.preventDefault()
-    setQuickFormError('')
-
-    if (!sessionId) {
-      setQuickFormError('Missing workout session')
-      return
-    }
-
-    if (!hasValidSetNotation(quickNotation, quickParentSet?.id)) {
-      setQuickFormError('Use notation like 32k13r 45k8r 45k4r>39k2r')
-      return
-    }
-
-    const parsedSets = parseSetNotation(quickNotation, quickParentSet?.id)
-
-    if (parsedSets.some((set) => !Number.isFinite(set.weightKg) || set.weightKg < 0 || set.weightKg > 1000)) {
-      setQuickFormError('Each weight must be between 0 and 1000 kg')
-      return
-    }
-
-    if (parsedSets.some((set) => !Number.isInteger(set.reps) || set.reps < 1 || set.reps > 1000)) {
-      setQuickFormError('Each set must have between 1 and 1000 reps')
-      return
-    }
-
-    addSetChainMutation.mutate({
-      sessionId,
-      sessionExerciseId: exercise.id,
-      parentSetId: quickParentSet?.id,
-      sets: parsedSets,
-    })
-  }
-
   function handleRepeatSet(exercise: WorkoutExercise) {
     const latestSet = getLatestSet(exercise)
 
-    if (!sessionId || !latestSet || addSetMutation.isPending) {
+    if (!sessionId || !latestSet || addSetMutation.isPending || addSetChainMutation.isPending) {
       return
     }
 
@@ -962,18 +875,11 @@ export function WorkoutPage() {
                          >
                            Add Set
                          </button>
-                         <button
-                           type="button"
-                           onClick={() => openQuickEntryForm(exercise)}
-                           className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
-                         >
-                           Quick Log
-                         </button>
                         {latestSet ? (
                           <button
                             type="button"
                             onClick={() => handleRepeatSet(exercise)}
-                            disabled={addSetMutation.isPending}
+                            disabled={addSetMutation.isPending || addSetChainMutation.isPending}
                             className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
                           >
                             Repeat {latestSet.weightKg} kg x {latestSet.reps}
@@ -1023,29 +929,12 @@ export function WorkoutPage() {
                            isDropChild={Boolean(set.parentSetId)}
                            onEdit={() => openEditSetForm(exercise, set)}
                            onDelete={() => handleDeleteSet(exercise, set)}
-                           onAddDrop={() => openQuickEntryForm(exercise, set)}
-                         />
+                          />
                         )
                       })}
                     </div>
                   ) : null}
-                  {!isFinished && activeExerciseId === exercise.id && entryMode === 'quick' ? (
-                    <QuickEntryForm
-                      notation={quickNotation}
-                      parentSet={quickParentSet}
-                      isSaving={addSetChainMutation.isPending}
-                      isError={addSetChainMutation.isError}
-                      formError={quickFormError}
-                      onChange={(value) => {
-                        setQuickNotation(value)
-                        setQuickFormError('')
-                        addSetChainMutation.reset()
-                      }}
-                      onCancel={() => setActiveExerciseId(null)}
-                      onSubmit={(event) => handleQuickEntry(event, exercise)}
-                    />
-                  ) : null}
-                  {!isFinished && activeExerciseId === exercise.id && entryMode === 'form' ? (
+                  {!isFinished && activeExerciseId === exercise.id ? (
                     <form
                       onSubmit={(event) => handleAddSet(event, exercise)}
                       className="mt-3 rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
@@ -1060,7 +949,13 @@ export function WorkoutPage() {
                           <FluidSelect
                             value={kind}
                             options={[...setKindOptions]}
-                            onValueChange={(nextKind) => setKind(nextKind as SetKind)}
+                             onValueChange={(nextKind) => {
+                               const nextSetKind = nextKind as SetKind
+                               setKind(nextSetKind)
+                               if (nextSetKind !== 'NORMAL') {
+                                 setDropDrafts([])
+                               }
+                             }}
                             ariaLabel="Set kind"
                           />
                         </label>
@@ -1093,6 +988,72 @@ export function WorkoutPage() {
                           />
                         </label>
                       </div>
+                      {kind === 'NORMAL' ? (
+                        <div className="mt-4 rounded-[12px] bg-slate-50 px-3 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Drop sets</p>
+                              <p className="mt-1 text-xs font-medium text-slate-400">Optional. Add each immediate weight and rep change.</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={addDropDraft}
+                              disabled={dropDrafts.length >= 10}
+                              className="min-h-11 shrink-0 rounded-[11px] border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                            >
+                              + Add drop
+                            </button>
+                          </div>
+                          {dropDrafts.length ? (
+                            <div className="mt-3 space-y-2">
+                              {dropDrafts.map((drop, index) => (
+                                <div key={drop.id} className="rounded-[10px] border border-slate-200 bg-white p-2.5">
+                                  <div className="mb-2 flex items-center justify-between gap-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">Drop {index + 1}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeDropDraft(drop.id)}
+                                      className="min-h-9 rounded-full px-2 text-[11px] font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <label className="block">
+                                      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
+                                      <input
+                                        type="number"
+                                        inputMode="decimal"
+                                        min="0"
+                                        max="1000"
+                                        step="0.5"
+                                        value={drop.weightKg}
+                                        onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
+                                        className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                        required
+                                      />
+                                    </label>
+                                    <label className="block">
+                                      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">Reps</span>
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="1"
+                                        max="1000"
+                                        step="1"
+                                        value={drop.reps}
+                                        onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
+                                        className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                        required
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <label className="mt-4 block">
                         <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
                           Set note <span className="font-medium normal-case tracking-normal text-slate-300">(optional)</span>
@@ -1106,7 +1067,7 @@ export function WorkoutPage() {
                           className="w-full resize-y rounded-[10px] border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-900 outline-none focus:border-slate-900"
                         />
                       </label>
-                      {formError || addSetMutation.isError ? (
+                      {formError || addSetMutation.isError || addSetChainMutation.isError ? (
                         <p className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                           {formError || 'Unable to add set. Please try again.'}
                         </p>
@@ -1114,10 +1075,10 @@ export function WorkoutPage() {
                       <div className="mt-3 flex gap-2">
                         <button
                           type="submit"
-                          disabled={addSetMutation.isPending}
+                          disabled={addSetMutation.isPending || addSetChainMutation.isPending}
                           className="min-h-11 rounded-[12px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
                         >
-                          {addSetMutation.isPending ? 'Saving...' : 'Save Set'}
+                          {addSetMutation.isPending || addSetChainMutation.isPending ? 'Saving...' : dropDrafts.length ? 'Save Set + Drops' : 'Save Set'}
                         </button>
                         <button
                           type="button"
