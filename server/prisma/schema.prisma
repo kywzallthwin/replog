@@ -111,7 +111,6 @@ model Session {
   startedAt           DateTime          @default(now())
   endedAt             DateTime?
   durationSec         Int?
-  notes               String?
   user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   program             Program?          @relation(fields: [programId], references: [id], onDelete: SetNull)
   day                 Day?              @relation(fields: [dayId], references: [id], onDelete: SetNull)
