@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RepLog - Previous Set History Concept</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #0f172a;
+      --ink-soft: #475569;
+      --muted: #94a3b8;
+      --line: #e2e8f0;
+      --line-soft: #f1f5f9;
+      --app: #f1f5f9;
+      --surface: #f8fafc;
+      --white: #fff;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --green: #166534;
+      --green-soft: #f0fdf4;
+    }
+    body {
+      min-height: 100vh;
+      background: #e2e8f0;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 34px 18px;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .page-heading { max-width: 1120px; margin: 0 auto 28px; text-align: center; }
+    .page-heading h1 { font-size: clamp(28px, 5vw, 42px); font-weight: 900; letter-spacing: -.05em; }
+    .page-heading p { max-width: 620px; margin: 8px auto 0; color: #64748b; font-size: 14px; line-height: 1.55; }
+    .frames { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 34px; }
+    .frame-label { margin-bottom: 10px; color: #64748b; font-size: 11px; font-weight: 900; letter-spacing: .13em; text-align: center; text-transform: uppercase; }
+    .phone { width: min(375px, 100%); overflow: hidden; border-radius: 28px; background: var(--app); box-shadow: 0 22px 50px -12px rgba(15,23,42,.25), 0 4px 6px -1px rgba(15,23,42,.08); }
+    .desktop { width: min(1080px, calc(100vw - 36px)); overflow: hidden; border-radius: 20px; background: var(--app); box-shadow: 0 22px 50px -12px rgba(15,23,42,.25), 0 4px 6px -1px rgba(15,23,42,.08); }
+    .chrome { height: 38px; display: flex; align-items: center; gap: 12px; padding: 0 14px; background: var(--white); border-bottom: 1px solid var(--line); }
+    .dots { display: flex; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .url { flex: 1; overflow: hidden; border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 12px; padding: 5px 12px; white-space: nowrap; }
+    .app { min-height: 760px; padding: 20px 16px 28px; }
+    .desktop-app { min-height: 690px; padding: 30px 38px; }
+    .max { max-width: 1000px; margin: 0 auto; }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 22px; }
+    .brand { color: #64748b; font-size: 14px; font-weight: 700; }
+    .top h2 { margin-top: 3px; font-size: 25px; font-weight: 900; letter-spacing: -.045em; }
+    .sub { color: #64748b; font-size: 13px; line-height: 1.45; }
+    .duration { flex: 0 0 auto; text-align: right; }
+    .duration-label { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: #64748b; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    .duration-label::before { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; content: ''; }
+    .duration-value { margin-top: 6px; font-size: 27px; font-weight: 900; letter-spacing: -.05em; }
+    .exercise-card { overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--white); box-shadow: 0 1px 3px rgba(15,23,42,.08); }
+    .exercise-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line-soft); }
+    .eyebrow { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+    .exercise-name { margin-top: 4px; font-size: 18px; font-weight: 900; letter-spacing: -.03em; }
+    .exercise-meta { margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; border: 0; border-radius: 11px; padding: 9px 13px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+    .button-dark { background: var(--ink); color: var(--white); box-shadow: 0 4px 12px rgba(15,23,42,.17); }
+    .button-white { border: 1px solid var(--line); background: var(--white); color: var(--ink-soft); }
+    .button-saved { border: 1px solid #bfdbfe; background: var(--blue-soft); color: #1d4ed8; }
+    .previous-line { display: flex; align-items: center; gap: 7px; min-height: 34px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 6px 8px; color: var(--ink-soft); font-size: 12px; line-height: 1.3; }
+    .previous-line::-webkit-scrollbar { display: none; }
+    .previous-label { flex: 0 0 auto; color: #475569; font-size: 11px; font-weight: 900; letter-spacing: .02em; }
+    .history-dot { flex: 0 0 auto; color: #94a3b8; font-weight: 900; }
+    .history-token { flex: 0 0 auto; font-weight: 800; }
+    .history-token.warmup { color: #64748b; }
+    .history-token.best { border-radius: 6px; background: var(--green-soft); color: #166534; padding: 2px 5px; font-weight: 950; }
+    .history-token.drop-chain { color: #4338ca; }
+    .form { margin: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--white); padding: 14px; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+    .form-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .form-title { font-size: 14px; font-weight: 900; }
+    .prefill { color: #64748b; font-size: 11px; font-weight: 700; }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    .input { width: 100%; min-height: 43px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); color: var(--ink); padding: 10px 11px; font-size: 14px; font-weight: 800; outline: 0; }
+    .input:focus { border-color: var(--ink); box-shadow: 0 0 0 3px #e2e8f0; }
+    .kind-select { width: 100%; min-height: 43px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); color: var(--ink); padding: 10px 8px; font-size: 13px; font-weight: 800; }
+    .field-wide { grid-column: 1 / -1; }
+    .form-hint { margin-top: 10px; color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1.4; }
+    .form-actions { display: flex; gap: 8px; margin-top: 13px; }
+    .form-actions .button { flex: 1; }
+    .timer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px; border-radius: 15px; background: var(--ink); color: var(--white); padding: 12px 14px; }
+    .timer-label { color: #94a3b8; font-size: 9px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+    .timer-value { margin-top: 3px; font-size: 20px; font-weight: 900; }
+    .timer-actions { display: flex; gap: 6px; }
+    .timer-actions button { min-height: 36px; border: 1px solid #334155; border-radius: 9px; background: rgba(255,255,255,.1); color: var(--white); padding: 7px 10px; font-size: 11px; font-weight: 800; }
+    .bottom-nav { display: flex; gap: 4px; margin: 24px -16px -28px; border-top: 1px solid var(--line); background: rgba(255,255,255,.98); padding: 9px 10px 12px; }
+    .nav-item { flex: 1; color: var(--muted); font-size: 10px; font-weight: 900; text-align: center; }
+    .nav-item.active { color: var(--ink); }
+    .nav-icon { display: grid; width: 28px; height: 22px; place-items: center; margin: 0 auto 3px; border-radius: 8px; font-size: 16px; }
+    .nav-item.active .nav-icon { background: #f1f5f9; }
+    .desktop-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(340px, .75fr); gap: 20px; align-items: start; }
+    .desktop-layout .form { margin: 0; }
+    .desktop-layout .timer { margin: 14px 0 0; }
+    .side-card { border: 1px solid var(--line); border-radius: 20px; background: var(--white); padding: 18px; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
+    .side-title { font-size: 12px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .side-copy { margin-top: 7px; color: #64748b; font-size: 13px; line-height: 1.5; }
+    .selection-list { display: grid; gap: 7px; margin-top: 16px; }
+    .selection { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 11px; background: var(--white); padding: 11px 12px; color: var(--ink-soft); font-size: 13px; font-weight: 800; text-align: left; }
+    .selection.active { border-color: var(--ink); background: var(--ink); color: var(--white); }
+    .selection small { color: var(--muted); font-size: 10px; }
+    .selection.active small { color: #cbd5e1; }
+    .callout { max-width: 840px; margin: 28px auto 0; border-radius: 16px; background: var(--white); padding: 18px 20px; color: #475569; font-size: 13px; line-height: 1.6; box-shadow: 0 1px 4px rgba(15,23,42,.08); }
+    .callout strong { color: var(--ink); }
+    @media (max-width: 760px) {
+      body { padding: 24px 12px; }
+      .desktop { width: 100%; }
+      .desktop-app { padding: 20px 14px; }
+      .desktop-layout { grid-template-columns: 1fr; }
+      .desktop-layout .side-card { display: none; }
+    }
+    @media (max-width: 380px) {
+      .exercise-head { display: block; }
+      .exercise-head .button { width: 100%; margin-top: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-heading">
+    <h1>Previous Set History</h1>
+    <p>A focused Active Workout concept: open Add Set and see every set from the latest completed workout for the same exercise before choosing today's weight and reps.</p>
+  </header>
+
+  <div class="frames">
+    <section>
+      <p class="frame-label">Mobile / 375px primary</p>
+      <div class="phone">
+        <main class="app">
+          <header class="top">
+            <div>
+              <div class="brand">Dashboard</div>
+              <h2>TORSO A</h2>
+              <p class="sub">Started 1 Jul, 09:14</p>
+            </div>
+            <div class="duration">
+              <div class="duration-label">Workout duration</div>
+              <div class="duration-value">32:13</div>
+            </div>
+          </header>
+
+          <article class="exercise-card" data-exercise-card>
+            <div class="exercise-head">
+              <div>
+                <div class="eyebrow">Exercise 1</div>
+                <div class="exercise-name" data-exercise-name>Peck Deck</div>
+                <div class="exercise-meta">3 sets logged today</div>
+              </div>
+            </div>
+
+            <form class="form" data-add-form>
+              <div class="form-head">
+                <span class="form-title">Add Set</span>
+                <span class="prefill">Prefilled from best set</span>
+              </div>
+              <div class="previous-line" aria-label="Previous workout sets from 22 June">
+                <span class="previous-label">22Jun</span>
+                <span class="history-dot">·</span>
+                <span class="history-token warmup" title="Warm-up: 32 kg x 13">wu32×13</span>
+                <span class="history-dot">·</span>
+                <span class="history-token" title="45 kg x 8">45×8</span>
+                <span class="history-dot">·</span>
+                <span class="history-token best" title="Best normal set: 45 kg x 7">45×7</span>
+                <span class="history-dot">·</span>
+                <span class="history-token" title="42.5 kg x 8">42.5×8</span>
+                <span class="history-dot">·</span>
+                <span class="history-token" title="42.5 kg x 7">42.5×7</span>
+                <span class="history-dot">·</span>
+                <span class="history-token drop-chain" title="Normal set followed by drop: 40 kg x 9, 35 kg x 6">40×9×35×6</span>
+              </div>
+              <div class="field-grid">
+                <label class="field field-wide">
+                  <span>Kind</span>
+                  <select class="kind-select">
+                    <option>Warm-up</option>
+                    <option>Normal</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Weight kg</span>
+                  <input class="input" type="number" inputmode="decimal" value="45" />
+                </label>
+                <label class="field">
+                  <span>Reps</span>
+                  <input class="input" type="number" inputmode="numeric" value="7" />
+                </label>
+              </div>
+              <p class="form-hint">Use the previous sets as a reference, then adjust for how today's set feels.</p>
+              <div class="form-actions">
+                <button class="button button-dark" type="submit">Save Set</button>
+                <button class="button button-white" type="button">Cancel</button>
+              </div>
+            </form>
+          </article>
+
+          <div class="timer">
+            <div><div class="timer-label">Rest timer</div><div class="timer-value">1:30</div></div>
+            <div class="timer-actions"><button type="button">+15s</button><button type="button">Skip</button></div>
+          </div>
+
+          <nav class="bottom-nav" aria-label="Primary">
+            <div class="nav-item active"><div class="nav-icon">⌂</div>Home</div>
+            <div class="nav-item"><div class="nav-icon">≡</div>History</div>
+            <div class="nav-item"><div class="nav-icon">↗</div>Progress</div>
+            <div class="nav-item"><div class="nav-icon">▣</div>Program</div>
+            <div class="nav-item"><div class="nav-icon">○</div>Profile</div>
+          </nav>
+        </main>
+      </div>
+    </section>
+
+    <section>
+      <p class="frame-label">Desktop / exercise context</p>
+      <div class="desktop">
+        <div class="chrome"><div class="dots"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#22c55e"></span></div><div class="url">localhost:5173/workout/12</div></div>
+        <main class="app desktop-app">
+          <div class="max">
+            <header class="top">
+              <div><div class="brand">Dashboard</div><h2>TORSO A</h2><p class="sub">Peck Deck selected · 3 sets logged today</p></div>
+              <button class="button button-dark" type="button">Finish Workout</button>
+            </header>
+            <div class="desktop-layout">
+              <article class="exercise-card">
+                <div class="exercise-head">
+                  <div><div class="eyebrow">Exercise 1 of 6</div><div class="exercise-name">Peck Deck</div><div class="exercise-meta">Chest · latest set today: 45 kg x 7</div></div>
+                  <button class="button button-white" type="button">Swap</button>
+                </div>
+                <div class="timer"><div><div class="timer-label">Rest timer</div><div class="timer-value">1:30</div></div><div class="timer-actions"><button type="button">+15s</button><button type="button">Skip</button></div></div>
+              </article>
+
+              <aside class="side-card">
+                <div class="side-title">Add Set</div>
+                <p class="side-copy">Reference the complete previous workout without leaving the current entry flow.</p>
+                <form class="form" style="margin:16px 0 0;box-shadow:none;padding:0;border:0;">
+                  <div class="previous-line" aria-label="Previous workout sets from 22 June">
+                    <span class="previous-label">22Jun</span>
+                    <span class="history-dot">·</span>
+                    <span class="history-token warmup">wu32×13</span>
+                    <span class="history-dot">·</span>
+                    <span class="history-token">45×8</span>
+                    <span class="history-dot">·</span>
+                    <span class="history-token best">45×7</span>
+                    <span class="history-dot">·</span>
+                    <span class="history-token">42.5×8</span>
+                    <span class="history-dot">·</span>
+                    <span class="history-token">42.5×7</span>
+                    <span class="history-dot">·</span>
+                    <span class="history-token drop-chain">40×9×35×6</span>
+                  </div>
+                  <div class="field-grid">
+                    <label class="field field-wide"><span>Kind</span><select class="kind-select"><option>Warm-up</option><option>Normal</option></select></label>
+                    <label class="field"><span>Weight kg</span><input class="input" type="number" inputmode="decimal" value="45" /></label>
+                    <label class="field"><span>Reps</span><input class="input" type="number" inputmode="numeric" value="7" /></label>
+                  </div>
+                  <p class="form-hint">Prefilled from the best normal set. Previous warm-ups and drops stay visible for context.</p>
+                  <div class="form-actions"><button class="button button-dark" type="submit">Save Set</button><button class="button button-white" type="button">Cancel</button></div>
+                </form>
+                <div class="selection-list">
+                  <button class="selection active" type="button">Peck Deck <small>Chest</small></button>
+                  <button class="selection" type="button">Lat Pulldown <small>Back</small></button>
+                  <button class="selection" type="button">Machine Shoulder Press <small>Shoulders</small></button>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+  </div>
+
+  <div class="callout">
+    <strong>Design decision:</strong> the previous workout is reference data, not a second editable workout. Dots separate independent sets; continuous values such as <code>40×9×35×6</code> show a normal set and its drops. The Add Set fields are prefilled from the best previous normal set.
+  </div>
+
+  <script>
+    document.querySelectorAll('[data-add-form]').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        event.preventDefault()
+        const submitButton = form.querySelector('button[type="submit"]')
+        submitButton.textContent = 'Set saved'
+        submitButton.classList.remove('button-dark')
+        submitButton.classList.add('button-saved')
+        window.setTimeout(() => {
+          submitButton.textContent = 'Save Set'
+          submitButton.classList.remove('button-saved')
+          submitButton.classList.add('button-dark')
+        }, 1200)
+      })
+    })
+  </script>
+</body>
+</html>

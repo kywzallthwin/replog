@@ -16,6 +16,42 @@ function isUniqueConstraintError(error: unknown) {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002'
 }
 
+type SessionSetPayload = {
+  id: string
+  kind: string
+  parentSetId: string | null
+  notes: string | null
+  weightKg: number
+  reps: number
+  order: number
+}
+
+type LastTimeReference = {
+  sessionId: string
+  performedAt: Date
+  weightKg: number
+  reps: number
+}
+
+type PreviousWorkoutReference = {
+  sessionId: string
+  performedAt: Date
+  sets: SessionSetPayload[]
+  bestNormalSetId: string | null
+}
+
+function toSetPayload(setLog: SessionSetPayload) {
+  return {
+    id: setLog.id,
+    kind: setLog.kind,
+    parentSetId: setLog.parentSetId,
+    notes: setLog.notes,
+    weightKg: setLog.weightKg,
+    reps: setLog.reps,
+    order: setLog.order,
+  }
+}
+
 function toSessionPayload(session: {
   id: string
   programId: string | null
@@ -31,17 +67,11 @@ function toSessionPayload(session: {
     exerciseId: string
     nameSnapshot: string
     order: number
-    setLogs: Array<{
-      id: string
-      kind: string
-      parentSetId: string | null
-      notes: string | null
-      weightKg: number
-      reps: number
-      order: number
-    }>
+    setLogs: SessionSetPayload[]
   }>
-}, lastTimeReferences = new Map<string, { sessionId: string; performedAt: Date; weightKg: number; reps: number }>()) {
+},
+lastTimeReferences = new Map<string, LastTimeReference>(),
+previousWorkoutReferences = new Map<string, PreviousWorkoutReference>()) {
   return {
     id: session.id,
     programId: session.programId,
@@ -57,16 +87,9 @@ function toSessionPayload(session: {
       exerciseId: sessionExercise.exerciseId,
       name: sessionExercise.nameSnapshot,
       order: sessionExercise.order,
-      sets: sessionExercise.setLogs.map((setLog) => ({
-        id: setLog.id,
-        kind: setLog.kind,
-        parentSetId: setLog.parentSetId,
-        notes: setLog.notes,
-        weightKg: setLog.weightKg,
-        reps: setLog.reps,
-        order: setLog.order,
-      })),
+      sets: sessionExercise.setLogs.map(toSetPayload),
       lastTime: lastTimeReferences.get(sessionExercise.exerciseId) ?? null,
+      previousWorkout: previousWorkoutReferences.get(sessionExercise.exerciseId) ?? null,
     })),
   }
 }
@@ -76,39 +99,25 @@ function toSessionExercisePayload(sessionExercise: {
   exerciseId: string
   nameSnapshot: string
   order: number
-  setLogs: Array<{
-      id: string
-      kind: string
-      parentSetId: string | null
-      notes: string | null
-    weightKg: number
-    reps: number
-    order: number
-  }>
+  setLogs: SessionSetPayload[]
 }) {
   return {
     id: sessionExercise.id,
     exerciseId: sessionExercise.exerciseId,
     name: sessionExercise.nameSnapshot,
     order: sessionExercise.order,
-    sets: sessionExercise.setLogs.map((setLog) => ({
-      id: setLog.id,
-      kind: setLog.kind,
-      parentSetId: setLog.parentSetId,
-      notes: setLog.notes,
-      weightKg: setLog.weightKg,
-      reps: setLog.reps,
-      order: setLog.order,
-    })),
+    sets: sessionExercise.setLogs.map(toSetPayload),
     lastTime: null,
+    previousWorkout: null,
   }
 }
 
-async function getLastTimeReferences(userId: string, currentStartedAt: Date, exerciseIds: string[]) {
-  const references = new Map<string, { sessionId: string; performedAt: Date; weightKg: number; reps: number }>()
+async function getPreviousPerformanceReferences(userId: string, currentStartedAt: Date, exerciseIds: string[]) {
+  const lastTimeReferences = new Map<string, LastTimeReference>()
+  const previousWorkoutReferences = new Map<string, PreviousWorkoutReference>()
 
   if (!exerciseIds.length) {
-    return references
+    return { lastTimeReferences, previousWorkoutReferences }
   }
 
   const previousSessions = await prisma.session.findMany({
@@ -119,7 +128,7 @@ async function getLastTimeReferences(userId: string, currentStartedAt: Date, exe
       sessionExercises: {
         some: {
           exerciseId: { in: exerciseIds },
-          setLogs: { some: { kind: 'NORMAL' } },
+          setLogs: { some: {} },
         },
       },
     },
@@ -129,7 +138,6 @@ async function getLastTimeReferences(userId: string, currentStartedAt: Date, exe
         where: { exerciseId: { in: exerciseIds } },
         include: {
           setLogs: {
-            where: { kind: 'NORMAL' },
             orderBy: { order: 'asc' },
           },
         },
@@ -138,37 +146,42 @@ async function getLastTimeReferences(userId: string, currentStartedAt: Date, exe
   })
 
   for (const previousSession of previousSessions) {
-    const bestSetsByExerciseId = new Map<string, (typeof previousSession.sessionExercises)[number]['setLogs'][number]>()
-
     for (const previousExercise of previousSession.sessionExercises) {
-      if (references.has(previousExercise.exerciseId)) {
+      if (!previousExercise.setLogs.length) {
         continue
       }
 
-      for (const candidate of previousExercise.setLogs) {
-        const bestSet = bestSetsByExerciseId.get(previousExercise.exerciseId) ?? null
+      const normalSets = previousExercise.setLogs.filter((setLog) => setLog.kind === 'NORMAL')
+      const bestNormalSet = normalSets.reduce<(typeof normalSets)[number] | null>(
+        (best, candidate) => (isBetterEstimatedSet(candidate, best) ? candidate : best),
+        null,
+      )
 
-        if (isBetterEstimatedSet(candidate, bestSet)) {
-          bestSetsByExerciseId.set(previousExercise.exerciseId, candidate)
-        }
+      if (!previousWorkoutReferences.has(previousExercise.exerciseId)) {
+        previousWorkoutReferences.set(previousExercise.exerciseId, {
+          sessionId: previousSession.id,
+          performedAt: previousSession.startedAt,
+          sets: previousExercise.setLogs.map(toSetPayload),
+          bestNormalSetId: bestNormalSet?.id ?? null,
+        })
+      }
+
+      if (bestNormalSet && !lastTimeReferences.has(previousExercise.exerciseId)) {
+        lastTimeReferences.set(previousExercise.exerciseId, {
+          sessionId: previousSession.id,
+          performedAt: previousSession.startedAt,
+          weightKg: bestNormalSet.weightKg,
+          reps: bestNormalSet.reps,
+        })
       }
     }
 
-    for (const [exerciseId, bestSet] of bestSetsByExerciseId) {
-      references.set(exerciseId, {
-        sessionId: previousSession.id,
-        performedAt: previousSession.startedAt,
-        weightKg: bestSet.weightKg,
-        reps: bestSet.reps,
-      })
-    }
-
-    if (references.size === exerciseIds.length) {
+    if (previousWorkoutReferences.size === exerciseIds.length && lastTimeReferences.size === exerciseIds.length) {
       break
     }
   }
 
-  return references
+  return { lastTimeReferences, previousWorkoutReferences }
 }
 
 sessionsRouter.post('/', requireAuth, async (req, res) => {
@@ -350,13 +363,19 @@ sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
     return
   }
 
-  const lastTimeReferences = await getLastTimeReferences(
+  const previousPerformanceReferences = await getPreviousPerformanceReferences(
     userId,
     session.startedAt,
     session.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
   )
 
-  res.json({ session: toSessionPayload(session, lastTimeReferences) })
+  res.json({
+    session: toSessionPayload(
+      session,
+      previousPerformanceReferences.lastTimeReferences,
+      previousPerformanceReferences.previousWorkoutReferences,
+    ),
+  })
 })
 
 sessionsRouter.delete('/:sessionId', requireAuth, async (req, res) => {
@@ -1046,11 +1065,17 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
     },
   })
 
-  const lastTimeReferences = await getLastTimeReferences(
+  const previousPerformanceReferences = await getPreviousPerformanceReferences(
     userId,
     updatedSession.startedAt,
     updatedSession.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
   )
 
-  res.json({ session: toSessionPayload(updatedSession, lastTimeReferences) })
+  res.json({
+    session: toSessionPayload(
+      updatedSession,
+      previousPerformanceReferences.lastTimeReferences,
+      previousPerformanceReferences.previousWorkoutReferences,
+    ),
+  })
 })

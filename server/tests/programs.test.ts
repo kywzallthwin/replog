@@ -313,6 +313,27 @@ test('last-time references use the latest owned earlier workout and the Progress
       reps: 5,
     })
 
+    const oneRepDetails = detailsResponse.body.session.exercises.find(
+      (exercise: { exerciseId: string }) => exercise.exerciseId === oneRepExercise.id,
+    )
+    assert.deepEqual(
+      oneRepDetails.previousWorkout.sets.map((set: { kind: string; weightKg: number; reps: number }) => ({
+        kind: set.kind,
+        weightKg: set.weightKg,
+        reps: set.reps,
+      })),
+      [
+        { kind: 'WARMUP', weightKg: 500, reps: 20 },
+        { kind: 'DROP', weightKg: 400, reps: 20 },
+        { kind: 'NORMAL', weightKg: 100, reps: 1 },
+        { kind: 'NORMAL', weightKg: 96, reps: 2 },
+      ],
+    )
+    assert.equal(
+      oneRepDetails.previousWorkout.bestNormalSetId,
+      oneRepDetails.previousWorkout.sets[3].id,
+    )
+
     const oneRepProgressResponse = await ownerAgent.get(`/progress?exerciseId=${oneRepExercise.id}`)
     assert.equal(oneRepProgressResponse.status, 200, oneRepProgressResponse.text)
     assert.equal(oneRepProgressResponse.body.personalBest.weightKg, 96)

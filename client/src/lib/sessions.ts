@@ -19,6 +19,7 @@ export type WorkoutExercise = {
   order: number
   sets: WorkoutSet[]
   lastTime: LastTimeReference | null
+  previousWorkout: PreviousWorkoutReference | null
 }
 
 export type LastTimeReference = {
@@ -26,6 +27,13 @@ export type LastTimeReference = {
   performedAt: string
   weightKg: number
   reps: number
+}
+
+export type PreviousWorkoutReference = {
+  sessionId: string
+  performedAt: string
+  sets: WorkoutSet[]
+  bestNormalSetId: string | null
 }
 
 export type WorkoutSession = {

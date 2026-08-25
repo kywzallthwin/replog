@@ -18,6 +18,7 @@ import {
   type SetKind,
   type WorkoutExercise,
   type WorkoutSet,
+  type PreviousWorkoutReference,
 } from '../lib/sessions'
 import { dashboardQueryKey } from '../lib/dashboard'
 import { getBadgeClass } from '../lib/badgeColors'
@@ -44,8 +45,8 @@ type DropDraft = {
 }
 
 const setKindOptions = [
-  { value: 'NORMAL', label: 'Normal' },
   { value: 'WARMUP', label: 'Warm-up' },
+  { value: 'NORMAL', label: 'Normal' },
   { value: 'DROP', label: 'Drop' },
 ] as const
 
@@ -68,8 +69,85 @@ function formatCompletedDuration(durationSec: number | null) {
   return `${Math.max(1, Math.round(durationSec / 60))} min`
 }
 
-function formatLastTimeDate(date: string) {
-  return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(new Date(date))
+function formatCompactPreviousDate(date: string) {
+  return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' })
+    .format(new Date(date))
+    .replace(/\s+/g, '')
+}
+
+function formatCompactWeight(weightKg: number) {
+  return weightKg.toString()
+}
+
+function getPreviousSetGroups(previousWorkout: PreviousWorkoutReference) {
+  const setsById = new Map(previousWorkout.sets.map((set) => [set.id, set]))
+  const dropsByParentId = new Map<string, WorkoutSet[]>()
+
+  for (const set of previousWorkout.sets) {
+    if (!set.parentSetId || !setsById.has(set.parentSetId)) {
+      continue
+    }
+
+    const drops = dropsByParentId.get(set.parentSetId) ?? []
+    drops.push(set)
+    dropsByParentId.set(set.parentSetId, drops)
+  }
+
+  const rootSets = previousWorkout.sets.filter((set) => !set.parentSetId || !setsById.has(set.parentSetId))
+
+  return rootSets.map((rootSet) => ({
+    rootSet,
+    sets: [rootSet, ...(dropsByParentId.get(rootSet.id) ?? []).sort((left, right) => left.order - right.order)],
+  }))
+}
+
+function formatCompactPreviousSet(set: WorkoutSet, isRoot: boolean) {
+  if (isRoot && set.kind === 'WARMUP') {
+    return `wu${formatCompactWeight(set.weightKg)}×${set.reps}`
+  }
+
+  if (isRoot && set.kind === 'DROP') {
+    return `d${formatCompactWeight(set.weightKg)}×${set.reps}`
+  }
+
+  return `${formatCompactWeight(set.weightKg)}×${set.reps}`
+}
+
+function PreviousWorkoutLine({ previousWorkout }: { previousWorkout: PreviousWorkoutReference | null }) {
+  if (!previousWorkout) {
+    return <p className="mb-3 text-[11px] font-semibold text-slate-400">No previous sets</p>
+  }
+
+  const groups = getPreviousSetGroups(previousWorkout)
+
+  return (
+    <div
+      className="mb-3 overflow-x-auto rounded-[10px] border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs leading-5 text-slate-600 [scrollbar-width:none]"
+      aria-label={`Previous workout sets from ${formatCompactPreviousDate(previousWorkout.performedAt)}`}
+      style={{ scrollbarWidth: 'none' }}
+    >
+      <div className="inline-flex min-h-6 min-w-max items-center gap-2 pr-4">
+        <span className="font-black tracking-[0.02em] text-slate-600">{formatCompactPreviousDate(previousWorkout.performedAt)}</span>
+        {groups.map((group) => {
+          const isBest = group.rootSet.id === previousWorkout.bestNormalSetId
+          const title = group.sets
+            .map((set, setIndex) => `${setIndex === 0 && set.kind === 'WARMUP' ? 'wu ' : ''}${set.weightKg} kg x ${set.reps}`)
+            .join(' -> ')
+
+          return (
+            <span key={group.rootSet.id} className="inline-flex items-center gap-2" title={title}>
+              <span className="font-black text-slate-400">·</span>
+              <span
+                className={`font-extrabold ${group.rootSet.kind === 'WARMUP' ? 'text-slate-500' : group.rootSet.kind === 'DROP' ? 'text-indigo-600' : isBest ? 'rounded-md bg-green-50 px-1.5 py-0.5 text-green-700' : 'text-slate-700'}`}
+              >
+                {group.sets.map((set, setIndex) => formatCompactPreviousSet(set, setIndex === 0)).join('×')}
+              </span>
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function RestTimer({
@@ -882,13 +960,6 @@ export function WorkoutPage() {
                       <p className="mt-1 text-sm text-slate-500">
                         {exercise.sets.length ? `${exercise.sets.length} sets logged` : 'No sets yet'}
                       </p>
-                      {exercise.lastTime ? (
-                        <p className="mt-2 text-xs font-semibold text-slate-400">
-                          Last time: {exercise.lastTime.weightKg} kg x {exercise.lastTime.reps} · {formatLastTimeDate(exercise.lastTime.performedAt)}
-                        </p>
-                      ) : (
-                        <p className="mt-2 text-xs font-semibold text-slate-300">No previous performance</p>
-                      )}
                     </div>
                     {isFinished ? null : (
                       <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
@@ -975,8 +1046,9 @@ export function WorkoutPage() {
                       <p className="mb-3 text-xs font-medium text-slate-500">
                         Values are prefilled from your latest set. Adjust them only when needed.
                       </p>
-                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr]">
-                        <label className="block">
+                      <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} />
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        <label className="col-span-2 block sm:col-span-1">
                           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
                           <FluidSelect
                             value={kind}
@@ -992,7 +1064,7 @@ export function WorkoutPage() {
                           />
                         </label>
                         <label className="block">
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
+                          <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
                           <input
                             type="number"
                             inputMode="decimal"
@@ -1006,14 +1078,14 @@ export function WorkoutPage() {
                           />
                         </label>
                         <label className="block">
-                          <span className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                          <span className="mb-1 flex h-6 items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
                             <span>Reps</span>
                             {kind === 'NORMAL' ? (
                               <button
                                 type="button"
                                 onClick={addDropDraft}
                                 disabled={dropDrafts.length >= 10}
-                                className="-my-1 min-h-11 rounded-[9px] px-1.5 text-[11px] font-extrabold normal-case tracking-normal text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                                className="h-6 rounded-[9px] px-1.5 text-[11px] font-extrabold normal-case tracking-normal text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300"
                               >
                                 + Drop
                               </button>

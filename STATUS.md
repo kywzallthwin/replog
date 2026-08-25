@@ -25,6 +25,8 @@
 - Rest timer and last-time references have an existing first implementation.
 - Last time now uses only the owner's latest qualifying completed session before the viewed session.
 - Last time and Progress share the one-rep-aware estimated-1RM helper and tie rules; only normal sets qualify.
+- Add Set now receives the latest prior workout for the same exercise with every ordered warm-up, normal, and drop set.
+- Add Set renders that history as a compact horizontal notation line, keeps the best normal set as the prefill source, and displays warm-ups as lowercase `wu`.
 
 ## Verification
 - `npm test` passes: 2 tests, including focused last-time ownership, temporal, set-kind, one-rep, and tie coverage.
@@ -59,3 +61,8 @@
 - 2026-08-25: Confirmed the multiple-program workflows and active-workout switching/history behavior at target widths.
 - 2026-08-25: Extracted the shared estimated-1RM helper and corrected Last time to exclude later and other-user sessions while preserving normal-set and tie behavior.
 - 2026-08-25: Made local API discovery use the browser hostname, allowed localhost/private-LAN development origins, and documented that phone testing needs no environment edits. Build, lint, typecheck, tests, and diff check pass.
+- 2026-08-25: Added and refined `Replog-mockup/active-workout-previous-sets.html` with a compact one-line previous-workout notation inside Add Set: dots separate sets and continuous values show drop chains such as `40×9×35×6`; the separate history bar and hide control were removed.
+- 2026-08-25: Built the previous-workout history into the session API and Add Set UI. It selects the latest eligible earlier workout, returns all set kinds in order, preserves best-normal prefill, renders compact lowercase `wu`, and passes server tests plus root build, lint, typecheck, Prisma validation, migration deploy, and diff check.
+- 2026-08-25: Increased the live and mockup previous-set strip to a readable bordered row and changed the Add Set mobile fields to Kind on its own row with Weight kg and Reps side by side. Lint, build, tests, and diff check pass.
+- 2026-08-25: Matched the Weight kg and Reps label header heights and reduced the `+ Drop` control so both mobile inputs align on the same row.
+- 2026-08-25: Reordered the Add Set kind dropdown so Warm-up appears before Normal.
