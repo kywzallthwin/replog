@@ -4,6 +4,16 @@ export const startSessionSchema = z.object({
   dayId: z.string().min(1),
 })
 
+const sessionNotesValueSchema = z.string().trim().max(2000).transform((value) => value || null).nullable()
+
+export const updateSessionNotesSchema = z.object({
+  notes: sessionNotesValueSchema,
+})
+
+export const finishSessionSchema = z.object({
+  notes: sessionNotesValueSchema.optional(),
+})
+
 export const addSetSchema = z.object({
   kind: z.enum(['WARMUP', 'NORMAL', 'DROP']).default('NORMAL'),
   notes: z.string().trim().max(300).nullable().optional(),

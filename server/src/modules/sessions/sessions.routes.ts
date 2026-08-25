@@ -5,8 +5,10 @@ import { requireAuth } from '../auth/auth.middleware.js'
 import {
   addSetSchema,
   addSetChainSchema,
+  finishSessionSchema,
   sessionExerciseSchema,
   startSessionSchema,
+  updateSessionNotesSchema,
   updateSetSchema,
 } from './sessions.schemas.js'
 
@@ -62,6 +64,7 @@ function toSessionPayload(session: {
   startedAt: Date
   endedAt: Date | null
   durationSec: number | null
+  notes: string | null
   sessionExercises: Array<{
     id: string
     exerciseId: string
@@ -82,6 +85,7 @@ previousWorkoutReferences = new Map<string, PreviousWorkoutReference>()) {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     durationSec: session.durationSec,
+    notes: session.notes,
     exercises: session.sessionExercises.map((sessionExercise) => ({
       id: sessionExercise.id,
       exerciseId: sessionExercise.exerciseId,
@@ -376,6 +380,54 @@ sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
       previousPerformanceReferences.previousWorkoutReferences,
     ),
   })
+})
+
+sessionsRouter.patch('/:sessionId/notes', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId) {
+    res.status(400).json({ error: 'Invalid session id' })
+    return
+  }
+
+  const parsedBody = updateSessionNotesSchema.safeParse(req.body ?? {})
+
+  if (!parsedBody.success) {
+    res.status(400).json({ error: 'Invalid request body', fields: parsedBody.error.flatten().fieldErrors })
+    return
+  }
+
+  const updated = await prisma.session.updateMany({
+    where: {
+      id: sessionId,
+      userId,
+      endedAt: null,
+    },
+    data: { notes: parsedBody.data.notes },
+  })
+
+  if (updated.count === 0) {
+    const session = await prisma.session.findFirst({
+      where: { id: sessionId, userId },
+      select: { endedAt: true },
+    })
+
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+
+    res.status(409).json({ error: 'Finished workouts cannot be edited' })
+    return
+  }
+
+  res.json({ notes: parsedBody.data.notes })
 })
 
 sessionsRouter.delete('/:sessionId', requireAuth, async (req, res) => {
@@ -1004,6 +1056,13 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
     return
   }
 
+  const parsedBody = finishSessionSchema.safeParse(req.body ?? {})
+
+  if (!parsedBody.success) {
+    res.status(400).json({ error: 'Invalid request body', fields: parsedBody.error.flatten().fieldErrors })
+    return
+  }
+
   const session = await prisma.session.findFirst({
     where: {
       id: sessionId,
@@ -1033,6 +1092,7 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
     data: {
       endedAt,
       durationSec,
+      ...(parsedBody.data.notes !== undefined ? { notes: parsedBody.data.notes } : {}),
     },
   })
 
