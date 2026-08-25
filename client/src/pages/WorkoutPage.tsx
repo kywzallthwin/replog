@@ -17,6 +17,7 @@ import {
   updateSet,
   type SetKind,
   type WorkoutExercise,
+  type WorkoutSession,
   type WorkoutSet,
   type PreviousWorkoutReference,
 } from '../lib/sessions'
@@ -202,6 +203,88 @@ function WorkoutDuration({ startedAt }: { startedAt: string }) {
       </span>
       <span className="text-[28px] font-black leading-[0.9] tracking-[-0.05em] text-slate-900">{duration}</span>
     </div>
+  )
+}
+
+function formatSummaryVolume(volumeKg: number) {
+  return new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(volumeKg)
+}
+
+function getWorkoutSummary(session: WorkoutSession) {
+  const sets = session.exercises.flatMap((exercise) => exercise.sets)
+
+  return {
+    exerciseCount: session.exercises.length,
+    totalSetCount: sets.length,
+    normalSetCount: sets.filter((set) => set.kind === 'NORMAL').length,
+    totalVolumeKg: sets.reduce((total, set) => total + set.weightKg * set.reps, 0),
+  }
+}
+
+function CompletedWorkoutSummary({ session }: { session: WorkoutSession }) {
+  const summary = getWorkoutSummary(session)
+  const duration = formatWorkoutDuration(Math.max(0, session.durationSec ?? 0))
+
+  return (
+    <section className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workout summary</p>
+          <h2 className="mt-1 text-[21px] font-extrabold tracking-[-0.04em] text-slate-900">{session.dayName}</h2>
+          <p className="mt-1 text-sm leading-5 text-slate-500">
+            {session.programName ? `${session.programName} · ` : ''}Completed workout
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] text-slate-600">
+          Read only
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="rounded-[13px] bg-slate-50 p-3">
+          <strong className="block text-[21px] font-black tracking-[-0.04em] text-slate-900">{duration}</strong>
+          <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Duration</span>
+        </div>
+        <div className="rounded-[13px] bg-slate-50 p-3">
+          <strong className="block text-[21px] font-black tracking-[-0.04em] text-slate-900">{summary.exerciseCount}</strong>
+          <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Exercises</span>
+        </div>
+        <div className="rounded-[13px] bg-slate-50 p-3">
+          <strong className="block text-[21px] font-black tracking-[-0.04em] text-slate-900">{summary.totalSetCount}</strong>
+          <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Total sets</span>
+        </div>
+        <div className="rounded-[13px] bg-slate-50 p-3">
+          <strong className="block text-[21px] font-black tracking-[-0.04em] text-slate-900">{summary.normalSetCount}</strong>
+          <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Normal sets</span>
+        </div>
+        <div className="col-span-2 rounded-[13px] bg-slate-50 p-3">
+          <strong className="block text-[21px] font-black tracking-[-0.04em] text-slate-900">{formatSummaryVolume(summary.totalVolumeKg)} kg</strong>
+          <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Total volume</span>
+        </div>
+      </div>
+
+      {summary.exerciseCount === 0 ? (
+        <div className="mt-3 rounded-[13px] border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
+          <p className="text-sm font-bold text-slate-700">No exercises logged</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">This completed workout is read-only.</p>
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex gap-2">
+        <Link
+          to="/dashboard"
+          className="flex-1 rounded-[12px] bg-slate-900 px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-slate-800"
+        >
+          Dashboard
+        </Link>
+        <Link
+          to="/history"
+          className="flex-1 rounded-[12px] border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+        >
+          History
+        </Link>
+      </div>
+    </section>
   )
 }
 
@@ -620,6 +703,14 @@ export function WorkoutPage() {
   })
   const deleteConfirmationIsPending = deleteSetMutation.isPending || removeSessionExerciseMutation.isPending
   const deleteConfirmationHasError = deleteSetMutation.isError || removeSessionExerciseMutation.isError
+  const workoutWriteIsPending =
+    addSetMutation.isPending ||
+    addSetChainMutation.isPending ||
+    addSessionExerciseMutation.isPending ||
+    swapSessionExerciseMutation.isPending ||
+    removeSessionExerciseMutation.isPending ||
+    updateSetMutation.isPending ||
+    deleteSetMutation.isPending
   const finishSessionMutation = useMutation({
     mutationFn: finishSession,
     onSuccess: async (updatedSession) => {
@@ -949,7 +1040,9 @@ export function WorkoutPage() {
               />
             ) : null}
 
-            <div className="space-y-3">
+            {session.endedAt ? <CompletedWorkoutSummary session={session} /> : null}
+
+            <div className="mt-5 space-y-3">
               {session.exercises.map((exercise, index) => {
                 const isFinished = Boolean(session.endedAt)
                 const activeEdit = editingSet?.exerciseId === exercise.id ? editingSet.set : null
@@ -1222,25 +1315,7 @@ export function WorkoutPage() {
               })}
             </div>
 
-            {session.endedAt ? (
-              <div className="mt-5 rounded-[14px] bg-slate-100 px-4 py-4 text-center">
-                <p className="text-sm font-medium text-slate-500">Workout summary complete. These details are read-only.</p>
-                <div className="mt-3 flex gap-2">
-                  <Link
-                    to="/dashboard"
-                    className="flex-1 rounded-[12px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    to="/history"
-                    className="flex-1 rounded-[12px] border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
-                  >
-                    History
-                  </Link>
-                </div>
-              </div>
-            ) : (
+            {session.endedAt ? null : (
               <div className="mt-5 space-y-3">
                 <button
                   type="button"
@@ -1252,7 +1327,7 @@ export function WorkoutPage() {
                 <button
                   type="button"
                    onClick={() => finishSessionMutation.mutate(session.id)}
-                  disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending}
+                  disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending || workoutWriteIsPending}
                   className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-green-100 px-4 py-3 text-sm font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:bg-green-50 disabled:text-green-400"
                 >
                   <svg
