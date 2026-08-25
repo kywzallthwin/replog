@@ -12,9 +12,55 @@ import { usersRouter } from './modules/users/users.routes.js'
 
 export const app = express()
 
+function isPrivateIpv4(hostname: string) {
+  const octets = hostname.split('.').map(Number)
+
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return false
+  }
+
+  const [first, second] = octets
+
+  if (first === undefined || second === undefined) {
+    return false
+  }
+
+  return (
+    first === 10 ||
+    first === 127 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+  )
+}
+
+function isAllowedDevelopmentOrigin(origin: string) {
+  try {
+    const url = new URL(origin)
+    const hostname = url.hostname.toLowerCase()
+
+    if (url.protocol !== 'http:' || url.port !== '5173') {
+      return false
+    }
+
+    return hostname === 'localhost' || hostname === '::1' || hostname === '[::1]' || isPrivateIpv4(hostname)
+  } catch {
+    return false
+  }
+}
+
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: (origin, callback) => {
+      const isAllowed =
+        !origin ||
+        origin === env.CLIENT_URL ||
+        (process.env.NODE_ENV !== 'production' && isAllowedDevelopmentOrigin(origin))
+
+      callback(null, isAllowed)
+    },
     credentials: true,
   }),
 )

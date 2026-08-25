@@ -76,7 +76,10 @@ git diff --check
 
 ## Environment variables
 
-The client requires `VITE_API_URL`, normally `http://localhost:4000`.
+`VITE_API_URL` is optional for local development. When omitted, the client uses
+the browser's current hostname on port `4000`, so both `localhost:5173` and
+your PC's LAN IP work without changing environment files. Set it explicitly for
+production or when the API is hosted elsewhere.
 
 The server requires the values in `server/.env.example`, including `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL`, and `PORT`.
 

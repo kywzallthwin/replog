@@ -8,5 +8,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: true,
+    strictPort: true,
   },
 })

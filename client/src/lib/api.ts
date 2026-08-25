@@ -1,6 +1,20 @@
 import axios from 'axios'
 
-export const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim()
+
+function getRuntimeApiUrl() {
+  if (configuredApiUrl) {
+    return configuredApiUrl
+  }
+
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:4000`
+  }
+
+  return 'http://localhost:4000'
+}
+
+export const apiBaseUrl = getRuntimeApiUrl()
 
 export const api = axios.create({
   baseURL: apiBaseUrl,
