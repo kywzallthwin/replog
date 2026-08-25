@@ -48,6 +48,7 @@
 - After Phase 1, continue with central session-expiry handling.
 
 ## Deferred Backlog
+- Revisit and change rest-timer functionality after Phase 1; requirements to be decided.
 - KG/LB preference using canonical kilograms.
 - Accessible monochrome SVG Progress chart.
 - Whole-day Program reordering.
