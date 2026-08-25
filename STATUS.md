@@ -2,9 +2,8 @@
 
 ## Current Phase
 - Product work is continuing before the separate CI and production-hardening plan.
-- Phase 1 is Active Workout parity and is being delivered in small verified batches.
-- The rest-timer hardening batch is complete in code; live browser acceptance remains part of the final Phase 1 batch.
-- Shared estimated-1RM behavior and historical Last time ordering were completed in the preceding batch.
+- Phase 1 is Active Workout parity and is implemented in code; final live browser acceptance remains.
+- Session-level workout notes were intentionally removed from scope. Optional per-set notes remain supported.
 
 ## Confirmed State
 - Root workspace: `D:\coding\project\workout`
@@ -23,30 +22,29 @@
 - Program switching is blocked during active workouts, and completed history retains its original program snapshot.
 - Warm-up, normal, and numeric drop-chain logging with smart prefill and one-tap Repeat.
 - Exercise add, swap, remove, and reorder flows; swaps with logged sets are rejected.
-- Rest timer now preserves session-scoped absolute deadlines through loading, refresh, navigation, and visibility changes.
-- Rest timer starts immediately after successful set or drop-chain creation and clears on skip, finish, cancel, and completed-session load.
-- Last time now uses only the owner's latest qualifying completed session before the viewed session.
-- Last time and Progress share the one-rep-aware estimated-1RM helper and tie rules; only normal sets qualify.
-- Add Set now receives the latest prior workout for the same exercise with every ordered warm-up, normal, and drop set.
-- Add Set renders that history as a compact horizontal notation line, keeps the best normal set as the prefill source, and displays warm-ups as lowercase `wu`.
+- Session-scoped absolute rest timer with 90-second starts, +15s, Skip, visibility refresh, and lifecycle cleanup.
+- Last time uses the owner's latest qualifying completed session before the viewed session.
+- Last time and Progress share one-rep-aware estimated-1RM and tie rules; only normal sets qualify.
+- Add Set receives the latest prior workout's ordered warm-up, normal, and drop sets while using the best normal set for prefill.
+- Completed workouts now show read-only duration, exercise count, total sets, normal sets, and total volume summaries.
 
 ## Verification
-- `npm test` passes: 2 tests, including focused last-time ownership, temporal, set-kind, one-rep, and tie coverage.
+- `npm test` passes: 2 tests across `programs.test.ts` and `sessions.test.ts`, serialized for shared SQLite.
 - `npm run build` passes for client and server.
 - `npm run lint` passes.
 - `npm run typecheck` passes.
-- `npm run migrate:deploy -w server` applies the session-notes removal migration; Prisma reports eleven migrations and no pending work.
+- `npm run migrate:deploy -w server` reports eleven migrations and no pending work.
 - `npm exec -w server prisma validate` passes.
 - `git diff --check` passes.
+- Standalone mockup renders at 375px and 430px in the available headless browser check.
 
 ## Next Actions
-- Reassess session notes before implementing any workout-note UI.
-- Build the read-only finish summary and complete Phase 1 mobile acceptance.
-- Move session coverage into a dedicated test file and run all server test files during final Phase 1 acceptance.
-- After Phase 1, continue with central session-expiry handling.
+- Complete live browser acceptance for the rest timer at 375px and 430px: set creation, refresh, navigation, hidden tabs, +15s, Skip, Finish, Cancel, and completed refresh.
+- Verify completed summaries at 375px and 430px for populated and empty workouts, exact counts, volume, refresh, read-only details, and Dashboard/History actions.
+- Confirm existing per-set notes still save and completed workouts do not expose session-level notes.
+- After Phase 1 acceptance, continue with central session-expiry handling.
 
 ## Deferred Backlog
-- Revisit and change rest-timer functionality after Phase 1; requirements to be decided.
 - KG/LB preference using canonical kilograms.
 - Accessible monochrome SVG Progress chart.
 - Whole-day Program reordering.
@@ -58,14 +56,8 @@
 - No implementation blockers are recorded.
 
 ## Recent Notes
-- 2026-08-24: Ported compact inline numeric drop controls into the live Add Set form.
-- 2026-08-25: Confirmed the multiple-program workflows and active-workout switching/history behavior at target widths.
 - 2026-08-25: Extracted the shared estimated-1RM helper and corrected Last time to exclude later and other-user sessions while preserving normal-set and tie behavior.
-- 2026-08-25: Made local API discovery use the browser hostname, allowed localhost/private-LAN development origins, and documented that phone testing needs no environment edits. Build, lint, typecheck, tests, and diff check pass.
-- 2026-08-25: Reverted the Session notes API and schema from `9ea48d5` with a compensating removal migration. Later rest-timer commits and the unrelated mockup work remain preserved.
-- 2026-08-25: Hardened the session rest timer with explicit loading/active/completed states, immediate post-set starts, visibility refresh, explicit finish/cancel cleanup, and sticky-safe workout layout. Automated verification passes; browser viewport acceptance remains for the final Phase 1 batch.
-- 2026-08-25: Added and refined `Replog-mockup/active-workout-previous-sets.html` with a compact one-line previous-workout notation inside Add Set: dots separate sets and continuous values show drop chains such as `40×9×35×6`; the separate history bar and hide control were removed.
-- 2026-08-25: Built the previous-workout history into the session API and Add Set UI. It selects the latest eligible earlier workout, returns all set kinds in order, preserves best-normal prefill, renders compact lowercase `wu`, and passes server tests plus root build, lint, typecheck, Prisma validation, migration deploy, and diff check.
-- 2026-08-25: Increased the live and mockup previous-set strip to a readable bordered row and changed the Add Set mobile fields to Kind on its own row with Weight kg and Reps side by side. Lint, build, tests, and diff check pass.
-- 2026-08-25: Matched the Weight kg and Reps label header heights and reduced the `+ Drop` control so both mobile inputs align on the same row.
-- 2026-08-25: Reordered the Add Set kind dropdown so Warm-up appears before Normal.
+- 2026-08-25: Hardened the session rest timer with explicit loading/active/completed states, immediate post-set starts, visibility refresh, explicit Finish/Cancel cleanup, and sticky-safe layout.
+- 2026-08-25: Built previous-workout set history into the session API and Add Set UI with ordered warm-up, normal, and drop records and best-normal prefill.
+- 2026-08-26: Replaced the generic completed-workout message with populated and empty read-only statistics summaries; session-level notes remain excluded.
+- 2026-08-26: Moved Last time coverage into `sessions.test.ts`, serialized all server test files for SQLite, and verified root build, lint, typecheck, migrations, Prisma validation, tests, and diff check.

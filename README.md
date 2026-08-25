@@ -10,7 +10,7 @@ The app helps lifters keep a structured program, record active workouts, review 
 - Optional Google OAuth sign-in and account linking
 - Dashboard with routine days, suggested workouts, recent sessions, and training statistics
 - Multiple editable programs with beginner templates, blank routines, copying, and active-program switching
-- Active workout logging with warm-up, normal, and drop sets
+- Active workout logging with warm-up, normal, and drop sets, a persistent rest timer, and previous-workout references
 - Add, swap, remove, search, and reorder exercises during a workout
 - Program editing for names, days, colors, exercises, and exercise order
 - Workout history grouped by month
@@ -89,9 +89,9 @@ Password-reset email delivery is optional for local development and requires `RE
 
 ## Project status
 
-The MVP includes authentication, dashboard, multiple program management, workout logging, history, progress, profile management, password recovery, and custom exercise creation. Existing mobile and desktop acceptance is complete; the new Programs library still needs rendered browser verification.
+The MVP includes authentication, dashboard, multiple program management, workout logging, history, progress, profile management, password recovery, custom exercise creation, and read-only completed-workout summaries. Remaining responsive acceptance is tracked in `STATUS.md`.
 
-Deferred ideas include a guide page, rest timer, last-time exercise references, workout notes, unit preferences, an estimated-1RM chart, and whole-day program reordering.
+Deferred ideas include a guide page, unit preferences, an estimated-1RM chart, and whole-day program reordering.
 
 ## Repository layout
 

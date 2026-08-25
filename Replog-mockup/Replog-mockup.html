@@ -191,7 +191,7 @@
     .topnav a { padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; color: #64748b; text-decoration: none; }
     .topnav a.active { background: var(--primary-soft); color: var(--primary); }
 
-    /* Forgot-password link, notes, last-time, rest timer, chart */
+    /* Forgot-password link, last-time, rest timer, chart */
     .forgot-link { display: block; text-align: right; margin: -6px 0 14px; color: var(--primary); font-size: 13px; font-weight: 700; }
     textarea.input { min-height: 60px; resize: vertical; font-family: inherit; line-height: 1.4; }
     .last-ref { color: #94a3b8; font-size: 12px; font-weight: 600; padding: 4px 14px 0; }
@@ -215,6 +215,19 @@
     .cancel-copy { color: #64748b; font-size: 14px; line-height: 1.45; margin: 8px 0 16px; }
      .chart { border-radius: 14px; background: #f8fafc; padding: 14px; }
      .chart svg { display: block; width: 100%; height: auto; }
+     .summary-card { border: 1px solid #e2e8f0; border-radius: 20px; background: #fff; padding: 18px; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
+     .summary-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+     .summary-heading h2 { margin-top: 6px; font-size: 21px; }
+     .summary-heading p { color: #64748b; font-size: 13px; line-height: 1.45; margin-top: 5px; }
+     .summary-stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-top: 16px; }
+     .summary-stat { border-radius: 13px; background: #f8fafc; padding: 12px; }
+     .summary-stat strong { display: block; color: #0f172a; font-size: 21px; font-weight: 900; letter-spacing: -.04em; }
+     .summary-stat span { display: block; color: #94a3b8; font-size: 10px; font-weight: 800; letter-spacing: .08em; margin-top: 3px; text-transform: uppercase; }
+     .summary-actions { display: flex; gap: 8px; margin-top: 14px; }
+     .summary-actions .btn { flex: 1; }
+     .empty-summary { border: 1px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; color: #64748b; padding: 18px; text-align: center; }
+     .empty-summary h3 { color: #334155; font-size: 15px; }
+     .empty-summary p { font-size: 13px; line-height: 1.5; margin-top: 6px; }
      .drop-feature { max-width: 1120px; margin: 0 auto; }
      .drop-feature-copy { max-width: 620px; margin-bottom: 18px; }
      .drop-feature-copy h2 { margin-top: 7px; }
@@ -399,7 +412,6 @@
             <div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Lat Pulldown / Chin-ups</div><div class="exercise-actions"><button class="btn btn-white btn-small">Swap</button><button class="btn btn-white btn-small">Add Set</button><button class="btn-icon red">x</button></div></div></div>
             <div class="timer"><div><div style="font-size:10px;letter-spacing:.08em;opacity:.65;">REST TIMER</div><div class="t-val">1:30</div></div><div style="display:flex;gap:6px;"><button class="t-btn">+15s</button><button class="t-btn">Skip</button></div></div>
             <button class="btn btn-white">+ Add Exercise</button>
-            <div class="soft-card"><div class="tiny" style="margin-bottom:8px;">Workout Notes</div><textarea class="input" placeholder="How did it feel? Any tweaks?">Left shoulder felt tight on incline.</textarea></div>
             <button class="btn btn-green">Finish Workout</button>
             <button class="btn btn-red">Cancel Workout</button>
           </div>
@@ -511,13 +523,54 @@
     </div>
 
     <div>
-      <p class="label">Completed Workout Detail</p>
+      <p class="label">Completed Workout Summary</p>
       <div class="phone">
         <main class="app">
           <div class="top"><div><div class="brand-small">History</div><h1>Thu 25 Jun</h1><p class="sub">TORSO A - 52 min</p></div></div>
           <div class="stack">
+            <section class="summary-card">
+              <div class="summary-heading">
+                <div><div class="tiny">Workout complete</div><h2>Workout summary</h2><p>Example Program · TORSO A</p></div>
+                <span class="badge badge-lower">READ ONLY</span>
+              </div>
+              <div class="summary-stats">
+                <div class="summary-stat"><strong>52:18</strong><span>Duration</span></div>
+                <div class="summary-stat"><strong>2</strong><span>Exercises</span></div>
+                <div class="summary-stat"><strong>5</strong><span>Total sets</span></div>
+                <div class="summary-stat"><strong>3</strong><span>Normal sets</span></div>
+                <div class="summary-stat"><strong>1,000 kg</strong><span>Total volume</span></div>
+              </div>
+              <div class="summary-actions"><button class="btn btn-dark btn-small">Dashboard</button><button class="btn btn-white btn-small">History</button></div>
+            </section>
+            <div class="tiny">Read-only details</div>
             <div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Smith Incline Bench</div></div><div class="set-row"><span class="badge badge-wu">WU</span><strong>10 kg</strong><span>x</span><span>12</span></div><div class="set-row"><span class="badge badge-neutral">1</span><strong>17 kg</strong><span>x</span><span>9</span></div><div class="set-row"><span class="badge badge-neutral">2</span><strong>17 kg</strong><span>x</span><span>8</span></div></div>
             <div class="exercise-card"><div class="exercise-head"><div class="exercise-title">Lat Pulldown / Chin-ups</div></div><div class="set-row"><span class="badge badge-neutral">1</span><strong>32 kg</strong><span>x</span><span>13</span></div><div class="set-row"><span class="badge badge-drop">DROP</span><strong>25 kg</strong><span>x</span><span>7</span></div></div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div>
+      <p class="label">Completed Empty Workout Summary</p>
+      <div class="phone">
+        <main class="app">
+          <div class="top"><div><div class="brand-small">History</div><h1>Thu 25 Jun</h1><p class="sub">TORSO A - 4 min</p></div></div>
+          <div class="stack">
+            <section class="summary-card">
+              <div class="summary-heading">
+                <div><div class="tiny">Workout complete</div><h2>Session saved</h2><p>Example Program · TORSO A</p></div>
+                <span class="badge badge-neutral">READ ONLY</span>
+              </div>
+              <div class="summary-stats">
+                <div class="summary-stat"><strong>4:02</strong><span>Duration</span></div>
+                <div class="summary-stat"><strong>0</strong><span>Exercises</span></div>
+                <div class="summary-stat"><strong>0</strong><span>Total sets</span></div>
+                <div class="summary-stat"><strong>0</strong><span>Normal sets</span></div>
+                <div class="summary-stat"><strong>0 kg</strong><span>Total volume</span></div>
+              </div>
+              <div class="summary-actions"><button class="btn btn-dark btn-small">Dashboard</button><button class="btn btn-white btn-small">History</button></div>
+            </section>
+            <div class="empty-summary"><h3>No exercises logged</h3><p>This completed workout is read-only. Start another workout whenever you are ready.</p></div>
           </div>
         </main>
       </div>
