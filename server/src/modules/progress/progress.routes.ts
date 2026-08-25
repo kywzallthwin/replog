@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { estimateOneRepMaxKg, isBetterEstimatedSet } from '../../estimatedOneRepMax.js'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
 
@@ -6,33 +7,6 @@ export const progressRouter = Router()
 
 function formatCategory(category: string) {
   return category.charAt(0) + category.slice(1).toLowerCase()
-}
-
-function estimateOneRepMaxKg(set: { weightKg: number; reps: number }) {
-  if (set.reps === 1) {
-    return set.weightKg
-  }
-
-  return set.weightKg * (1 + set.reps / 30)
-}
-
-function isBetterEstimatedSet(
-  candidate: { estimatedOneRepMaxKg: number; weightKg: number; reps: number },
-  current: { estimatedOneRepMaxKg: number; weightKg: number; reps: number } | null,
-) {
-  if (!current) {
-    return true
-  }
-
-  if (candidate.estimatedOneRepMaxKg !== current.estimatedOneRepMaxKg) {
-    return candidate.estimatedOneRepMaxKg > current.estimatedOneRepMaxKg
-  }
-
-  if (candidate.weightKg !== current.weightKg) {
-    return candidate.weightKg > current.weightKg
-  }
-
-  return candidate.reps > current.reps
 }
 
 progressRouter.get('/', requireAuth, async (req, res) => {

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { isBetterEstimatedSet } from '../../estimatedOneRepMax.js'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
 import {
@@ -103,51 +104,68 @@ function toSessionExercisePayload(sessionExercise: {
   }
 }
 
-async function getLastTimeReferences(userId: string, sessionId: string, exerciseIds: string[]) {
+async function getLastTimeReferences(userId: string, currentStartedAt: Date, exerciseIds: string[]) {
   const references = new Map<string, { sessionId: string; performedAt: Date; weightKg: number; reps: number }>()
 
   if (!exerciseIds.length) {
     return references
   }
 
-  const previousExercises = await prisma.sessionExercise.findMany({
+  const previousSessions = await prisma.session.findMany({
     where: {
-      exerciseId: { in: exerciseIds },
-      session: {
-        userId,
-        id: { not: sessionId },
-        endedAt: { not: null },
+      userId,
+      endedAt: { not: null },
+      startedAt: { lt: currentStartedAt },
+      sessionExercises: {
+        some: {
+          exerciseId: { in: exerciseIds },
+          setLogs: { some: { kind: 'NORMAL' } },
+        },
       },
     },
-    orderBy: { session: { startedAt: 'desc' } },
+    orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
     include: {
-      session: { select: { id: true, startedAt: true } },
-      setLogs: {
-        where: { kind: 'NORMAL' },
-        orderBy: { order: 'asc' },
+      sessionExercises: {
+        where: { exerciseId: { in: exerciseIds } },
+        include: {
+          setLogs: {
+            where: { kind: 'NORMAL' },
+            orderBy: { order: 'asc' },
+          },
+        },
       },
     },
   })
 
-  for (const previousExercise of previousExercises) {
-    if (references.has(previousExercise.exerciseId) || !previousExercise.setLogs.length) {
-      continue
+  for (const previousSession of previousSessions) {
+    const bestSetsByExerciseId = new Map<string, (typeof previousSession.sessionExercises)[number]['setLogs'][number]>()
+
+    for (const previousExercise of previousSession.sessionExercises) {
+      if (references.has(previousExercise.exerciseId)) {
+        continue
+      }
+
+      for (const candidate of previousExercise.setLogs) {
+        const bestSet = bestSetsByExerciseId.get(previousExercise.exerciseId) ?? null
+
+        if (isBetterEstimatedSet(candidate, bestSet)) {
+          bestSetsByExerciseId.set(previousExercise.exerciseId, candidate)
+        }
+      }
     }
 
-    const bestSet = [...previousExercise.setLogs].sort(
-      (left, right) => right.weightKg * (1 + right.reps / 30) - left.weightKg * (1 + left.reps / 30),
-    )[0]
-
-    if (!bestSet) {
-      continue
+    for (const [exerciseId, bestSet] of bestSetsByExerciseId) {
+      references.set(exerciseId, {
+        sessionId: previousSession.id,
+        performedAt: previousSession.startedAt,
+        weightKg: bestSet.weightKg,
+        reps: bestSet.reps,
+      })
     }
 
-    references.set(previousExercise.exerciseId, {
-      sessionId: previousExercise.session.id,
-      performedAt: previousExercise.session.startedAt,
-      weightKg: bestSet.weightKg,
-      reps: bestSet.reps,
-    })
+    if (references.size === exerciseIds.length) {
+      break
+    }
   }
 
   return references
@@ -334,7 +352,7 @@ sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
 
   const lastTimeReferences = await getLastTimeReferences(
     userId,
-    session.id,
+    session.startedAt,
     session.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
   )
 
@@ -1030,7 +1048,7 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
 
   const lastTimeReferences = await getLastTimeReferences(
     userId,
-    updatedSession.id,
+    updatedSession.startedAt,
     updatedSession.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
   )
 
