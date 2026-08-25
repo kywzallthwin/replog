@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 
 const defaultRestSeconds = 90
 
+export type RestTimerSessionStatus = 'loading' | 'active' | 'completed'
+
 function getStorageKey(sessionId: string) {
   return `replog:rest-timer:${sessionId}`
 }
@@ -21,34 +23,53 @@ function readEndAt(sessionId: string | undefined) {
   return Number.isFinite(endAt) ? endAt : null
 }
 
+function removeStoredEndAt(sessionId: string | undefined) {
+  if (!sessionId || typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.removeItem(getStorageKey(sessionId))
+}
+
 function formatRestDuration(seconds: number) {
   const minutes = Math.floor(seconds / 60)
   const remainingSeconds = seconds % 60
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
-export function useRestTimer(sessionId: string | undefined, isActive: boolean) {
+export function useRestTimer(sessionId: string | undefined, sessionStatus: RestTimerSessionStatus) {
   const [timerState, setTimerState] = useState<{ sessionId: string | undefined; endAt: number | null }>(() => ({
     sessionId,
     endAt: readEndAt(sessionId),
   }))
   const [now, setNow] = useState(() => Date.now())
 
-  const endAt = timerState.sessionId === sessionId ? timerState.endAt : readEndAt(sessionId)
+  const endAt = sessionStatus === 'completed'
+    ? null
+    : timerState.sessionId === sessionId
+      ? timerState.endAt
+      : readEndAt(sessionId)
 
   useEffect(() => {
-    if (!isActive && sessionId) {
-      window.localStorage.removeItem(getStorageKey(sessionId))
+    if (sessionStatus === 'completed') {
+      removeStoredEndAt(sessionId)
       return
     }
 
-    if (!endAt) {
+    if (sessionStatus !== 'active' || endAt === null) {
       return
     }
 
-    const interval = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(interval)
-  }, [endAt, isActive, sessionId])
+    const updateNow = () => setNow(Date.now())
+    updateNow()
+    const interval = window.setInterval(updateNow, 1000)
+    document.addEventListener('visibilitychange', updateNow)
+
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', updateNow)
+    }
+  }, [endAt, sessionId, sessionStatus])
 
   const remainingSeconds = endAt === null ? null : Math.max(0, Math.ceil((endAt - now) / 1000))
 
@@ -58,7 +79,7 @@ export function useRestTimer(sessionId: string | undefined, isActive: boolean) {
     }
 
     if (nextEndAt === null) {
-      window.localStorage.removeItem(getStorageKey(sessionId))
+      removeStoredEndAt(sessionId)
     } else {
       window.localStorage.setItem(getStorageKey(sessionId), nextEndAt.toString())
     }
@@ -86,5 +107,6 @@ export function useRestTimer(sessionId: string | undefined, isActive: boolean) {
     start,
     addSeconds,
     skip,
+    clear: skip,
   }
 }

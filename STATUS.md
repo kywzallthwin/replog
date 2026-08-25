@@ -4,6 +4,7 @@
 - Product work is continuing before the separate CI and production-hardening plan.
 - Phase 1 is Active Workout parity and is being delivered in small verified batches.
 - The notes server batch is complete: session notes are normalized, owner-scoped, persisted, and included atomically in Finish.
+- The rest-timer hardening batch is complete in code; live browser acceptance remains part of the final Phase 1 batch.
 - Shared estimated-1RM behavior and historical Last time ordering were completed in the preceding batch.
 
 ## Confirmed State
@@ -23,7 +24,8 @@
 - Program switching is blocked during active workouts, and completed history retains its original program snapshot.
 - Warm-up, normal, and numeric drop-chain logging with smart prefill and one-tap Repeat.
 - Exercise add, swap, remove, and reorder flows; swaps with logged sets are rejected.
-- Rest timer and last-time references have an existing first implementation.
+- Rest timer now preserves session-scoped absolute deadlines through loading, refresh, navigation, and visibility changes.
+- Rest timer starts immediately after successful set or drop-chain creation and clears on skip, finish, cancel, and completed-session load.
 - Session-level workout notes now support a 2,000-character nullable value, active-session saving, and atomic Finish persistence.
 - Last time now uses only the owner's latest qualifying completed session before the viewed session.
 - Last time and Progress share the one-rep-aware estimated-1RM helper and tie rules; only normal sets qualify.
@@ -40,7 +42,6 @@
 - `git diff --check` passes.
 
 ## Next Actions
-- Harden rest-timer loading, refresh, navigation, finish, and cancel cleanup behavior.
 - Add debounced workout-note UI with visible save, error, and retry states.
 - Build the read-only finish summary and complete Phase 1 mobile acceptance.
 - Move session coverage into a dedicated test file and run all server test files during final Phase 1 acceptance.
@@ -63,6 +64,7 @@
 - 2026-08-25: Extracted the shared estimated-1RM helper and corrected Last time to exclude later and other-user sessions while preserving normal-set and tie behavior.
 - 2026-08-25: Made local API discovery use the browser hostname, allowed localhost/private-LAN development origins, and documented that phone testing needs no environment edits. Build, lint, typecheck, tests, and diff check pass.
 - 2026-08-25: Added a minimal `Session.notes` migration, active-session notes API, normalized 2,000-character validation, atomic Finish notes, and server coverage. Prisma generation/validation, migration deploy, tests, build, lint, typecheck, and diff check pass.
+- 2026-08-25: Hardened the session rest timer with explicit loading/active/completed states, immediate post-set starts, visibility refresh, explicit finish/cancel cleanup, and sticky-safe workout layout. Automated verification passes; browser viewport acceptance remains for the final Phase 1 batch.
 - 2026-08-25: Added and refined `Replog-mockup/active-workout-previous-sets.html` with a compact one-line previous-workout notation inside Add Set: dots separate sets and continuous values show drop chains such as `40×9×35×6`; the separate history bar and hide control were removed.
 - 2026-08-25: Built the previous-workout history into the session API and Add Set UI. It selects the latest eligible earlier workout, returns all set kinds in order, preserves best-normal prefill, renders compact lowercase `wu`, and passes server tests plus root build, lint, typecheck, Prisma validation, migration deploy, and diff check.
 - 2026-08-25: Increased the live and mockup previous-set strip to a readable bordered row and changed the Add Set mobile fields to Kind on its own row with Weight kg and Reps side by side. Lint, build, tests, and diff check pass.

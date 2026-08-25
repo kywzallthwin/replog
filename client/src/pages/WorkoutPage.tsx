@@ -28,7 +28,7 @@ import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDial
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
-import { useRestTimer } from '../lib/useRestTimer'
+import { useRestTimer, type RestTimerSessionStatus } from '../lib/useRestTimer'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -519,10 +519,17 @@ export function WorkoutPage() {
   const source = searchParams.get('from')
   const headerLink = source === 'history' ? '/history' : source === 'progress' ? '/progress' : '/dashboard'
   const headerLinkLabel = source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
-  const restTimer = useRestTimer(sessionId, Boolean(session && !session.endedAt))
+  const restTimerSessionStatus: RestTimerSessionStatus = isPending || !session
+    ? 'loading'
+    : session.endedAt
+      ? 'completed'
+      : 'active'
+  const restTimer = useRestTimer(sessionId, restTimerSessionStatus)
   const addSetMutation = useMutation({
     mutationFn: addSet,
     onSuccess: async (_set, variables) => {
+      restTimer.start()
+
       if (sessionId) {
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
@@ -532,12 +539,13 @@ export function WorkoutPage() {
       setWeightKg(variables.weightKg.toString())
       setReps(variables.reps.toString())
       setFormError('')
-      restTimer.start()
     },
   })
   const addSetChainMutation = useMutation({
     mutationFn: addSetChain,
     onSuccess: async (_sets, variables) => {
+      restTimer.start()
+
       if (sessionId) {
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
@@ -548,7 +556,6 @@ export function WorkoutPage() {
       setReps(variables.sets[0]?.reps.toString() ?? '')
       setDropDrafts([])
       setFormError('')
-      restTimer.start()
     },
   })
   const addSessionExerciseMutation = useMutation({
@@ -616,6 +623,8 @@ export function WorkoutPage() {
   const finishSessionMutation = useMutation({
     mutationFn: finishSession,
     onSuccess: async (updatedSession) => {
+      restTimer.clear()
+
       if (sessionId) {
         queryClient.setQueryData(sessionQueryKey(sessionId), updatedSession)
       }
@@ -628,6 +637,8 @@ export function WorkoutPage() {
   const cancelSessionMutation = useMutation({
     mutationFn: cancelSession,
     onSuccess: async () => {
+      restTimer.clear()
+
       if (sessionId) {
         queryClient.removeQueries({ queryKey: sessionQueryKey(sessionId) })
       }
@@ -872,7 +883,7 @@ export function WorkoutPage() {
 
   return (
     <main className="min-h-dvh bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
-      <div className="mx-auto max-w-4xl overflow-hidden rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
+      <div className="mx-auto max-w-4xl rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
             <Link to={headerLink} className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
