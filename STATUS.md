@@ -1,7 +1,7 @@
 # RepLog Status
 
 ## Current Phase
-- Production readiness, Phase 1: CI safety net.
+- Production readiness, Phase 1: CI safety net (complete).
 - Multiple-program MVP acceptance is complete; PostgreSQL migration is the next phase.
 
 ## Confirmed State
@@ -33,13 +33,13 @@
 - GitHub Actions is configured for pushes and pull requests without credentials.
 
 ## Verification
-- `npm run check` passes on Node `v24.19.0` and npm `11.9.0`.
+- `npm run check` passes on Node `v24.19.0` and npm `11.9.0` as of 2026-08-26.
 - Prisma generation and validation, workspace lint, workspace typecheck, tests, build, compiled `/health`, and `git diff --check` pass.
 - Tests automatically discover both `programs.test.ts` and `sessions.test.ts`, apply all 11 migrations to a temporary SQLite database, and pass serially.
 - `server/dev.db` length and modification time were unchanged across the isolated test run.
-- `npm ci` was blocked locally by an already-running development process holding a native Vite file; dependency restoration and native SQLite rebuild completed, while CI will run from a clean checkout.
+- The first local `npm run check` attempt exceeded a 120-second shell timeout during client lint; a 300-second rerun completed successfully. CI has a 15-minute job timeout.
 - The client build reports the existing Vite warning that the main JavaScript chunk is larger than 500 kB.
-- `npm install` reports 12 audit vulnerabilities in the existing dependency tree; no automatic audit fix was applied.
+- `npm audit --omit=dev` reports 13 vulnerabilities in the existing production dependency tree; no automatic audit fix was applied.
 
 ## Next Actions
 - Begin Phase 2 by discarding local SQLite data and creating a fresh PostgreSQL database.
