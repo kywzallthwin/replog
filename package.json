@@ -2,12 +2,17 @@
   "name": "workout",
   "version": "1.0.0",
   "description": "A mobile-first workout tracker for planning routines, logging sets, and tracking strength progress.",
+  "private": true,
   "main": "index.js",
   "scripts": {
     "build": "npm run build -w client && npm run build -w server",
-    "lint": "npm run lint -w client",
-    "typecheck": "npm run typecheck -w server",
+    "lint": "npm run lint -w client && npm run lint -w server",
+    "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
     "test": "npm run test -w server",
+    "prisma:generate": "npm run generate -w server",
+    "prisma:validate": "npm run validate:prisma -w server",
+    "smoke:health": "npm run smoke:health -w server",
+    "check": "npm run prisma:generate && npm run prisma:validate && npm run lint && npm run typecheck && npm test && npm run build && npm run smoke:health && git diff --check",
     "dev": "concurrently -k -n client,server -c blue,green \"npm run dev -w client\" \"npm run dev -w server\""
   },
   "workspaces": [
@@ -24,8 +29,10 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "packageManager": "npm@11.9.0",
   "engines": {
-    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+    "node": "24.19.x",
+    "npm": "11.9.x"
   },
   "devDependencies": {
     "concurrently": "^10.0.3"
