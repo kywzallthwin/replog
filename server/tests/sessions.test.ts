@@ -20,14 +20,14 @@ test('last-time references use the latest owned earlier workout and the Progress
   const otherAgent = request.agent(app)
 
   try {
-    const ownerRegisterResponse = await ownerAgent.post('/auth/register').send({
+    const ownerRegisterResponse = await ownerAgent.post('/api/auth/register').send({
       email: ownerEmail,
       username: 'Last Time Owner',
       password: 'password123',
     })
     assert.equal(ownerRegisterResponse.status, 201, ownerRegisterResponse.text)
 
-    const otherRegisterResponse = await otherAgent.post('/auth/register').send({
+    const otherRegisterResponse = await otherAgent.post('/api/auth/register').send({
       email: otherEmail,
       username: 'Last Time Other',
       password: 'password123',
@@ -140,7 +140,7 @@ test('last-time references use the latest owned earlier workout and the Progress
       },
     ])
 
-    const detailsResponse = await ownerAgent.get(`/sessions/${viewedSession.id}`)
+    const detailsResponse = await ownerAgent.get(`/api/sessions/${viewedSession.id}`)
     assert.equal(detailsResponse.status, 200, detailsResponse.text)
     const detailsByExerciseId = new Map(
       detailsResponse.body.session.exercises.map((exercise: { exerciseId: string; lastTime: unknown }) => [
@@ -189,12 +189,12 @@ test('last-time references use the latest owned earlier workout and the Progress
       oneRepDetails.previousWorkout.sets[3].id,
     )
 
-    const oneRepProgressResponse = await ownerAgent.get(`/progress?exerciseId=${oneRepExercise.id}`)
+    const oneRepProgressResponse = await ownerAgent.get(`/api/progress?exerciseId=${oneRepExercise.id}`)
     assert.equal(oneRepProgressResponse.status, 200, oneRepProgressResponse.text)
     assert.equal(oneRepProgressResponse.body.personalBest.weightKg, 96)
     assert.equal(oneRepProgressResponse.body.personalBest.reps, 2)
 
-    const tieProgressResponse = await ownerAgent.get(`/progress?exerciseId=${tieExercise.id}`)
+    const tieProgressResponse = await ownerAgent.get(`/api/progress?exerciseId=${tieExercise.id}`)
     assert.equal(tieProgressResponse.status, 200, tieProgressResponse.text)
     assert.equal(tieProgressResponse.body.personalBest.weightKg, 112.5)
     assert.equal(tieProgressResponse.body.personalBest.reps, 2)

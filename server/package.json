@@ -8,7 +8,7 @@
     "generate": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
     "build": "npm run generate && tsc --outDir dist --rootDir .",
-    "start": "node dist/src/index.js",
+    "start": "node scripts/start.mjs",
     "lint": "eslint .",
     "test": "node scripts/run-tests.mjs",
     "typecheck": "tsc --noEmit",

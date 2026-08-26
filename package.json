@@ -7,6 +7,8 @@
   "scripts": {
     "build": "npm run build -w client && npm run build -w server",
     "lint": "npm run lint -w client && npm run lint -w server",
+    "migrate:deploy": "npm run migrate:deploy -w server",
+    "start": "npm run start -w server",
     "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
     "test": "npm run test -w server",
     "prisma:generate": "npm run generate -w server",

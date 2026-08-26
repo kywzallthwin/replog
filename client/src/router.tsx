@@ -7,6 +7,7 @@ import { EditProfilePage } from './pages/EditProfilePage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { LoginPage } from './pages/LoginPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { ProgressPage } from './pages/ProgressPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ProgramPage } from './pages/ProgramPage'
@@ -115,5 +116,9 @@ export const router = createBrowserRouter([
         <WorkoutPage />
       </RequireAuth>
     ),
+  },
+  {
+    path: '*',
+    element: <NotFoundPage />,
   },
 ])

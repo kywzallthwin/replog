@@ -2,16 +2,25 @@ import axios from 'axios'
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim()
 
+function addApiPath(url: string) {
+  const normalizedUrl = url.replace(/\/+$/, '')
+  return normalizedUrl.endsWith('/api') ? normalizedUrl : `${normalizedUrl}/api`
+}
+
 function getRuntimeApiUrl() {
   if (configuredApiUrl) {
-    return configuredApiUrl
+    return import.meta.env.PROD ? '/api' : addApiPath(configuredApiUrl)
   }
 
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:4000`
+    if (import.meta.env.PROD) {
+      return '/api'
+    }
+
+    return addApiPath(`${window.location.protocol}//${window.location.hostname}:4000`)
   }
 
-  return 'http://localhost:4000'
+  return import.meta.env.PROD ? '/api' : 'http://localhost:4000/api'
 }
 
 export const apiBaseUrl = getRuntimeApiUrl()

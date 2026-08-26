@@ -85,7 +85,7 @@ for (const key of [
 }
 
 const child = spawn(process.execPath, [entryPoint], {
-  cwd: temporaryDirectory,
+  cwd: serverRoot,
   env: childEnvironment,
   stdio: ['ignore', 'pipe', 'pipe'],
 })

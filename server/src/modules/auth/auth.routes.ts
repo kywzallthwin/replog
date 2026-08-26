@@ -68,7 +68,7 @@ function getPasswordResetTokenHash(token: string) {
 }
 
 function getGoogleCallbackUrl() {
-  return env.GOOGLE_CALLBACK_URL ?? `http://localhost:${env.PORT}/auth/google/callback`
+  return env.GOOGLE_CALLBACK_URL ?? `http://localhost:${env.PORT}/api/auth/google/callback`
 }
 
 function redirectFromGoogle(res: Response, error?: string) {
@@ -86,7 +86,7 @@ function clearGoogleStateCookie(res: Response) {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    path: '/auth/google',
+    path: '/api/auth/google',
   })
 }
 
@@ -111,7 +111,7 @@ authRouter.get('/google', (_req, res) => {
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     maxAge: googleStateLifetimeMs,
-    path: '/auth/google',
+    path: '/api/auth/google',
   })
 
   res.redirect(
