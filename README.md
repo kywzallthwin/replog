@@ -29,13 +29,13 @@ The app helps lifters keep a structured program, record active workouts, review 
 
 ### Requirements
 
-- Node.js 20.19+ (or a supported Node.js 22/24+ release)
-- npm
+- Node.js `24.19.0` (use the version in `.nvmrc`)
+- npm `11.9.0`
 
 ### Install
 
 ```bash
-npm install
+npm ci
 ```
 
 Create local environment files from the examples:
@@ -47,7 +47,7 @@ cp server/.env.example server/.env
 
 On PowerShell, use `Copy-Item` instead of `cp` if needed.
 
-The server uses SQLite for local development. Prisma Client is generated automatically during workspace installation. The migration and seed data are included in the repository.
+The server uses SQLite for local development. Prisma Client is generated automatically during workspace installation. The migration and seed data are included in the repository. Tests use a separate temporary SQLite database and never use `server/dev.db`.
 
 ### Run the app
 
@@ -67,29 +67,49 @@ npm run migrate:deploy -w server
 
 ### Verify changes
 
+Run the complete local safety net:
+
 ```bash
-npm run build -w client
-npm run lint -w client
-npm run typecheck -w server
+npm run check
+```
+
+For individual checks:
+
+```bash
+npm run prisma:generate
+npm run prisma:validate
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run smoke:health
 git diff --check
 ```
+
+`npm test` discovers every `server/tests/**/*.test.ts` file, migrates a fresh temporary database, runs tests serially, and removes the database afterward. `npm run smoke:health` starts the compiled server and checks `/health`; it is a liveness check and does not verify database readiness.
 
 ## Environment variables
 
 `VITE_API_URL` is optional for local development. When omitted, the client uses
 the browser's current hostname on port `4000`, so both `localhost:5173` and
 your PC's LAN IP work without changing environment files. Set it explicitly for
-production or when the API is hosted elsewhere.
+production or when the API is hosted elsewhere. It is public build-time configuration and is embedded in the client bundle.
 
-The server requires the values in `server/.env.example`, including `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL`, and `PORT`.
+The server requires `DATABASE_URL`, `JWT_SECRET`, and `CLIENT_URL`. `PORT` defaults to `4000`; `EMAIL_FROM` also has a local default.
 
 Google sign-in is optional and requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL`.
 
-Password-reset email delivery is optional for local development and requires `RESEND_API_KEY` and `EMAIL_FROM` when enabled.
+Password-reset email delivery is optional for local development and requires `RESEND_API_KEY` and `EMAIL_FROM` when enabled. It is required for a production launch that advertises password recovery.
+
+## CI and production readiness
+
+GitHub Actions runs on pushes and pull requests. It installs the pinned runtime, generates and validates Prisma Client, migrates a clean SQLite database, runs linting, typechecking, isolated tests, the client/server build, a compiled `/health` smoke check, and `git diff --check`.
+
+Production deployment is intentionally not configured yet. The next phase will create a fresh PostgreSQL database, convert the SQLite datasource and migrations, move API routes under `/api`, serve the Vite build from Express, and prepare Railway deployment. Google OAuth and Resend configuration will be required before launch; credentials must remain in deployment environment variables.
 
 ## Project status
 
-The MVP includes authentication, dashboard, multiple program management, workout logging, history, progress, profile management, password recovery, custom exercise creation, and read-only completed-workout summaries. Remaining responsive acceptance is tracked in `STATUS.md`.
+The MVP includes authentication, dashboard, multiple program management, workout logging, history, progress, profile management, password recovery, custom exercise creation, and read-only completed-workout summaries. Multiple-program browser acceptance is complete. Production-readiness progress is tracked in `STATUS.md`.
 
 Deferred ideas include a guide page, unit preferences, an estimated-1RM chart, and whole-day program reordering.
 
