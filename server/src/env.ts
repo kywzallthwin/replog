@@ -1,8 +1,17 @@
 import 'dotenv/config'
 import { z } from 'zod'
 
+function isPostgresUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return ['postgres:', 'postgresql:'].includes(url.protocol) && Boolean(url.hostname) && url.pathname.length > 1
+  } catch {
+    return false
+  }
+}
+
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: z.string().refine(isPostgresUrl, 'DATABASE_URL must be a PostgreSQL connection URL'),
   JWT_SECRET: z.string().min(16),
   CLIENT_URL: z.string().url(),
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),

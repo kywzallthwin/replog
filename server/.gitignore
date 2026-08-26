@@ -1,7 +1,5 @@
 node_modules
 /dist
-/dev.db
-/dev.db-journal
 
 # Keep environment variables out of version control
 .env

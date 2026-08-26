@@ -13,7 +13,6 @@ import { fileURLToPath } from 'node:url'
 const serverRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const entryPoint = join(serverRoot, 'dist', 'src', 'index.js')
 const temporaryDirectory = mkdtempSync(join(tmpdir(), 'replog-health-'))
-const databaseFile = join(temporaryDirectory, 'health.db')
 const emptyEnvFile = join(temporaryDirectory, 'empty.env')
 
 if (!existsSync(entryPoint)) {
@@ -68,7 +67,7 @@ const childEnvironment = {
   ...process.env,
   NODE_ENV: 'ci',
   PORT: String(port),
-  DATABASE_URL: `file:${databaseFile.replaceAll('\\', '/')}`,
+  DATABASE_URL: 'postgresql://health:health@127.0.0.1:5432/replog_health?schema=public',
   JWT_SECRET: 'replog-health-secret-at-least-16-characters',
   CLIENT_URL: 'http://127.0.0.1:5173',
   DOTENV_CONFIG_PATH: emptyEnvFile,

@@ -5,6 +5,4 @@ node_modules
 dist
 coverage
 *.log
-server/prisma/dev.db
-server/prisma/dev.db-journal
 .claude/settings.local.json

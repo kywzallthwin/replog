@@ -22,7 +22,7 @@ The app helps lifters keep a structured program, record active workouts, review 
 ## Tech stack
 
 - Client: React, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, and Axios
-- Server: Express, TypeScript, Prisma, SQLite, Zod, and JSON Web Token authentication
+- Server: Express, TypeScript, Prisma, PostgreSQL, Zod, and JSON Web Token authentication
 - Workspace: npm workspaces with separate `client` and `server` packages
 
 ## Local development
@@ -31,6 +31,7 @@ The app helps lifters keep a structured program, record active workouts, review 
 
 - Node.js `24.19.0` (use the version in `.nvmrc`)
 - npm `11.9.0`
+- PostgreSQL `17` for local development and tests
 
 ### Install
 
@@ -47,7 +48,14 @@ cp server/.env.example server/.env
 
 On PowerShell, use `Copy-Item` instead of `cp` if needed.
 
-The server uses SQLite for local development. Prisma Client is generated automatically during workspace installation. The migration and seed data are included in the repository. Tests use a separate temporary SQLite database and never use `server/dev.db`.
+Create separate PostgreSQL databases for development and tests before running the server:
+
+```bash
+createdb replog
+createdb replog_test
+```
+
+The server uses PostgreSQL for local development. Prisma Client is generated automatically during workspace installation. The PostgreSQL baseline migration and seed data are included in the repository. Tests use `TEST_DATABASE_URL`, create a temporary schema in that database, and remove the schema after each run.
 
 ### Run the app
 
@@ -63,6 +71,12 @@ To apply migrations to an existing local database:
 
 ```bash
 npm run migrate:deploy -w server
+```
+
+To load the example data after applying migrations:
+
+```bash
+npm run seed -w server
 ```
 
 ### Verify changes
@@ -86,7 +100,7 @@ npm run smoke:health
 git diff --check
 ```
 
-`npm test` discovers every `server/tests/**/*.test.ts` file, migrates a fresh temporary database, runs tests serially, and removes the database afterward. `npm run smoke:health` starts the compiled server and checks `/health`; it is a liveness check and does not verify database readiness.
+`npm test` discovers every `server/tests/**/*.test.ts` file, migrates a unique temporary schema in the separate test database, runs tests serially, and removes the schema afterward. `npm run smoke:health` starts the compiled server and checks `/health`; it is a liveness check and does not verify database readiness.
 
 ## Environment variables
 
@@ -95,7 +109,7 @@ the browser's current hostname on port `4000`, so both `localhost:5173` and
 your PC's LAN IP work without changing environment files. Set it explicitly for
 production or when the API is hosted elsewhere. It is public build-time configuration and is embedded in the client bundle.
 
-The server requires `DATABASE_URL`, `JWT_SECRET`, and `CLIENT_URL`. `PORT` defaults to `4000`; `EMAIL_FROM` also has a local default.
+The server requires `DATABASE_URL`, `JWT_SECRET`, and `CLIENT_URL`. `DATABASE_URL` must be a PostgreSQL connection URL. `TEST_DATABASE_URL` is required by `npm test` and must point to a different database from `DATABASE_URL`. Development and test examples are in `server/.env.example`. `PORT` defaults to `4000`; `EMAIL_FROM` also has a local default.
 
 Google sign-in is optional and requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL`.
 
@@ -103,9 +117,9 @@ Password-reset email delivery is optional for local development and requires `RE
 
 ## CI and production readiness
 
-GitHub Actions runs on pushes and pull requests. It installs the pinned runtime, generates and validates Prisma Client, migrates a clean SQLite database, runs linting, typechecking, isolated tests, the client/server build, a compiled `/health` smoke check, and `git diff --check`.
+GitHub Actions runs on pushes and pull requests. It starts PostgreSQL 17, creates separate CI and test databases, generates and validates Prisma Client, migrates an empty PostgreSQL database, runs linting, typechecking, isolated tests, the client/server build, a compiled `/health` smoke check, and `git diff --check`.
 
-Production deployment is intentionally not configured yet. The next phase will create a fresh PostgreSQL database, convert the SQLite datasource and migrations, move API routes under `/api`, serve the Vite build from Express, and prepare Railway deployment. Google OAuth and Resend configuration will be required before launch; credentials must remain in deployment environment variables.
+Production deployment is intentionally not configured yet. Railway will provide the PostgreSQL `DATABASE_URL` in a later deployment phase. The next application phase will move API routes under `/api`, serve the Vite build from Express, and prepare Railway deployment. Google OAuth and Resend configuration will be required before launch; credentials must remain in deployment environment variables.
 
 ## Project status
 

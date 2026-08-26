@@ -1,10 +1,19 @@
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import { ExerciseCategory } from "../src/generated/prisma/enums.js";
 
-const databaseUrl = process.env["DATABASE_URL"] ?? "file:./dev.db";
-const adapter = new PrismaBetterSqlite3({ url: databaseUrl });
+const databaseUrl = process.env["DATABASE_URL"];
+
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required to seed RepLog");
+}
+
+const parsedDatabaseUrl = new URL(databaseUrl);
+const adapter = new PrismaPg(
+  { connectionString: databaseUrl },
+  { schema: parsedDatabaseUrl.searchParams.get("schema") ?? "public" },
+);
 const prisma = new PrismaClient({ adapter });
 
 const demoUser = {
