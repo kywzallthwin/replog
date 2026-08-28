@@ -94,6 +94,7 @@ const testEnvironment = {
   ...process.env,
   NODE_ENV: 'test',
   DATABASE_URL: testDatabaseUrl,
+  DATABASE_URL_UNPOOLED: testDatabaseUrl,
   JWT_SECRET: 'replog-test-secret-at-least-16-characters',
   CLIENT_URL: 'http://127.0.0.1:5173',
   DOTENV_CONFIG_PATH: emptyEnvFile,

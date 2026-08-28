@@ -3,10 +3,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import { ExerciseCategory } from "../src/generated/prisma/enums.js";
 
-const databaseUrl = process.env["DATABASE_URL"];
+const databaseUrl = process.env["DATABASE_URL_UNPOOLED"] ?? process.env["DATABASE_URL"];
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required to seed RepLog");
+  throw new Error("DATABASE_URL_UNPOOLED or DATABASE_URL is required to seed RepLog");
 }
 
 const parsedDatabaseUrl = new URL(databaseUrl);

@@ -2,6 +2,7 @@ import { compare, hash } from 'bcryptjs'
 import { Router } from 'express'
 import type { User } from '../../generated/prisma/client.js'
 import { requireAuth } from '../auth/auth.middleware.js'
+import { setAuthCookie } from '../auth/auth.tokens.js'
 import { prisma } from '../../prisma.js'
 import { changePasswordSchema, updateMeSchema } from './users.schemas.js'
 
@@ -100,12 +101,14 @@ usersRouter.post('/me/password', requireAuth, async (req, res) => {
     return
   }
 
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: {
       passwordHash: await hash(parsedBody.data.newPassword, passwordHashRounds),
+      authVersion: { increment: 1 },
     },
   })
 
+  setAuthCookie(res, updatedUser.id, updatedUser.authVersion)
   res.status(204).send()
 })

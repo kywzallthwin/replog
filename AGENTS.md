@@ -17,6 +17,8 @@
 - Declared workspaces: `client`, `server`.
 - `client/` exists as the Vite React client workspace.
 - `server/` exists as the Express/Prisma server workspace.
+- Target deployment is one Render Free Web Service in Singapore with Neon Free PostgreSQL.
+- `render.yaml` defines the Render service; no Render-managed database is used.
 - Root dev dependency already installed: `concurrently`.
 - Root `dev` script currently runs both workspaces: `npm run dev`.
 - Last verified local Node version: `v25.6.1`.
@@ -51,6 +53,7 @@
   package-lock.json
   AGENTS.md
   STATUS.md
+  render.yaml
   /Replog-mockup
   /client
   /server

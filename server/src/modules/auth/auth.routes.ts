@@ -26,21 +26,23 @@ const forgotPasswordResponse = {
 const googleStateCookieName = 'replog_google_state'
 const googleStateLifetimeMs = 10 * 60 * 1000
 
-const forgotPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 5,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { error: 'Too many reset requests. Please try again later.' },
-})
+function createAuthRateLimiter(limit: number, errorMessage: string) {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, res, _next, options) => {
+      res.status(options.statusCode).json({ error: errorMessage })
+    },
+  })
+}
 
-const resetPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { error: 'Too many reset attempts. Please try again later.' },
-})
+const registrationLimiter = createAuthRateLimiter(5, 'Too many registration attempts. Please try again later.')
+const loginLimiter = createAuthRateLimiter(10, 'Too many login attempts. Please try again later.')
+const googleOAuthLimiter = createAuthRateLimiter(10, 'Too many OAuth attempts. Please try again later.')
+const forgotPasswordLimiter = createAuthRateLimiter(5, 'Too many reset requests. Please try again later.')
+const resetPasswordLimiter = createAuthRateLimiter(10, 'Too many reset attempts. Please try again later.')
 
 const googleOAuthClient =
   env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
@@ -85,7 +87,7 @@ function clearGoogleStateCookie(res: Response) {
   res.clearCookie(googleStateCookieName, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.NODE_ENV === 'production',
     path: '/api/auth/google',
   })
 }
@@ -99,7 +101,7 @@ function getGoogleAvatarInitial(username: string, email: string) {
   return (username[0] ?? email[0] ?? 'U').toUpperCase()
 }
 
-authRouter.get('/google', (_req, res) => {
+authRouter.get('/google', googleOAuthLimiter, (_req, res) => {
   if (!googleOAuthClient || !env.GOOGLE_CLIENT_ID) {
     redirectFromGoogle(res, 'not_configured')
     return
@@ -109,7 +111,7 @@ authRouter.get('/google', (_req, res) => {
   res.cookie(googleStateCookieName, state, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.NODE_ENV === 'production',
     maxAge: googleStateLifetimeMs,
     path: '/api/auth/google',
   })
@@ -212,7 +214,7 @@ authRouter.get('/google/callback', async (req, res) => {
   }
 })
 
-authRouter.post('/register', async (req, res) => {
+authRouter.post('/register', registrationLimiter, async (req, res) => {
   const parsedBody = registerSchema.safeParse(req.body)
 
   if (!parsedBody.success) {
@@ -247,7 +249,7 @@ authRouter.post('/register', async (req, res) => {
   res.status(201).json({ user: toPublicUser(user) })
 })
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', loginLimiter, async (req, res) => {
   const parsedBody = loginSchema.safeParse(req.body)
 
   if (!parsedBody.success) {

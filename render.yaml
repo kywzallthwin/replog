@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: replog
+    runtime: node
+    region: singapore
+    plan: free
+    branch: main
+    buildCommand: npm ci --include=dev && npm run build && npm run migrate:deploy
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: CLIENT_URL
+        fromService:
+          name: replog
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL

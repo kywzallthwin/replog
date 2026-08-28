@@ -68,6 +68,7 @@ const childEnvironment = {
   NODE_ENV: 'ci',
   PORT: String(port),
   DATABASE_URL: 'postgresql://health:health@127.0.0.1:5432/replog_health?schema=public',
+  DATABASE_URL_UNPOOLED: 'postgresql://health:health@127.0.0.1:5432/replog_health?schema=public',
   JWT_SECRET: 'replog-health-secret-at-least-16-characters',
   CLIENT_URL: 'http://127.0.0.1:5173',
   DOTENV_CONFIG_PATH: emptyEnvFile,

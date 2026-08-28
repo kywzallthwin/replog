@@ -5,11 +5,13 @@ import { env } from '../../env.js'
 const authCookieName = 'replog_token'
 const authCookieMaxAgeMs = 1000 * 60 * 60 * 24 * 7
 
-const authCookieOptions: CookieOptions = {
-  httpOnly: true,
-  sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
-  path: '/',
+export function getAuthCookieOptions(isProduction = env.NODE_ENV === 'production'): CookieOptions {
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isProduction,
+    path: '/',
+  }
 }
 
 type AuthTokenPayload = {
@@ -23,13 +25,13 @@ export function setAuthCookie(res: Response, userId: string, authVersion: number
   })
 
   res.cookie(authCookieName, token, {
-    ...authCookieOptions,
+    ...getAuthCookieOptions(),
     maxAge: authCookieMaxAgeMs,
   })
 }
 
 export function clearAuthCookie(res: Response) {
-  res.clearCookie(authCookieName, authCookieOptions)
+  res.clearCookie(authCookieName, getAuthCookieOptions())
 }
 
 export function readAuthCookie(cookies: Record<string, unknown>) {

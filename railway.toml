@@ -1,7 +1,0 @@
-[build]
-buildCommand = "npm run build"
-
-[deploy]
-preDeployCommand = "npm run migrate:deploy"
-startCommand = "npm start"
-healthcheckPath = "/health"

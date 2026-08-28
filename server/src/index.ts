@@ -1,6 +1,6 @@
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
-import express from 'express'
+import express, { type NextFunction, type Request, type Response } from 'express'
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,45 +13,13 @@ import { progressRouter } from './modules/progress/progress.routes.js'
 import { sessionsRouter } from './modules/sessions/sessions.routes.js'
 import { usersRouter } from './modules/users/users.routes.js'
 import { prisma } from './prisma.js'
-
-function isPrivateIpv4(hostname: string) {
-  const octets = hostname.split('.').map(Number)
-
-  if (
-    octets.length !== 4 ||
-    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
-  ) {
-    return false
-  }
-
-  const [first, second] = octets
-
-  if (first === undefined || second === undefined) {
-    return false
-  }
-
-  return (
-    first === 10 ||
-    first === 127 ||
-    (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 168)
-  )
-}
-
-function isAllowedDevelopmentOrigin(origin: string) {
-  try {
-    const url = new URL(origin)
-    const hostname = url.hostname.toLowerCase()
-
-    if (url.protocol !== 'http:' || url.port !== '5173') {
-      return false
-    }
-
-    return hostname === 'localhost' || hostname === '::1' || hostname === '[::1]' || isPrivateIpv4(hostname)
-  } catch {
-    return false
-  }
-}
+import {
+  isAllowedOrigin,
+  isApiPath,
+  noStoreApiResponses,
+  requireExpectedOrigin,
+  securityHeaders,
+} from './security.js'
 
 function getDefaultClientDistPath() {
   const currentDirectory = dirname(fileURLToPath(import.meta.url))
@@ -67,26 +35,31 @@ export type AppOptions = {
 }
 
 export function createApp({
-  serveClient = process.env.NODE_ENV === 'production',
+  serveClient = env.NODE_ENV === 'production',
   clientDistPath = getDefaultClientDistPath(),
 }: AppOptions = {}) {
   const app = express()
 
+  app.disable('x-powered-by')
+  // Render terminates TLS at one reverse-proxy hop. Trust that hop, not an arbitrary chain.
+  app.set('trust proxy', 1)
+  app.use(securityHeaders)
   app.use(
     cors({
       origin: (origin, callback) => {
         const isAllowed =
           !origin ||
-          origin === env.CLIENT_URL ||
-          (process.env.NODE_ENV !== 'production' && isAllowedDevelopmentOrigin(origin))
+          isAllowedOrigin(origin)
 
         callback(null, isAllowed)
       },
       credentials: true,
     }),
   )
-  app.use(express.json())
+  app.use(noStoreApiResponses)
+  app.use(express.json({ limit: '100kb' }))
   app.use(cookieParser())
+  app.use(requireExpectedOrigin)
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true })
@@ -130,13 +103,99 @@ export function createApp({
     })
   }
 
+  app.use((_req, res) => {
+    res.status(404).send('Not found')
+  })
+
+  app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) {
+      next(error)
+      return
+    }
+
+    const errorDetails =
+      typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : undefined
+    const status =
+      typeof errorDetails?.status === 'number' && errorDetails.status >= 400 && errorDetails.status < 600
+        ? errorDetails.status
+        : typeof errorDetails?.statusCode === 'number' &&
+            errorDetails.statusCode >= 400 &&
+            errorDetails.statusCode < 600
+          ? errorDetails.statusCode
+          : 500
+    const message =
+      errorDetails?.type === 'entity.too.large'
+        ? 'Request body too large'
+        : errorDetails?.type === 'entity.parse.failed'
+          ? 'Invalid JSON request body'
+          : 'Internal server error'
+
+    if (status >= 500) {
+      console.error('Unhandled server error:', error instanceof Error ? error.message : 'Unknown error')
+    }
+
+    if (isApiPath(req.path)) {
+      res.status(status).json({ error: message })
+      return
+    }
+
+    res.status(status).send(message)
+  })
+
   return app
 }
 
 export const app = createApp()
 
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(env.PORT, () => {
-    console.log(`Server listening on http://localhost:${env.PORT}`)
+export let server: ReturnType<typeof app.listen> | undefined
+let shutdownPromise: Promise<void> | undefined
+
+async function closeServer() {
+  const currentServer = server
+
+  if (!currentServer) {
+    return
+  }
+
+  await new Promise<void>((resolveClose, rejectClose) => {
+    currentServer.close((error) => {
+      if (error) {
+        rejectClose(error)
+        return
+      }
+
+      resolveClose()
+    })
   })
+
+  server = undefined
+}
+
+export function shutdown() {
+  shutdownPromise ??= (async () => {
+    try {
+      await closeServer()
+    } finally {
+      await prisma.$disconnect()
+    }
+  })()
+
+  return shutdownPromise
+}
+
+function handleShutdown(signal: 'SIGINT' | 'SIGTERM') {
+  console.log(`Received ${signal}; shutting down gracefully`)
+  void shutdown().catch((error: unknown) => {
+    console.error('Graceful shutdown failed:', error instanceof Error ? error.message : 'Unknown error')
+    process.exitCode = 1
+  })
+}
+
+if (env.NODE_ENV !== 'test') {
+  server = app.listen(env.PORT, '0.0.0.0', () => {
+    console.log(`Server listening on port ${env.PORT}`)
+  })
+
+  process.once('SIGINT', () => handleShutdown('SIGINT'))
+  process.once('SIGTERM', () => handleShutdown('SIGTERM'))
 }
