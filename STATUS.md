@@ -38,6 +38,7 @@
 
 ## Verification
 - `npm run check` passes end to end against local PostgreSQL.
+- GitHub Actions CI run 7 passes on commit `0ad1b17`.
 - Security, production serving, program, session, and database tests pass.
 - `git diff --check` passes.
 - `npm run smoke:health` passes against the compiled server.
@@ -63,7 +64,7 @@
 - `/guide`, rest timer enhancements, last-time references, workout notes, unit preferences, SVG chart, and day reordering.
 
 ## Remaining Risks
-- Remote CI, Neon connectivity, Render dashboard configuration, OAuth, and email delivery remain unverified.
+- Neon connectivity, Render dashboard configuration, OAuth, and email delivery remain unverified.
 - Render Free and Neon Free can sleep; the first request after idle time can be slow.
 - Rate limits use process-local memory and reset when the single Free instance restarts.
 - Existing concurrent order-allocation and check-then-write behavior remains unchanged.
