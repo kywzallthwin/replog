@@ -31,7 +31,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/replog_test?schema=public
       JWT_SECRET: replog-ci-secret-at-least-16-characters
       CLIENT_URL: http://127.0.0.1:5173
-      DOTENV_CONFIG_PATH: ${{ runner.temp }}/replog-empty.env
+      DOTENV_CONFIG_PATH: ${{ github.workspace }}/.ci-empty.env
       DOTENV_CONFIG_QUIET: 'true'
 
     steps:
