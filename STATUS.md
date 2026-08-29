@@ -5,6 +5,7 @@
 - Phase 1, PostgreSQL: complete and verified locally against PostgreSQL.
 - Phase 2, Production Serving: complete and verified locally against PostgreSQL.
 - Phase 3, Render/Neon Security: implemented and verified locally; deployment changes are included in this commit.
+- Deployment: live at https://replog-tracker.onrender.com; Render and Neon were manually verified.
 - SQLite data may be discarded; no production data requires preservation.
 
 ## Roadmap
@@ -48,23 +49,24 @@
 ## Manual Actions
 - Local PostgreSQL 17 is running with separate `replog` and `replog_test` databases.
 - The ignored `server/.env` contains local PostgreSQL URLs; never commit it. Local Prisma CLI falls back to `DATABASE_URL` when `DATABASE_URL_UNPOOLED` is absent.
-- Create the Neon Free production project in Singapore and copy pooled/direct URLs into Render.
-- Create or apply the Render Free Web Service from `render.yaml` in the Singapore region.
-- Set `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NODE_ENV=production`, and optional integration variables in Render.
+- Production URL: `https://replog-tracker.onrender.com`.
+- Render `/health` and `/ready` both return 200; the initial free-tier cold start was observed and recovered successfully.
+- Registration, login, workout persistence, timer persistence across refresh, workout completion, and History were manually verified in production.
+- The production seed was intentionally skipped; normal registration creates the global exercise catalog and starter program.
 - Keep the generated `JWT_SECRET` and exact HTTPS `CLIENT_URL` unchanged after deployment.
 - Register the HTTPS Google callback at `/api/auth/google/callback` with Google.
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Create the Neon project and Render service when dashboard access is available.
-- Verify `/health`, `/ready`, authentication, workout persistence, and cold-start behavior remotely.
-- Do not begin Phase 4 in this phase.
+- Audit and polish the mobile UI at the 375px acceptance width.
+- Decide whether public registration should remain enabled or become invite-only.
+- Do not begin Phase 4 until the mobile UI audit is complete.
 
 ## Deferred Backlog
 - `/guide`, rest timer enhancements, last-time references, workout notes, unit preferences, SVG chart, and day reordering.
 
 ## Remaining Risks
-- Neon connectivity, Render dashboard configuration, OAuth, and email delivery remain unverified.
+- Google OAuth and email delivery remain unverified because those integrations are optional and not configured.
 - Render Free and Neon Free can sleep; the first request after idle time can be slow.
 - Rate limits use process-local memory and reset when the single Free instance restarts.
 - Existing concurrent order-allocation and check-then-write behavior remains unchanged.
