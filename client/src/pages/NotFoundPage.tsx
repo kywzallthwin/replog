@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
+import { BrandLogo } from '../components/BrandLogo'
 
 export function NotFoundPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-5 py-10">
       <section className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
+        <BrandLogo className="mx-auto h-8 w-auto" />
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400">404</p>
         <h1 className="mt-3 text-2xl font-bold tracking-[-0.03em] text-slate-900">Page not found</h1>
         <p className="mt-2 text-sm text-slate-500">That RepLog page does not exist.</p>

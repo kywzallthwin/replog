@@ -46,6 +46,7 @@ import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
+import { BrandLogo } from '../components/BrandLogo'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog } from '../components/programs/ProgramDeleteDialog'
 
@@ -468,8 +469,12 @@ export function ProgramPage() {
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
-            <Link to="/program" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-500 transition hover:text-slate-900">
-              Programs
+            <Link
+              to="/program"
+              aria-label="Back to programs"
+              className="inline-flex min-h-11 items-center"
+            >
+              <BrandLogo className="h-6 w-auto" />
             </Link>
             <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Program editor</p>
             <h1 className="mt-1 truncate text-3xl font-bold tracking-[-0.03em] text-slate-900">

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
+import { BrandLogo } from '../components/BrandLogo'
 import { changePassword } from '../lib/auth'
 
 type ApiErrorResponse = {
@@ -77,7 +78,10 @@ export function ChangePasswordPage() {
           <Link to="/profile" className="text-sm font-semibold text-slate-900">
             Profile
           </Link>
-          <h1 className="text-[15px] font-bold text-slate-900">Change Password</h1>
+          <h1 className="flex items-center gap-2 text-[15px] font-bold text-slate-900">
+            <BrandLogo compact alt="" className="h-5 w-5" />
+            Change Password
+          </h1>
           <div className="w-12" />
         </header>
 

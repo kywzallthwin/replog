@@ -19,7 +19,7 @@
 - Phase 7: prepare staging deployment; dashboard and DNS work is manual.
 
 ## Confirmed State
-- Workspaces: `client`, `server`; mobile-first acceptance remains the priority.
+- Workspaces: `client`, `server`; mobile-first acceptance remains the priority. The slate-monochrome SVG branding pass is implemented on `ui/mobile-audit` and manually verified at 375px.
 - Server: Express 5 + TypeScript + Prisma + PostgreSQL + Zod.
 - Runtime and seed use `@prisma/adapter-pg`; SQLite is removed.
 - Render target: one Free Node Web Service in Singapore; Neon is the external Free PostgreSQL provider.

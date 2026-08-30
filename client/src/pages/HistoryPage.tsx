@@ -8,6 +8,7 @@ import {
 import { getBadgeClass } from '../lib/badgeColors'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
+import { BrandLogo } from '../components/BrandLogo'
 
 function formatMonth(startedAt: string) {
   return new Intl.DateTimeFormat('en', {
@@ -62,7 +63,7 @@ export function HistoryPage() {
       <div className="mx-auto max-w-5xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-slate-500">RepLog</p>
+            <BrandLogo className="h-6 w-auto" />
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">
               Workout History
             </h1>

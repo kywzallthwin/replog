@@ -16,6 +16,7 @@ import {
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
+import { BrandLogo } from '../components/BrandLogo'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog, type ProgramDeleteTarget } from '../components/programs/ProgramDeleteDialog'
@@ -191,7 +192,7 @@ export function ProgramLibraryPage() {
       <div className="mx-auto max-w-5xl">
         <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-500">RepLog</p>
+            <BrandLogo className="h-6 w-auto" />
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Programs</h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
               Try different routines without losing the workouts you have already logged.

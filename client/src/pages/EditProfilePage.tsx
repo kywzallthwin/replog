@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { Link, useNavigate } from 'react-router-dom'
+import { BrandLogo } from '../components/BrandLogo'
 import {
   authMeQueryKey,
   getCurrentUser,
@@ -54,7 +55,10 @@ export function EditProfilePage() {
           <Link to="/profile" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
             Profile
           </Link>
-          <h1 className="text-[15px] font-bold text-slate-900">Edit Profile</h1>
+          <h1 className="flex items-center gap-2 text-[15px] font-bold text-slate-900">
+            <BrandLogo compact alt="" className="h-5 w-5" />
+            Edit Profile
+          </h1>
           <div className="w-12" />
         </header>
 

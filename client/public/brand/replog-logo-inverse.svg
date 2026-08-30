@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" role="img" aria-labelledby="title">
+  <title id="title">RepLog</title>
+  <g fill="#ffffff">
+    <rect x="7" y="17" width="25" height="8" rx="4" />
+    <rect x="7" y="31" width="19" height="8" rx="4" />
+    <rect x="7" y="45" width="13" height="8" rx="4" />
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" stroke-width="7">
+    <path d="M38 56V14h14c8.5 0 14 4.3 14 11s-5.5 11-14 11H38m14 0 14 20" />
+    <path d="M57 14v42h17" />
+  </g>
+  <text x="94" y="57" fill="#ffffff" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="50" font-weight="800" letter-spacing="-2">RepLog</text>
+</svg>

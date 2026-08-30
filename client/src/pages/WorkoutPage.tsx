@@ -30,6 +30,7 @@ import { FluidSelect } from '../components/forms/FluidSelect'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
 import { useRestTimer, type RestTimerSessionStatus } from '../lib/useRestTimer'
+import { BrandLogo } from '../components/BrandLogo'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -977,7 +978,11 @@ export function WorkoutPage() {
       <div className="mx-auto max-w-4xl rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
-            <Link to={headerLink} className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
+            <Link
+              to={headerLink}
+              className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-900"
+            >
+              <BrandLogo compact alt="" className="h-5 w-5" />
               {headerLinkLabel}
             </Link>
             <h1 className="truncate text-[15px] font-bold text-slate-900">
