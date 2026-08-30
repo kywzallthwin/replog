@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { authMeQueryKey, clearPrivateQueries, getCurrentUser, logoutUser } from '../lib/auth'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
+import { BrandLogo } from '../components/BrandLogo'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 
@@ -40,7 +41,10 @@ export function ProfilePage() {
 
   return (
     <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
-      <div className="mx-auto mb-4 hidden max-w-3xl justify-end lg:flex">
+      <div className="mx-auto mb-4 hidden max-w-3xl items-center justify-between lg:flex">
+        <Link to="/dashboard" aria-label="Back to dashboard" className="inline-flex min-h-11 items-center">
+          <BrandLogo className="h-6 w-auto" />
+        </Link>
         <TopNav />
       </div>
       <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
@@ -48,7 +52,10 @@ export function ProfilePage() {
           <Link to="/dashboard" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
             Back
           </Link>
-          <h1 className="text-[15px] font-bold text-slate-900">Profile</h1>
+          <h1 className="flex items-center gap-2 text-[15px] font-bold text-slate-900">
+            <BrandLogo compact alt="" className="h-5 w-5" />
+            Profile
+          </h1>
           <Link to="/profile/edit" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-500">
             Edit
           </Link>

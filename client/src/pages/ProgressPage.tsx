@@ -4,6 +4,7 @@ import { getProgress, progressQueryKey } from '../lib/progress'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { TopNav } from '../components/nav/TopNav'
+import { BrandLogo } from '../components/BrandLogo'
 
 function formatFullDate(startedAt: string) {
   return new Intl.DateTimeFormat('en', {
@@ -63,8 +64,12 @@ export function ProgressPage() {
       <div className="mx-auto w-full min-w-0 max-w-5xl">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Link to="/dashboard" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-500 transition hover:text-slate-900">
-              Dashboard
+            <Link
+              to="/dashboard"
+              aria-label="Back to dashboard"
+              className="inline-flex min-h-11 items-center"
+            >
+              <BrandLogo className="h-6 w-auto" />
             </Link>
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Progress</h1>
           </div>
