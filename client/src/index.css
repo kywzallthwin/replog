@@ -5,6 +5,10 @@
   outline-offset: 2px;
 }
 
+.auth-field-input:focus-visible {
+  outline: none;
+}
+
 @keyframes fluid-select-in {
   from {
     opacity: 0;

@@ -58,7 +58,7 @@
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Continue auditing and polishing the mobile UI at the 375px acceptance width, including manual verification of the auth toggles, inline errors, and focus states.
+- Continue auditing and polishing the mobile UI at the 375px acceptance width, including manual verification of the auth toggles, inline errors, and duplicate-outline fix.
 - Decide whether public registration should remain enabled or become invite-only.
 - Do not begin Phase 4 until the mobile UI audit is complete.
 
