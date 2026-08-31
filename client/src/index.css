@@ -9,6 +9,37 @@
   outline: none;
 }
 
+.auth-field-wrapper {
+  --auth-field-autofill-bg: #fafbfc;
+}
+
+.auth-field-wrapper:focus-within {
+  --auth-field-autofill-bg: #fff;
+}
+
+.auth-field-wrapper[data-invalid='true'] {
+  --auth-field-autofill-bg: #fffafa;
+}
+
+.auth-field-input:-webkit-autofill,
+.auth-field-input:-webkit-autofill:hover,
+.auth-field-input:-webkit-autofill:focus,
+.auth-field-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--auth-field-autofill-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--auth-field-autofill-bg) inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+}
+
+.auth-field-input:autofill,
+.auth-field-input:autofill:hover,
+.auth-field-input:autofill:focus,
+.auth-field-input:autofill:active {
+  box-shadow: 0 0 0 1000px var(--auth-field-autofill-bg) inset !important;
+  color: #0f172a;
+  caret-color: #0f172a;
+}
+
 @keyframes fluid-select-in {
   from {
     opacity: 0;
