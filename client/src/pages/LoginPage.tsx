@@ -1,15 +1,23 @@
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
+import { AuthField } from '../components/auth/AuthField'
 import { AuthShell } from '../components/auth/AuthShell'
 import { GoogleButton } from '../components/auth/GoogleButton'
+import { PasswordField } from '../components/auth/PasswordField'
+import { getEmailError, getRequiredError } from '../components/auth/authValidation'
 import { api } from '../lib/api'
 import { authMeQueryKey, clearPrivateQueries, type AuthResponse } from '../lib/auth'
 
 type ApiErrorResponse = {
   error?: string
+}
+
+type LoginFieldErrors = {
+  email?: string
+  password?: string
 }
 
 export function LoginPage() {
@@ -18,21 +26,50 @@ export function LoginPage() {
   const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({})
   const [error, setError] = useState(() => getGoogleError(searchParams.get('google_error')))
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const emailInputRef = useRef<HTMLInputElement>(null)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     clearPrivateQueries(queryClient)
   }, [queryClient])
 
+  function validateForm() {
+    const nextErrors: LoginFieldErrors = {
+      email: getEmailError(email),
+      password: getRequiredError(password, 'Password'),
+    }
+
+    setFieldErrors(nextErrors)
+
+    if (nextErrors.email) {
+      emailInputRef.current?.focus()
+      return false
+    }
+
+    if (nextErrors.password) {
+      passwordInputRef.current?.focus()
+      return false
+    }
+
+    return true
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
+
+    if (!validateForm()) {
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       const response = await api.post<AuthResponse>('/auth/login', {
-        email,
+        email: email.trim(),
         password,
       })
 
@@ -53,49 +90,62 @@ export function LoginPage() {
 
   return (
     <AuthShell>
-      <div className="mb-5 flex rounded-[10px] bg-slate-100 p-1">
+      <div className="mb-7 flex rounded-2xl bg-slate-100 p-1.5">
         <NavLink
           to="/login"
-          className="flex-1 rounded-lg bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+          className="flex min-h-11 flex-1 items-center justify-center rounded-xl bg-white px-4 text-sm font-bold text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
         >
           Login
         </NavLink>
         <NavLink
           to="/register"
-          className="flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-semibold text-slate-500"
+          className="flex min-h-11 flex-1 items-center justify-center rounded-xl px-4 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
         >
           Register
         </NavLink>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Email
-          </label>
-          <input
-            type="email"
-            placeholder="you@email.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-            className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-          />
-        </div>
+      <form onSubmit={handleSubmit} noValidate>
+        <AuthField
+          id="login-email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@email.com"
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value)
+            setFieldErrors((current) => ({ ...current, email: undefined }))
+            setError('')
+          }}
+          onBlur={() => setFieldErrors((current) => ({ ...current, email: getEmailError(email) }))}
+          required
+          inputRef={emailInputRef}
+          error={fieldErrors.email}
+        />
 
-        <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Password
-          </label>
-          <input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-          />
-        </div>
+        <PasswordField
+          id="login-password"
+          label="Password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value)
+            setFieldErrors((current) => ({ ...current, password: undefined }))
+            setError('')
+          }}
+          onBlur={() =>
+            setFieldErrors((current) => ({
+              ...current,
+              password: getRequiredError(password, 'Password'),
+            }))
+          }
+          required
+          inputRef={passwordInputRef}
+          error={fieldErrors.password}
+        />
 
         <NavLink
           to="/forgot-password"
@@ -105,7 +155,7 @@ export function LoginPage() {
         </NavLink>
 
         {error ? (
-          <p className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <p role="alert" className="mb-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {error}
           </p>
         ) : null}
