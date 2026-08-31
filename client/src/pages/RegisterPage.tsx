@@ -1,15 +1,30 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { AuthField } from '../components/auth/AuthField'
 import { AuthShell } from '../components/auth/AuthShell'
 import { GoogleButton } from '../components/auth/GoogleButton'
+import { PasswordField } from '../components/auth/PasswordField'
+import {
+  getConfirmPasswordError,
+  getEmailError,
+  getPasswordError,
+  getUsernameError,
+} from '../components/auth/authValidation'
 import { api } from '../lib/api'
 import { authMeQueryKey, clearPrivateQueries, type AuthResponse } from '../lib/auth'
 
 type ApiErrorResponse = {
   error?: string
+}
+
+type RegisterFieldErrors = {
+  username?: string
+  email?: string
+  password?: string
+  confirmPassword?: string
 }
 
 export function RegisterPage() {
@@ -18,18 +33,62 @@ export function RegisterPage() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({})
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const usernameInputRef = useRef<HTMLInputElement>(null)
+  const emailInputRef = useRef<HTMLInputElement>(null)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
+  const confirmPasswordInputRef = useRef<HTMLInputElement>(null)
+
+  function validateForm() {
+    const nextErrors: RegisterFieldErrors = {
+      username: getUsernameError(username),
+      email: getEmailError(email),
+      password: getPasswordError(password),
+      confirmPassword: getConfirmPasswordError(password, confirmPassword),
+    }
+
+    setFieldErrors(nextErrors)
+
+    if (nextErrors.username) {
+      usernameInputRef.current?.focus()
+      return false
+    }
+
+    if (nextErrors.email) {
+      emailInputRef.current?.focus()
+      return false
+    }
+
+    if (nextErrors.password) {
+      passwordInputRef.current?.focus()
+      return false
+    }
+
+    if (nextErrors.confirmPassword) {
+      confirmPasswordInputRef.current?.focus()
+      return false
+    }
+
+    return true
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
+
+    if (!validateForm()) {
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       const response = await api.post<AuthResponse>('/auth/register', {
-        username,
-        email,
+        username: username.trim(),
+        email: email.trim(),
         password,
       })
 
@@ -50,16 +109,16 @@ export function RegisterPage() {
 
   return (
     <AuthShell>
-      <div className="mb-5 flex rounded-[10px] bg-slate-100 p-1">
+      <div className="mb-7 flex rounded-2xl bg-slate-100 p-1.5">
         <NavLink
           to="/login"
-          className="flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-semibold text-slate-500"
+          className="flex min-h-11 flex-1 items-center justify-center rounded-xl px-4 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
         >
           Login
         </NavLink>
         <NavLink
           to="/register"
-          className="flex-1 rounded-lg bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
+          className="flex min-h-11 flex-1 items-center justify-center rounded-xl bg-white px-4 text-sm font-bold text-slate-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
         >
           Register
         </NavLink>
@@ -77,55 +136,94 @@ export function RegisterPage() {
         <div className="h-px flex-1 bg-slate-200" />
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Username
-          </label>
-          <input
-            type="text"
-            placeholder="john_lifts"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            required
-            minLength={2}
-            maxLength={32}
-            className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-          />
-        </div>
+      <form onSubmit={handleSubmit} noValidate>
+        <AuthField
+          id="register-username"
+          label="Username"
+          type="text"
+          autoComplete="username"
+          placeholder="john_lifts"
+          value={username}
+          onChange={(event) => {
+            setUsername(event.target.value)
+            setFieldErrors((current) => ({ ...current, username: undefined }))
+            setError('')
+          }}
+          onBlur={() =>
+            setFieldErrors((current) => ({ ...current, username: getUsernameError(username) }))
+          }
+          required
+          minLength={2}
+          maxLength={32}
+          inputRef={usernameInputRef}
+          error={fieldErrors.username}
+        />
 
-        <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Email
-          </label>
-          <input
-            type="email"
-            placeholder="you@email.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-            className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-          />
-        </div>
+        <AuthField
+          id="register-email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@email.com"
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value)
+            setFieldErrors((current) => ({ ...current, email: undefined }))
+            setError('')
+          }}
+          onBlur={() => setFieldErrors((current) => ({ ...current, email: getEmailError(email) }))}
+          required
+          inputRef={emailInputRef}
+          error={fieldErrors.email}
+        />
 
-        <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Password
-          </label>
-          <input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            minLength={8}
-            className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-          />
-          <p className="mt-1 text-xs text-slate-400">Min. 8 characters</p>
-        </div>
+        <PasswordField
+          id="register-password"
+          label="Password"
+          autoComplete="new-password"
+          placeholder="Create a password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value)
+            setFieldErrors((current) => ({ ...current, password: undefined, confirmPassword: undefined }))
+            setError('')
+          }}
+          onBlur={() => setFieldErrors((current) => ({ ...current, password: getPasswordError(password) }))}
+          required
+          minLength={8}
+          maxLength={128}
+          hint="At least 8 characters"
+          inputRef={passwordInputRef}
+          error={fieldErrors.password}
+        />
+
+        <PasswordField
+          id="register-confirm-password"
+          label="Confirm Password"
+          autoComplete="new-password"
+          placeholder="Re-enter your password"
+          value={confirmPassword}
+          onChange={(event) => {
+            setConfirmPassword(event.target.value)
+            setFieldErrors((current) => ({ ...current, confirmPassword: undefined }))
+            setError('')
+          }}
+          onBlur={() =>
+            setFieldErrors((current) => ({
+              ...current,
+              confirmPassword: getConfirmPasswordError(password, confirmPassword),
+            }))
+          }
+          required
+          minLength={8}
+          maxLength={128}
+          inputRef={confirmPasswordInputRef}
+          error={fieldErrors.confirmPassword}
+        />
 
         {error ? (
-          <p className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <p role="alert" className="mb-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {error}
           </p>
         ) : null}

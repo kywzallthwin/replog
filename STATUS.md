@@ -19,7 +19,7 @@
 - Phase 7: prepare staging deployment; dashboard and DNS work is manual.
 
 ## Confirmed State
-- Workspaces: `client`, `server`; mobile-first acceptance remains the priority. The slate-monochrome SVG branding pass is implemented on `ui/mobile-audit` and manually verified at 375px.
+- Workspaces: `client`, `server`; mobile-first acceptance remains the priority. The slate-monochrome SVG branding pass and auth form polish are implemented; branding was manually verified at 375px.
 - Server: Express 5 + TypeScript + Prisma + PostgreSQL + Zod.
 - Runtime and seed use `@prisma/adapter-pg`; SQLite is removed.
 - Render target: one Free Node Web Service in Singapore; Neon is the external Free PostgreSQL provider.
@@ -43,7 +43,7 @@
 - Security, production serving, program, session, and database tests pass.
 - `git diff --check` passes.
 - `npm run smoke:health` passes against the compiled server.
-- The client build retains the existing warning about the main JavaScript chunk exceeding 500 kB.
+- Client auth UI lint, typecheck, and build pass; the client build retains the existing warning about the main JavaScript chunk exceeding 500 kB.
 - `npm audit --omit=dev` reports existing dependency vulnerabilities; no automatic audit fix was applied.
 
 ## Manual Actions
@@ -58,7 +58,7 @@
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Audit and polish the mobile UI at the 375px acceptance width.
+- Continue auditing and polishing the mobile UI at the 375px acceptance width, including manual verification of the auth toggles and inline errors.
 - Decide whether public registration should remain enabled or become invite-only.
 - Do not begin Phase 4 until the mobile UI audit is complete.
 
