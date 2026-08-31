@@ -40,7 +40,7 @@ export function AuthField({
           ref={inputRef}
           aria-invalid={Boolean(error)}
           aria-describedby={helperId}
-          className={`min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-slate-900 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 ${className ?? ''}`}
+          className={`auth-field-input min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-slate-900 placeholder:text-slate-400 outline-none disabled:cursor-not-allowed disabled:opacity-60 ${className ?? ''}`}
         />
         {trailing}
       </div>
