@@ -1,8 +1,10 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
+import { AuthField } from '../components/auth/AuthField'
 import { AuthShell } from '../components/auth/AuthShell'
+import { getEmailError } from '../components/auth/authValidation'
 import { requestPasswordReset } from '../lib/auth'
 
 type ApiErrorResponse = {
@@ -11,17 +13,36 @@ type ApiErrorResponse = {
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const emailInputRef = useRef<HTMLInputElement>(null)
+
+  function validateEmail() {
+    const nextError = getEmailError(email) ?? ''
+    setEmailError(nextError)
+
+    if (nextError) {
+      emailInputRef.current?.focus()
+      return false
+    }
+
+    return true
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
+
+    if (!validateEmail()) {
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      await requestPasswordReset({ email })
+      await requestPasswordReset({ email: email.trim() })
       setIsSubmitted(true)
     } catch (err) {
       if (axios.isAxiosError<ApiErrorResponse>(err)) {
@@ -56,26 +77,29 @@ export function ForgotPasswordPage() {
             Enter your email and we&apos;ll send a reset link.
           </p>
 
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label htmlFor="forgot-password-email" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Email
-              </label>
-              <input
-                id="forgot-password-email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@email.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-                autoFocus
-                className="w-full rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 outline-none transition focus:border-slate-900"
-              />
-            </div>
+          <form onSubmit={handleSubmit} noValidate>
+            <AuthField
+              id="forgot-password-email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              placeholder="you@email.com"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                setEmailError('')
+                setError('')
+              }}
+              onBlur={() => setEmailError(getEmailError(email) ?? '')}
+              required
+              autoFocus
+              inputRef={emailInputRef}
+              error={emailError || undefined}
+            />
 
             {error ? (
-              <p role="alert" className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <p role="alert" className="mb-4 rounded-[14px] border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {error}
               </p>
             ) : null}
