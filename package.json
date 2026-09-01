@@ -10,7 +10,7 @@
     "migrate:deploy": "npm run migrate:deploy -w server",
     "start": "npm run start -w server",
     "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
-    "test": "npm run test -w server",
+    "test": "npm run test -w client && npm run test -w server",
     "prisma:generate": "npm run generate -w server",
     "prisma:validate": "npm run validate:prisma -w server",
     "smoke:health": "npm run smoke:health -w server",
