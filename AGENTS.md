@@ -10,6 +10,8 @@
 - Build plan: `Replog-Build-Plan.pdf`
 - Root workspace config: `package.json`
 - Live handoff file: `STATUS.md`
+- High-level delivery roadmap: `ROADMAP.md`
+- Current-wave ticket file: `WAVE1.md` (follow the current wave named by `STATUS.md`)
 
 ## Current Repository Facts
 - Git repo already initialized.
@@ -25,17 +27,17 @@
 
 ## How To Work In This Repo
 1. Read `STATUS.md` first.
-2. Verify the current file tree before assuming progress is still accurate.
-3. Re-check `package.json` if setup-related work was done in a prior session.
-4. Re-read the mockup and build plan before making structural UI decisions.
-5. Prefer small, verifiable changes over large batches.
-6. Confirm each setup step is complete before moving to the next one.
+2. Read the active ticket in the current wave file before editing.
+3. Verify the current file tree and worktree before assuming progress is still accurate.
+4. Re-check `package.json` if setup-related work is involved.
+5. Re-read the relevant mockup and build-plan sections before making structural UI decisions.
+6. Prefer small, verifiable changes over large batches.
+7. Confirm each setup step is complete before moving to the next one.
 
 ## Planned Build Order
-1. Step 0: confirm or finish root workspace setup and dependency install.
-2. Step 1: scaffold the Vite client app in `client/`.
-3. Step 2: configure Tailwind in the client.
-4. Continue feature implementation based on the mockup and build plan.
+1. Complete the current Wave 1 tickets in `WAVE1.md`.
+2. Continue through the waves and dependencies in `ROADMAP.md`.
+3. Do not start the next wave until the current wave gate is complete.
 
 ## Working Rules
 - Preserve the mockup's structure and intent while translating it into the app.
@@ -46,13 +48,24 @@
 - Update `STATUS.md` at the end of every session.
 - Update this file only when project rules, architecture, tooling assumptions, or source-of-truth files change.
 
+## Ticketed Work
+- Normal implementation work must have one compact ticket in the current wave file before code is edited.
+- A compact ticket includes State, Goal, Scope, Out of scope, Acceptance criteria, Verification, and Stop conditions.
+- Tiny, low-risk corrections may use a direct bounded prompt when they can be verified independently without a ticket file change.
+- A Build session implements one coherent ticket at a time and must not silently expand its scope.
+- Database, authentication, security, privacy, and deployment work also requires explicit dependencies, risks, rollback considerations, and independent review.
+- Preserve unrelated worktree changes. Do not commit, amend, push, or deploy without explicit user authorization.
+- After implementation, run the ticket verification, record the completion report in the ticket, move it to `review`, and update `STATUS.md`.
+
 ## Expected Workspace Shape
 ```text
 /workout
   package.json
   package-lock.json
   AGENTS.md
+  ROADMAP.md
   STATUS.md
+  WAVE1.md
   render.yaml
   /Replog-mockup
   /client

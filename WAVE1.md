@@ -1,0 +1,675 @@
+# Wave 1: Mobile Acceptance And Frontend Quality
+
+This file is the canonical source for Wave 1 ticket definitions and states.
+Tickets use the compact format below so normal implementation sessions do not
+need a separate ticket file or a large process document.
+
+## Ticket Order
+
+1. `W1-01`: Establish the 375px mobile baseline
+2. `W1-02`: Add the frontend test foundation
+3. `W1-03`: Correct shared accessibility and interaction primitives
+4. `W1-04`: Correct authentication and profile mobile issues
+5. `W1-05`: Resolve dashboard behavior and loading decisions
+6. `W1-06`: Correct shell, navigation, and dashboard mobile issues
+7. `W1-07`: Correct program and exercise-picker mobile issues
+8. `W1-08`: Correct active-workout mobile issues
+9. `W1-09`: Correct history and progress mobile issues
+10. `W1-10`: Add browser coverage and complete the Wave 1 gate
+
+Allowed states: `proposed`, `ready`, `in progress`, `review`, `blocked`,
+`done`.
+
+## W1-01: Establish The 375px Mobile Baseline
+
+**State:** done
+
+### Goal
+
+Audit the current application at the 375px acceptance width before changing
+application code, then turn confirmed findings into small, measurable fixes.
+
+### Scope
+
+- Inspect every route exposed by `client/src/router.tsx` at 375px.
+- Compare observable behavior with the mockup and build plan.
+- Check loading, empty, populated, validation, API-error, long-content,
+  menu, dialog, keyboard, navigation, overflow, focus, and touch-target
+  states where they can be safely observed.
+- Record confirmed findings, unobserved states, severity, references, and
+  proposed follow-up tickets in this file.
+- Refine the provisional Wave 1 tickets using the audit evidence.
+
+### Out of scope
+
+- Client or server application changes.
+- Dependency, package, configuration, test, schema, or migration changes.
+- Phase 4 or later product features.
+- Production testing, deployment, or data changes.
+
+### Acceptance criteria
+
+- AC1: Every current client route is listed as observed or unobserved.
+- AC2: Each confirmed finding has a route/state, evidence, severity, source
+  reference, proposed ticket, and measurable acceptance condition.
+- AC3: The audit distinguishes observed behavior from assumptions and states
+  why any important state could not be observed.
+- AC4: Only `WAVE1.md` and `STATUS.md` are changed by the audit ticket.
+- AC5: No Phase 4 feature is added to the implementation scope.
+
+### Verification
+
+- Inspect the complete documentation diff.
+- Run `git diff --check`.
+- Confirm the local app was used rather than the production deployment.
+- Confirm the audit was performed at exactly 375px when browser access is
+  available.
+
+### Stop conditions
+
+- Stop if browser access or the local application is unavailable.
+- Stop if authentication requires credentials that cannot be entered manually.
+- Stop if the mockup and build plan conflict on a product decision.
+- Stop if application, dependency, configuration, database, or production
+  changes appear necessary.
+
+## W1-02: Add The Frontend Test Foundation
+
+**State:** done
+
+### Goal
+
+Add a lightweight client test runner and representative component tests so
+Wave 1 fixes can be verified without depending on the real API.
+
+### Scope
+
+- Add the smallest suitable client test setup after W1-01 confirms the need.
+- Add a client test script and integrate it with root verification.
+- Add representative tests for a form and an auth/navigation boundary.
+- Cover the confirmed baseline regressions: modal focus containment, profile
+  field associations, and representative compact-control sizing.
+
+### Out of scope
+
+- Broad component coverage.
+- Browser/E2E setup, which belongs to W1-10.
+- Product behavior changes.
+- Server test or API refactoring.
+
+### Acceptance criteria
+
+- AC1: The client has a repeatable non-interactive test command.
+- AC2: Root `npm test` runs both client and server tests.
+- AC3: Representative client tests pass without using production or a real
+  database.
+- AC4: Existing client and server lint, typecheck, and build behavior remains
+  passing.
+- AC5: Regression tests cover invalid-field focus and the shared dialog/menu
+  keyboard contract without requiring a live API.
+
+### Verification
+
+- Run the client test command.
+- Run `npm test`.
+- Run `npm run lint -w client` and `npm run typecheck -w client`.
+- Run the affected build checks.
+
+### Stop conditions
+
+- Stop if adding the test setup requires an unresolved tooling decision.
+- Stop if package changes would affect server or production dependencies
+  without explicit scope approval.
+
+### W1-02 Implementation And Blocker Report
+
+- Date: 2026-09-01.
+- Test setup: Vitest with a jsdom environment, React Testing Library, and
+  jest-dom matchers; the client script is `vitest run` and the root test script
+  runs the client before the existing server test script.
+- Coverage added: invalid registration-field focus, mocked authentication
+  boundary navigation, dialog and menu semantics/Escape handling, profile
+  field association contracts, and representative 44px compact-control
+  contracts. No test uses production services, a live API, or a database.
+- Verification: the client test command passes 10 tests: 6 normal tests and 4
+  explicit expected-failure checks for the existing W1-01 findings. Root
+  `npm test` runs those client tests and all 10 server tests successfully.
+  Client lint, typecheck, build, the full `npm run check`, and
+  `git diff --check` pass.
+- Expected failures: profile field associations, dialog opening focus, and
+  program menu sizing remain intentionally represented with `it.fails` until
+  the owning W1-03/W1-04 UI tickets correct the existing behavior. The tests
+  remain local and do not use production services, a live API, or a database.
+- Result: W1-02 passed review. Promote the expected-failure assertions to
+  normal assertions after the owning UI fixes land.
+
+### W1-02 Review Notes
+
+- Review date: 2026-09-01.
+- Result: passed. The expected-failure contracts now check the complete named
+  profile and menu requirements without arbitrary IDs or first-item masking;
+  the dialog opening check uses a focused trigger and the Escape check targets
+  the overlay handler.
+- Isolation: auth and profile service modules are mocked, the test setup
+  rejects unexpected Fetch/XHR traffic, and every test QueryClient is cleared
+  after cleanup. No production service, live API, or database is used.
+- Scope: changes are limited to client test files and configuration, client
+  development dependencies and lockfile metadata, the root/client test
+  scripts, and ticket documentation. No application, server API, schema,
+  migration, database, or deployment file was changed.
+- Verification: `npm run check` passed with 5 client files, 6 normal tests,
+  4 expected failures, and 10 server tests. W1-02 is accepted; W1-03 remains
+  proposed and unstarted.
+
+## W1-03: Correct Shared Accessibility And Interaction Primitives
+
+**State:** proposed
+
+### Goal
+
+Fix confirmed shared control problems so page-level mobile work can reuse
+consistent accessible fields, dialogs, menus, tabs, and navigation controls.
+
+### Scope
+
+- Apply W1-01 findings to shared form, dialog, menu, tab, and navigation
+  components.
+- Correct labels, error associations, focus behavior, keyboard handling,
+  announcements, and shared touch-target rules.
+- Standardize overlay scroll locking and focus restoration where a shared
+  primitive owns the behavior.
+- Give nested custom-exercise forms the same dialog semantics as their parent
+  picker.
+- Add focused component tests for changed primitives.
+
+### Out of scope
+
+- Page-specific redesigns.
+- New product features.
+- Unconfirmed accessibility changes unrelated to shared primitives.
+
+### Acceptance criteria
+
+- AC1: Every changed form control has a programmatic accessible name.
+- AC2: Changed dialogs have defined keyboard dismissal and focus behavior.
+- AC3: Dynamic errors and important status changes are announced where
+  applicable.
+- AC4: Changed controls meet the ticket's approved mobile touch-target rule.
+- AC5: Focused tests and client checks pass.
+- AC6: Opening a changed dialog moves focus inside it, Tab and Shift+Tab do not
+  reach background controls, Escape dismisses when allowed, and focus returns
+  to the trigger.
+- AC7: Standalone actionable controls are at least 44px by 44px unless an
+  approved exception is recorded; compact inline text links are not treated as
+  standalone controls.
+- AC8: Changed dynamic errors and success messages use an applicable alert or
+  live-region contract.
+
+### Verification
+
+- Run focused shared-component tests.
+- Run client lint and typecheck.
+- Test keyboard focus and Escape behavior manually.
+- Check changed controls at 375px.
+
+### Stop conditions
+
+- Stop if a shared change would require redesigning unrelated pages.
+- Stop if expected semantics conflict with the mockup or an unresolved
+  product decision.
+
+## W1-04: Correct Authentication And Profile Mobile Issues
+
+**State:** proposed
+
+### Goal
+
+Fix confirmed 375px layout, form, accessibility, loading, and error issues on
+the authentication and profile screens.
+
+### Scope
+
+- Login, registration, forgot-password, reset-password, profile, edit-profile,
+  and change-password screens.
+- Use the shared primitives from W1-03.
+- Preserve public registration.
+- Correct the profile edit and change-password field IDs, label associations,
+  autocomplete values, status announcements, and password-visibility targets.
+
+### Out of scope
+
+- Email verification, OAuth linking, account deletion, export, or legal pages.
+- Authentication API redesign.
+- New profile preferences.
+
+### Acceptance criteria
+
+- AC1: Each changed screen is usable at 375px without horizontal scrolling.
+- AC2: Inputs have accessible labels, suitable autocomplete values, and
+  visible validation/error states.
+- AC3: Pending submissions prevent accidental duplicate actions.
+- AC4: Network and server errors do not expose sensitive implementation
+  details.
+- AC5: Existing successful authentication and profile flows continue to work.
+- AC6: Profile and password fields have explicit label associations and
+  suitable autocomplete values; standalone visibility controls meet the 44px
+  target rule; visible mutation feedback is announced.
+
+### Verification
+
+- Run focused client tests, lint, and typecheck.
+- Manually check all changed screens at 375px.
+- Check keyboard-open and browser-autofill states where available.
+
+### Stop conditions
+
+- Stop if the fix requires changing server authentication behavior.
+- Stop if a legal, privacy, or external-service decision is required.
+
+## W1-05: Resolve Dashboard Behavior And Loading Decisions
+
+**State:** proposed
+
+### Goal
+
+Resolve open dashboard product decisions before implementing dashboard changes
+that would otherwise require Luna to guess.
+
+### Scope
+
+- Define streak calculation and timezone rules.
+- Define Suggested Today selection and empty-state behavior.
+- Decide the active-program link behavior and `/program` fallback.
+- Define branded loading treatment, animation style, and screen coverage.
+- Convert the approved decisions into acceptance criteria for W1-06.
+
+### Out of scope
+
+- Implementing dashboard code.
+- Changing workout, progress, or authentication rules.
+- Choosing legal or privacy policy language.
+
+### Acceptance criteria
+
+- AC1: Streak rules and timezone behavior are written as testable examples.
+- AC2: Suggested Today behavior is defined for normal, empty, and missing-day
+  cases.
+- AC3: The active-program link and fallback behavior are unambiguous.
+- AC4: Loading treatment scope and reduced-motion behavior are defined.
+- AC5: W1-06 contains measurable criteria based on the approved decisions.
+
+### Verification
+
+- User reviews and approves the documented product decisions.
+- Planning/review pass confirms no behavior remains ambiguous.
+
+### Stop conditions
+
+- Stop until the user approves streak, timezone, suggestion, and loading
+  behavior.
+
+## W1-06: Correct Shell, Navigation, And Dashboard Mobile Issues
+
+**State:** proposed
+
+### Goal
+
+Apply the confirmed baseline findings and W1-05 decisions to the application
+shell, navigation, dashboard, and shared page-loading treatment.
+
+### Scope
+
+- Top/bottom navigation and application shell.
+- Dashboard layout, states, links, and approved loading treatment.
+- Safe-area spacing, fixed navigation, overflow, and mobile scrolling.
+- Verify that the fixed mobile navigation does not cover the final dashboard
+  content or actions.
+
+### Out of scope
+
+- Program, workout, history, or progress feature changes outside shared shell
+  behavior.
+- New dashboard rules not approved in W1-05.
+
+### Acceptance criteria
+
+- AC1: Changed shell and dashboard screens have no unintended horizontal
+  scrolling at 375px.
+- AC2: Fixed navigation does not cover interactive content.
+- AC3: Active navigation and dashboard links are clear and keyboard usable.
+- AC4: Loading, empty, error, and populated states meet W1-05 decisions.
+- AC5: Existing dashboard API behavior remains unchanged unless explicitly
+  approved in W1-05.
+- AC6: At the bottom of each changed dashboard state, the last actionable
+  content remains reachable above the fixed navigation at 375px.
+
+### Verification
+
+- Run focused client tests, lint, and typecheck.
+- Manually check dashboard states at 375px.
+- Check keyboard navigation and reduced-motion behavior.
+
+### Stop conditions
+
+- Stop if implementing a dashboard rule requires a server/API or data-model
+  change not listed in the approved ticket.
+
+## W1-07: Correct Program And Exercise-Picker Mobile Issues
+
+**State:** proposed
+
+### Goal
+
+Fix confirmed mobile and accessibility issues in program browsing, editing,
+menus, dialogs, and exercise selection.
+
+### Scope
+
+- Program library and program editor.
+- Program action menus and delete dialogs.
+- Exercise picker and custom-exercise form.
+- Long names, empty states, scrolling, and touch targets.
+- Apply the shared dialog focus, Escape, background-scroll, and focus-restore
+  contract to program and exercise overlays.
+
+### Out of scope
+
+- Whole-day reordering.
+- Custom exercise edit/delete feature work.
+- Changes to program API semantics.
+
+### Acceptance criteria
+
+- AC1: Changed program screens are usable at 375px without clipped content or
+  horizontal scrolling.
+- AC2: Menus and dialogs are keyboard accessible and do not strand focus.
+- AC3: Empty, loading, error, and long-name states remain understandable.
+- AC4: Existing program creation, activation, editing, and deletion behavior
+  remains intact.
+- AC5: Program menus, dialogs, and the nested custom-exercise form keep focus
+  contained, dismiss safely, and expose their labels and actions at 375px.
+
+### Verification
+
+- Run focused client tests, lint, and typecheck.
+- Manually check program and picker flows at 375px.
+- Test keyboard, Escape, scrolling, and long exercise names.
+
+### Stop conditions
+
+- Stop if the issue requires adding deferred program features or changing the
+  server contract.
+
+## W1-08: Correct Active-Workout Mobile Issues
+
+**State:** proposed
+
+### Goal
+
+Fix confirmed active-workout layout, interaction, timer, overlay, and error
+issues at the primary 375px acceptance width.
+
+### Scope
+
+- Exercise cards and set entry.
+- Keyboard-open behavior and scrolling.
+- Existing rest/workout timer presentation and persistence.
+- Existing add/swap/remove dialogs and completion flow.
+- Confirmed previous-set display issues that do not require new product data.
+- Correct compact set controls, including drop-set actions, to the approved
+  standalone touch-target rule.
+
+### Out of scope
+
+- Configurable rest-timer preferences.
+- Workout-level notes.
+- Active-workout exercise reordering.
+- New set types or API behavior.
+
+### Acceptance criteria
+
+- AC1: Set entry remains usable at 375px with no horizontal scrolling.
+- AC2: The mobile keyboard does not hide the active input or required action.
+- AC3: Existing timer persistence, add/swap/remove, and completion behavior
+  continue to work after the UI changes.
+- AC4: Pending and failed mutations preserve understandable user feedback.
+- AC5: Dialogs and overlays have usable focus and dismissal behavior.
+- AC6: Add-set, drop-set, swap, remove, cancel, and completion controls remain
+  usable at 375px, with standalone controls at least 44px by 44px.
+
+### Verification
+
+- Run focused workout tests, lint, and typecheck.
+- Manually test an active workout at 375px, including refresh, timer,
+  validation, failed mutation, and completion states.
+
+### Stop conditions
+
+- Stop if the fix requires a new schema field, mutation contract, or deferred
+  workout feature.
+
+## W1-09: Correct History And Progress Mobile Issues
+
+**State:** proposed
+
+### Goal
+
+Fix confirmed mobile layout, empty-state, long-content, and accessibility
+issues in history and progress screens.
+
+### Scope
+
+- History list and completed-session navigation.
+- Progress statistics, trend content, and current empty states.
+- Responsive tables or summaries and text overflow.
+
+### Out of scope
+
+- SVG progress chart implementation.
+- kg/lb preference implementation.
+- New progress calculations or API aggregation.
+
+### Acceptance criteria
+
+- AC1: Changed history and progress screens are usable at 375px without
+  horizontal scrolling.
+- AC2: Empty, loading, error, and populated states remain distinguishable.
+- AC3: Long exercise names, values, and dates do not make controls unusable.
+- AC4: Existing history and progress values are not changed by layout work.
+
+### Verification
+
+- Run focused client tests, lint, and typecheck.
+- Manually check empty and populated screens at 375px.
+- Verify navigation to completed-session details.
+- Verify one completed normal working set appears in the populated progress
+  state and remains readable at 375px.
+
+### Stop conditions
+
+- Stop if visual work requires changing progress calculations or adding the
+  deferred chart/unit features.
+
+## W1-10: Add Browser Coverage And Complete The Wave 1 Gate
+
+**State:** proposed
+
+### Goal
+
+Automate the critical mobile journey and confirm the Wave 1 acceptance gate
+without introducing new product scope.
+
+### Scope
+
+- Add or complete local Playwright coverage at 375px.
+- Cover public auth, navigation, program selection, workout completion, and
+  history where the local environment supports it.
+- Run final client/server checks and record remaining manual evidence.
+- Carry the W1-01 route matrix and its unobserved-state list into the browser
+  suite or final manual evidence.
+
+### Out of scope
+
+- New mockup features.
+- Production deployment.
+- Staging setup.
+- Broad load, security, or account-lifecycle work.
+
+### Acceptance criteria
+
+- AC1: Critical browser flows run repeatably against the local application.
+- AC2: The mobile browser project uses a 375px viewport and produces useful
+  failure artifacts.
+- AC3: Client tests, server tests, lint, typecheck, build, and diff checks pass.
+- AC4: Manual 375px acceptance findings are closed or have approved follow-up
+  tickets.
+- AC5: `STATUS.md` records Wave 1 completion or the precise blocker; Phase 4
+  remains blocked if the mobile gate is incomplete.
+
+### Verification
+
+- Run `npm run check`.
+- Run the Playwright suite against local services.
+- Manually verify critical flows at 375px, then spot-check 768px and 1080px.
+- Review the complete Wave 1 diff.
+
+### Stop conditions
+
+- Stop if a failure requires new product scope or an unresolved decision.
+- Stop if the gate cannot run safely against local data.
+
+## Audit Findings
+
+### Audit Method
+
+- Date: 2026-09-01.
+- Environment: local Vite client at `http://127.0.0.1:5173` and local Express
+  API at `http://127.0.0.1:4000`; the production deployment was not used.
+- Browser: Chrome DevTools Protocol with an exact `375x900` viewport and DPR 1.
+- Evidence: JSON and PNG captures in
+  `C:\Users\User\AppData\Local\Temp\opencode\replog-audit-evidence`.
+- Touch-target rule used for this audit: standalone actionable controls are at
+  least 44px by 44px. Inline text links are excluded from that measurement.
+- The local audit used a disposable account and generated local program,
+  workout, history, and progress data only.
+
+### Route Coverage
+
+Every route entry in `client/src/router.tsx` was reached locally. State coverage
+is listed separately so an unobserved state is not mistaken for a route defect.
+
+| Route | Observed evidence | Route result or unobserved state |
+| --- | --- | --- |
+| `/` | `31-root-redirect.json` | Redirects to `/login`. |
+| `/login` | `01-login-empty.json` | Empty state observed. Invalid-credential API error was not confirmed. |
+| `/register` | `02-register-empty.json`, `03-register-validation.json`, `04-dashboard-empty.json` | Empty, validation, and successful registration observed. |
+| `/forgot-password` | `27-forgot-password-empty.json`, `28-forgot-password-validation.json`, `29-forgot-password-api-error.json` | Empty, validation, and privacy-safe success observed; no server error is exposed for an unknown email. |
+| `/reset-password` | `30-reset-password-error.json` | Missing-token error observed; valid-token success requires an unexpired token and was not observed. |
+| `/dashboard` | `04-dashboard-empty.json`, `33-dashboard-bottom.json` | Empty and populated bottom-of-page states observed; active-session dashboard state was not captured. |
+| `/history` | `17-history-empty-before-workout.json`, `24-history-populated.json` | Empty and populated states observed. |
+| `/profile` | `07-profile.json` | Settled profile state observed. |
+| `/profile/edit` | `08-edit-profile.json` | Settled edit form observed. |
+| `/profile/password` | `09-change-password.json` | Settled change-password form observed. |
+| `/progress` | `06-progress-empty.json`, `42-progress-populated.json` | Empty and populated normal-set states observed. |
+| `/program` | `10-program-library.json`, `11-program-menu.json`, `12-create-program-dialog.json`, `34-create-dialog-mouse-focus.json`, `35-create-dialog-after-tab.json` | Library, menu, and create-dialog states observed. |
+| `/program/:programId` | `13-program-editor.json`, `14-add-day-dialog.json`, `15-exercise-picker.json`, `16-new-exercise-dialog.json`, `36-add-day-mouse-focus.json`, `37-add-day-after-tab.json` | Editor, day dialog, picker, and custom-exercise states observed. |
+| `/workout/:sessionId` | `18-workout-empty.json` through `23-workout-completed.json`, `40-workout-normal-set.json`, `41-workout-completed-normal.json` | Active, set-entry, normal-set, swap, remove, and completed states observed. |
+| `*` | `32-not-found.json` | Not-found state observed. |
+
+### Confirmed Baseline
+
+- No captured state had document-level horizontal overflow: `scrollWidth` was
+  never greater than the client width at 375px.
+- Long content remained vertically scrollable, including registration at
+  1095px, the program editor at 1754px, and active workout set entry at
+  2154px.
+- Primary buttons, icon controls, navigation links, dialog actions, and form
+  inputs generally met the 44px target rule. The exceptions are listed below.
+- Registration validation focused `#register-username`; forgot-password
+  validation focused `#forgot-password-email`; reset-password displayed its
+  missing-token error while focusing `#new-password`.
+- Auth fields use explicit labels, error descriptions, and suitable
+  autocomplete values in `LoginPage`, `RegisterPage`, `ForgotPasswordPage`,
+  and `ResetPasswordPage`.
+- The fixed bottom navigation remained visible, and the dashboard bottom
+  content ended above it in `33-dashboard-bottom.json`.
+- A completed normal set produced a readable populated progress state in
+  `42-progress-populated.json`, including estimated 1RM, session history, and
+  trend content.
+- The observed slate palette, auth card, mobile navigation, program/workout
+  overlays, and progress structure follow the mockup intent and the build
+  plan's mobile-first direction. No product decision conflict was found.
+
+### Confirmed Findings
+
+| ID | Route and state | Finding | Severity | Evidence and source reference | Follow-up and measurable condition |
+| --- | --- | --- | --- | --- | --- |
+| F-01 | `/program` create dialog, program day dialog, exercise picker, workout remove dialog | Opening overlays does not reliably move focus into the active dialog. Focus remained on the trigger for create/day dialogs, moved to background content after one Tab, or was null for the picker/remove dialog. The workout remove dialog remained rendered after Escape in the captured sequence. | High | `34-create-dialog-mouse-focus.json`, `35-create-dialog-after-tab.json`, `36-add-day-mouse-focus.json`, `37-add-day-after-tab.json`, `15-exercise-picker.json`, `22-workout-remove-dialog.json`, `23-workout-completed.json`; `client/src/pages/ProgramLibraryPage.tsx:319-330`, `client/src/pages/ProgramPage.tsx:635-647`, `client/src/components/exercises/ExercisePickerDialog.tsx:226-255`, `client/src/pages/WorkoutPage.tsx:1404-1465` | W1-03, then W1-07/W1-08. Every changed dialog must move focus inside on open, contain Tab and Shift+Tab, dismiss on allowed Escape, and restore focus to its trigger. |
+| F-02 | `/program/:programId` custom-exercise form | The nested New Exercise form is rendered under the picker overlay without `role="dialog"`, `aria-modal`, or `aria-labelledby`. Its autofocus input therefore reports as outside a dialog despite the visible dialog title. | Medium | `16-new-exercise-dialog.json`; `client/src/components/exercises/ExercisePickerDialog.tsx:79-98`, `:226-255` | W1-03 and W1-07. The nested form must expose labelled dialog semantics and participate in the same focus and Escape contract as the picker. |
+| F-03 | `/profile/edit` and `/profile/password` settled forms | Profile edit and change-password labels are visual only: their labels have no `htmlFor` and inputs have no matching IDs. These fields also omit suitable autocomplete values. Change-password error and success messages have no alert or live-region semantics. | Medium | `08-edit-profile.json`, `09-change-password.json`; `client/src/pages/EditProfilePage.tsx:73-94`, `client/src/pages/ChangePasswordPage.tsx:108-192` | W1-04. Each field must have an explicit label association and appropriate `username`, `email`, `current-password`, or `new-password` autocomplete; mutation feedback must be announced. |
+| F-04 | `/profile/password`, active workout add-set form, program action menu | Three standalone controls are below the 44px target rule: password visibility buttons are 45.8x24px, `+ Drop` is 50.1x24px, and program menu items are 146x40px. | Medium | `09-change-password.json`, `40-workout-normal-set.json`, `11-program-menu.json`; `client/src/pages/ChangePasswordPage.tsx:119-179`, `client/src/pages/WorkoutPage.tsx:1192-1200`, `client/src/components/programs/ProgramActionsMenu.tsx:128-139` | W1-03, W1-04, W1-07, and W1-08. Standalone controls must render at least 44px by 44px without clipping or loss of the existing action. |
+| F-05 | `/program` create dialog | The create dialog is open while `document.body` retains `overflow: visible`; the page does not use the body scroll-lock hook used by the program editor. The short captured library did not visibly move behind the overlay, so the background-scroll effect is not yet confirmed. | Low | `34-create-dialog-mouse-focus.json`; `client/src/pages/ProgramLibraryPage.tsx:1-57,319-330,428-482`, `client/src/components/programs/ProgramDeleteDialog.tsx:23-34`, `client/src/pages/ProgramPage.tsx:45,163`, `client/src/lib/useBodyScrollLock.ts:3-28` | W1-03 and W1-07. While each full-screen create, rename, and delete overlay is open, attempts to scroll the background must not change the page scroll position; closing it must restore the prior body styles and scroll position. Verify all three states at 375px. |
+
+### Unobserved States
+
+- Loading states were not captured because each navigation settled before the
+  snapshot; no network throttling was introduced.
+- A real login API error was not captured because the first harness selected the
+  auth tab link instead of submitting the invalid login form. No login error
+  defect is asserted.
+- Valid reset-token success, email delivery, Google OAuth, and browser autofill
+  could not be observed in the local configuration.
+- Native mobile keyboard-open behavior, keyboard traversal across every page,
+  Shift+Tab traversal, reduced-motion behavior, and focus restoration after
+  every menu/dialog were not fully covered by the CDP pass.
+- Profile edit/password mutation errors, failed program/workout mutations,
+  pending duplicate-action behavior, program deletion, custom-exercise save,
+  workout inline editing, cancel-workout confirmation, and the dashboard active
+  session state were not forced without request mocking or extra destructive
+  local data changes.
+- The primary audit did not include the 768px or 1080px responsive spot checks;
+  those remain W1-10 verification work.
+
+### Audit-Derived Follow-Ups
+
+- W1-02 is now `ready` and must establish regression coverage before UI fixes.
+- W1-03 owns the shared modal/menu focus, Escape, focus-restore, scroll-lock,
+  status-announcement, and standalone touch-target contract.
+- W1-04 owns the profile form associations, autocomplete, mutation feedback,
+  and password-visibility target corrections.
+- W1-05 remains a product-decision gate for streak rules, Suggested Today,
+  active-program navigation, and branded loading; the audit did not invent
+  implementation behavior for those items.
+- W1-06 must preserve the observed no-overflow and bottom-navigation clearance
+  while covering the unobserved active dashboard state.
+- W1-07 owns program/editor/picker overlay behavior, including the nested custom
+  exercise form and menu sizing.
+- W1-08 owns active-workout compact controls and must verify a normal set,
+  failed mutation, keyboard-open, timer, and completion sequence.
+- W1-09 owns the readable empty and populated progress/history states; one
+  populated normal-set progress state is now available as baseline evidence.
+- W1-10 should automate the route matrix and preserve an explicit list of
+  remaining manual states.
+
+### W1-01 Completion Report
+
+- State: `done`.
+- Scope completed: all current router entries were reached locally at exactly
+  375px; confirmed behavior, unobserved states, findings, severities, source
+  references, and follow-up criteria are recorded above.
+- Documentation changes owned by W1-01: `WAVE1.md` and `STATUS.md` only.
+- Application, dependency, configuration, test, schema, migration, database,
+  production, and deployment files were not changed by W1-01.
+- Verification: local browser evidence was captured; the client build passed
+  before the documentation pass; final documentation and diff checks are listed
+  in `STATUS.md`.
+
+### W1-01 Review Notes
+
+- Review date: 2026-09-01.
+- Result: passed.
+- Precise issue: the original F-01 citation `38-picker-mouse-focus.json` did
+  not show the exercise picker; its JSON showed the Add Day dialog. The citation
+  was corrected to `15-exercise-picker.json`, whose body text identifies the
+  picker, whose viewport is `375x900`, and whose `focus` is `null`. The corrected
+  evidence mapping passed re-review, so W1-01 is accepted.
