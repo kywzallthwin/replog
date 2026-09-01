@@ -28,11 +28,12 @@ export function AuthField({
       </label>
 
       <div
-        className={`group flex min-h-[54px] items-center rounded-[14px] border px-4 transition focus-within:ring-4 ${
+        className={`auth-field-wrapper group flex min-h-[54px] items-center rounded-[14px] border px-4 transition focus-within:ring-4 ${
           error
             ? 'border-red-300 bg-red-50/40 focus-within:border-red-500 focus-within:ring-red-500/10'
             : 'border-slate-200 bg-slate-50/70 focus-within:border-slate-900 focus-within:bg-white focus-within:ring-slate-900/5'
         }`}
+        data-invalid={Boolean(error)}
       >
         <input
           {...inputProps}
