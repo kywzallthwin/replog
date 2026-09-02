@@ -48,7 +48,7 @@ export function AuthField({
 
       <div className="mt-1.5 min-h-4">
         {error ? (
-          <p id={`${id}-error`} className="text-xs font-medium text-red-600">
+          <p id={`${id}-error`} role="alert" className="text-xs font-medium text-red-600">
             {error}
           </p>
         ) : hint ? (

@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog } from '../components/programs/ProgramDeleteDialog'
-import { failForKnownBaselineDefect } from './expected-failure'
+import { Dialog } from '../components/ui/Dialog'
+import { createTestQueryClient } from './query-client'
 
 const deleteTarget = {
   id: 'program-1',
@@ -31,6 +34,17 @@ function DeleteDialogHarness() {
       ) : null}
     </>
   )
+}
+
+function LockedDialogHarness() {
+  const [isOpen, setIsOpen] = useState(true)
+
+  return isOpen ? (
+    <Dialog labelledBy="locked-dialog-title" onClose={() => setIsOpen(false)}>
+      <h2 id="locked-dialog-title">Locked dialog</h2>
+      <button type="button" onClick={() => setIsOpen(false)}>Close</button>
+    </Dialog>
+  ) : null
 }
 
 describe('dialog and menu keyboard contract', () => {
@@ -82,30 +96,80 @@ describe('dialog and menu keyboard contract', () => {
     expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
     expect(menu).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Copy' })).toHaveFocus()
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    expect(screen.getByRole('menuitem', { name: 'Rename' })).toHaveFocus()
 
     fireEvent.keyDown(document, { key: 'Escape' })
 
     expect(onToggle).toHaveBeenCalledTimes(1)
   })
 
-  it.fails('moves focus into a dialog when it opens from a trigger', () => {
-    return failForKnownBaselineDefect(() => {
-      render(<DeleteDialogHarness />)
+  it('moves focus into a dialog, contains Tab, and restores the trigger', () => {
+    render(<DeleteDialogHarness />)
 
-      const trigger = screen.queryByRole('button', { name: 'Open delete dialog' })
-      if (!trigger) {
-        return
-      }
+    const trigger = screen.getByRole('button', { name: 'Open delete dialog' })
+    trigger.focus()
+    fireEvent.click(trigger)
 
-      trigger.focus()
-      fireEvent.click(trigger)
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete Strength Base?' })
+    const buttons = within(dialog).getAllByRole('button')
 
-      const dialog = screen.queryByRole('alertdialog', { name: 'Delete Strength Base?' })
-      if (!dialog) {
-        return
-      }
+    expect(buttons[0]).toHaveFocus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+    expect(buttons[1]).toHaveFocus()
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true })
+    expect(buttons[0]).toHaveFocus()
+    fireEvent.keyDown(dialog, { key: 'Escape' })
 
-      return dialog.contains(document.activeElement)
-    }, 'dialog opening does not move focus inside the active dialog')
+    expect(trigger).toHaveFocus()
+  })
+
+  it('locks body scrolling and restores body styles when it closes', () => {
+    render(<LockedDialogHarness />)
+
+    expect(document.body.style.position).toBe('fixed')
+    expect(document.body.style.overflow).toBe('hidden')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    expect(document.body.style.position).toBe('')
+    expect(document.body.style.overflow).toBe('')
+  })
+
+  it('gives the custom exercise form the active picker dialog contract', () => {
+    const queryClient = createTestQueryClient()
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExercisePickerDialog
+          mode="add"
+          exerciseOptions={[]}
+          program={null}
+          existingExerciseIds={[]}
+          selectedExerciseId=""
+          isOptionsPending={false}
+          isOptionsError={false}
+          isSaving={false}
+          onSelectedExercise={vi.fn()}
+          onConfirm={vi.fn()}
+          onClose={vi.fn()}
+          onCreated={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '+ New Exercise' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'New Exercise' })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'new-exercise-dialog-title')
+    expect(dialog).toHaveAttribute('aria-describedby', 'new-exercise-dialog-description')
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus()
+
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+
+    expect(screen.getByRole('dialog', { name: 'Choose an exercise' })).toBeInTheDocument()
   })
 })

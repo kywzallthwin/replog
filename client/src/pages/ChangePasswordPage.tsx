@@ -75,7 +75,7 @@ export function ChangePasswordPage() {
     <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-xl overflow-hidden rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <Link to="/profile" className="text-sm font-semibold text-slate-900">
+          <Link to="/profile" className="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900">
             Profile
           </Link>
           <h1 className="flex items-center gap-2 text-[15px] font-bold text-slate-900">
@@ -106,11 +106,15 @@ export function ChangePasswordPage() {
           </div>
 
           <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Current Password</label>
+            <label htmlFor="change-password-current" className="mb-1.5 block text-sm font-medium text-slate-700">
+              Current Password
+            </label>
             <div className="relative">
               <input
+                id="change-password-current"
                 ref={currentPasswordInputRef}
                 type={showCurrentPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.target.value)}
                 required
@@ -122,7 +126,7 @@ export function ChangePasswordPage() {
                 aria-pressed={showCurrentPassword}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => togglePasswordVisibility(currentPasswordInputRef.current, setShowCurrentPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="absolute right-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
               >
                 {showCurrentPassword ? 'Hide' : 'Show'}
               </button>
@@ -130,11 +134,15 @@ export function ChangePasswordPage() {
           </div>
 
           <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">New Password</label>
+            <label htmlFor="change-password-new" className="mb-1.5 block text-sm font-medium text-slate-700">
+              New Password
+            </label>
             <div className="relative">
               <input
+                id="change-password-new"
                 ref={newPasswordInputRef}
                 type={showNewPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
                 required
@@ -147,7 +155,7 @@ export function ChangePasswordPage() {
                 aria-pressed={showNewPassword}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => togglePasswordVisibility(newPasswordInputRef.current, setShowNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="absolute right-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
               >
                 {showNewPassword ? 'Hide' : 'Show'}
               </button>
@@ -156,11 +164,15 @@ export function ChangePasswordPage() {
           </div>
 
           <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirm New Password</label>
+            <label htmlFor="change-password-confirm" className="mb-1.5 block text-sm font-medium text-slate-700">
+              Confirm New Password
+            </label>
             <div className="relative">
               <input
+                id="change-password-confirm"
                 ref={confirmPasswordInputRef}
                 type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
@@ -173,7 +185,7 @@ export function ChangePasswordPage() {
                 aria-pressed={showConfirmPassword}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => togglePasswordVisibility(confirmPasswordInputRef.current, setShowConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="absolute right-3 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
               >
                 {showConfirmPassword ? 'Hide' : 'Show'}
               </button>
@@ -181,12 +193,12 @@ export function ChangePasswordPage() {
           </div>
 
           {error ? (
-            <p className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p id="change-password-error" role="alert" className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {error}
             </p>
           ) : null}
           {success ? (
-            <p className="mb-4 rounded-[10px] bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+            <p id="change-password-success" role="status" aria-live="polite" className="mb-4 rounded-[10px] bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
               {success}
             </p>
           ) : null}

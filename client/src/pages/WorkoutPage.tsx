@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
@@ -27,10 +27,10 @@ import { exercisesQueryKey, getExercises } from '../lib/exercises'
 import { activeProgramQueryKey, getActiveProgram } from '../lib/programs'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { FluidSelect } from '../components/forms/FluidSelect'
-import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
 import { useRestTimer, type RestTimerSessionStatus } from '../lib/useRestTimer'
 import { BrandLogo } from '../components/BrandLogo'
+import { Dialog } from '../components/ui/Dialog'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -572,9 +572,8 @@ export function WorkoutPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
   const [cancelConfirmation, setCancelConfirmation] = useState(false)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
-  const keepWorkoutButtonRef = useRef<HTMLButtonElement>(null)
+  const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
   const dropIdRef = useRef(0)
-  useBodyScrollLock(Boolean(exercisePicker || deleteConfirmation || cancelConfirmation))
   const { data: session, isError, isPending } = useQuery({
     queryKey: sessionQueryKey(sessionId ?? ''),
     queryFn: () => getSession(sessionId ?? ''),
@@ -743,12 +742,6 @@ export function WorkoutPage() {
     },
   })
 
-  useEffect(() => {
-    if (cancelConfirmation) {
-      keepWorkoutButtonRef.current?.focus()
-    }
-  }, [cancelConfirmation])
-
   function openAddSetForm(exercise: WorkoutExercise) {
     const suggestedSet = getSuggestedSet(exercise)
 
@@ -785,14 +778,22 @@ export function WorkoutPage() {
     setDropDrafts((current) => current.filter((drop) => drop.id !== id))
   }
 
-  function openAddExercisePicker() {
+  function openAddExercisePicker(trigger?: HTMLElement) {
+    if (trigger) {
+      exercisePickerTriggerRef.current = trigger
+    }
+
     setExercisePicker({ mode: 'add' })
     setSelectedExerciseId('')
     setActiveExerciseId(null)
     setEditingSet(null)
   }
 
-  function openSwapExercisePicker(exercise: WorkoutExercise) {
+  function openSwapExercisePicker(exercise: WorkoutExercise, trigger?: HTMLElement) {
+    if (trigger) {
+      exercisePickerTriggerRef.current = trigger
+    }
+
     setExercisePicker({ mode: 'swap', sessionExercise: exercise })
     setSelectedExerciseId(exercise.exerciseId)
     setActiveExerciseId(null)
@@ -1074,7 +1075,7 @@ export function WorkoutPage() {
                       <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
                         <button
                           type="button"
-                          onClick={() => openSwapExercisePicker(exercise)}
+                          onClick={(event) => openSwapExercisePicker(exercise, event.currentTarget)}
                           className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                         >
                           Swap
@@ -1324,16 +1325,16 @@ export function WorkoutPage() {
               <div className="mt-5 space-y-3">
                 <button
                   type="button"
-                  onClick={openAddExercisePicker}
-                  className="w-full rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                  onClick={(event) => openAddExercisePicker(event.currentTarget)}
+                  className="min-h-11 w-full rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
                 >
                   + Add Exercise
                 </button>
                 <button
                   type="button"
-                   onClick={() => finishSessionMutation.mutate(session.id)}
+                  onClick={() => finishSessionMutation.mutate(session.id)}
                   disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending || workoutWriteIsPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-green-100 px-4 py-3 text-sm font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:bg-green-50 disabled:text-green-400"
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-green-100 px-4 py-3 text-sm font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:bg-green-50 disabled:text-green-400"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1358,7 +1359,7 @@ export function WorkoutPage() {
                     setCancelConfirmation(true)
                   }}
                   disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending}
-                  className="w-full rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                  className="min-h-11 w-full rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
                 >
                   {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Workout'}
                 </button>
@@ -1388,119 +1389,108 @@ export function WorkoutPage() {
           programIsError={isProgramError}
           targetDayId={session?.dayId ?? undefined}
           existingExerciseIds={session?.exercises.map((exercise) => exercise.exerciseId) ?? []}
-          currentExerciseId={exercisePicker.mode === 'swap' ? exercisePicker.sessionExercise.exerciseId : undefined}
-          selectedExerciseId={selectedExerciseId}
-          isOptionsPending={isExerciseOptionsPending}
-          isOptionsError={isExerciseOptionsError}
-          isSaving={exercisePickerIsSaving}
-          saveError={exercisePickerHasError ? 'Unable to save exercise change. Please try again.' : undefined}
-          onSelectedExercise={setSelectedExerciseId}
-          onConfirm={handleExercisePickerConfirm}
-          onClose={closeExercisePicker}
-          onCreated={(exercise) => setSelectedExerciseId(exercise.id)}
-        />
-      ) : null}
+           currentExerciseId={exercisePicker.mode === 'swap' ? exercisePicker.sessionExercise.exerciseId : undefined}
+           selectedExerciseId={selectedExerciseId}
+           isOptionsPending={isExerciseOptionsPending}
+           isOptionsError={isExerciseOptionsError}
+           isSaving={exercisePickerIsSaving}
+           saveError={exercisePickerHasError ? 'Unable to save exercise change. Please try again.' : undefined}
+           onSelectedExercise={setSelectedExerciseId}
+           onConfirm={handleExercisePickerConfirm}
+           onClose={closeExercisePicker}
+           onCreated={(exercise) => setSelectedExerciseId(exercise.id)}
+           restoreFocusRef={exercisePickerTriggerRef}
+         />
+       ) : null}
 
       {deleteConfirmation ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') closeDeleteConfirmation()
-          }}
+        <Dialog
+          role="alertdialog"
+          labelledBy="workout-delete-dialog-title"
+          describedBy="workout-delete-dialog-description"
+          onClose={closeDeleteConfirmation}
+          closeOnEscape={!deleteConfirmationIsPending}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="workout-delete-dialog-title"
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
-          >
-            <div>
-              <h2 id="workout-delete-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
-                {deleteConfirmation.type === 'set'
-                  ? `Delete ${deleteConfirmation.set.weightKg} kg x ${deleteConfirmation.set.reps}?`
-                  : `Remove ${deleteConfirmation.exercise.name}?`}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                {deleteConfirmation.type === 'set'
-                  ? `This set will be removed from ${deleteConfirmation.exercise.name}.`
-                  : deleteConfirmation.exercise.sets.length
-                    ? `This removes the exercise from this workout and deletes ${deleteConfirmation.exercise.sets.length} logged ${
-                        deleteConfirmation.exercise.sets.length === 1 ? 'set' : 'sets'
-                      }.`
-                    : 'This removes the exercise from this workout only.'}
-              </p>
+          <div>
+            <h2 id="workout-delete-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+              {deleteConfirmation.type === 'set'
+                ? `Delete ${deleteConfirmation.set.weightKg} kg x ${deleteConfirmation.set.reps}?`
+                : `Remove ${deleteConfirmation.exercise.name}?`}
+            </h2>
+            <p id="workout-delete-dialog-description" className="mt-2 text-sm leading-6 text-slate-500">
+              {deleteConfirmation.type === 'set'
+                ? `This set will be removed from ${deleteConfirmation.exercise.name}.`
+                : deleteConfirmation.exercise.sets.length
+                  ? `This removes the exercise from this workout and deletes ${deleteConfirmation.exercise.sets.length} logged ${
+                      deleteConfirmation.exercise.sets.length === 1 ? 'set' : 'sets'
+                    }.`
+                  : 'This removes the exercise from this workout only.'}
+            </p>
 
-              {deleteConfirmationHasError ? (
-                <p className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                  {deleteConfirmation.type === 'set'
-                    ? 'Unable to delete set. Please try again.'
-                    : 'Unable to remove exercise. Please try again.'}
-                </p>
-              ) : null}
-            </div>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={closeDeleteConfirmation}
-                disabled={deleteConfirmationIsPending}
-                className="flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                disabled={deleteConfirmationIsPending}
-                className="flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
-              >
-                {deleteConfirmationIsPending
-                  ? 'Deleting...'
-                  : deleteConfirmation.type === 'set'
-                    ? 'Delete Set'
-                    : 'Remove Exercise'}
-              </button>
-            </div>
+            {deleteConfirmationHasError ? (
+              <p role="alert" className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {deleteConfirmation.type === 'set'
+                  ? 'Unable to delete set. Please try again.'
+                  : 'Unable to remove exercise. Please try again.'}
+              </p>
+            ) : null}
           </div>
-        </div>
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={closeDeleteConfirmation}
+              disabled={deleteConfirmationIsPending}
+              className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDelete}
+              disabled={deleteConfirmationIsPending}
+              className="min-h-11 flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+            >
+              {deleteConfirmationIsPending
+                ? 'Deleting...'
+                : deleteConfirmation.type === 'set'
+                  ? 'Delete Set'
+                  : 'Remove Exercise'}
+            </button>
+          </div>
+        </Dialog>
       ) : null}
       {cancelConfirmation ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+        <Dialog
+          role="alertdialog"
+          labelledBy="workout-cancel-dialog-title"
+          describedBy="workout-cancel-dialog-description"
+          onClose={() => {
+            if (!cancelSessionMutation.isPending) setCancelConfirmation(false)
+          }}
+          closeOnEscape={!cancelSessionMutation.isPending}
+          restoreFocusRef={cancelTriggerRef}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="workout-cancel-dialog-title"
-            tabIndex={-1}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && !cancelSessionMutation.isPending) {
-                setCancelConfirmation(false)
-                cancelTriggerRef.current?.focus()
-              }
-            }}
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
-          >
             <h2 id="workout-cancel-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
               Cancel this workout?
             </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p id="workout-cancel-dialog-description" className="mt-2 text-sm leading-6 text-slate-500">
               This will permanently delete the active {session?.dayName ?? 'workout'} session and any sets you have logged. This cannot be undone.
             </p>
             {cancelSessionMutation.isError ? (
-              <p className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <p role="alert" className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 Unable to cancel workout. Please try again.
               </p>
             ) : null}
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
-                ref={keepWorkoutButtonRef}
-                onClick={() => {
-                  setCancelConfirmation(false)
-                  cancelTriggerRef.current?.focus()
-                }}
+                onClick={() => setCancelConfirmation(false)}
                 disabled={cancelSessionMutation.isPending}
-                className="flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
               >
                 Keep Workout
               </button>
@@ -1512,13 +1502,12 @@ export function WorkoutPage() {
                   }
                 }}
                 disabled={cancelSessionMutation.isPending}
-                className="flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                className="min-h-11 flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
               >
                 {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Workout'}
               </button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       ) : null}
     </main>
   )

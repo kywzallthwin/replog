@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
@@ -42,13 +42,13 @@ import {
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
 import { getBadgeClass } from '../lib/badgeColors'
-import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog } from '../components/programs/ProgramDeleteDialog'
+import { Dialog } from '../components/ui/Dialog'
 
 type DayModalState = { mode: 'add' } | { mode: 'edit'; day: ProgramDay } | null
 
@@ -160,7 +160,9 @@ export function ProgramPage() {
   const [activationBlocked, setActivationBlocked] = useState(false)
   const [programDeleteDialogOpen, setProgramDeleteDialogOpen] = useState(false)
   const [programMenuOpen, setProgramMenuOpen] = useState(false)
-  useBodyScrollLock(Boolean(dayModal || exercisePicker || deleteConfirmation || programDeleteDialogOpen))
+  const dayModalTriggerRef = useRef<HTMLElement | null>(null)
+  const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
+  const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
 
   const { data: program, isError, isPending } = useQuery({
     queryKey: programQueryKey(programId),
@@ -305,7 +307,11 @@ export function ProgramPage() {
   const deleteConfirmationIsPending = deleteDayMutation.isPending || removeDayExerciseMutation.isPending
   const deleteConfirmationHasError = deleteDayMutation.isError || removeDayExerciseMutation.isError
 
-  function openAddDayModal() {
+  function openAddDayModal(trigger?: HTMLElement) {
+    if (trigger) {
+      dayModalTriggerRef.current = trigger
+    }
+
     addDayMutation.reset()
     setDayModal({ mode: 'add' })
     setDayName('')
@@ -313,7 +319,11 @@ export function ProgramPage() {
     setDayFormError('')
   }
 
-  function openEditDayModal(day: ProgramDay) {
+  function openEditDayModal(day: ProgramDay, trigger?: HTMLElement) {
+    if (trigger) {
+      dayModalTriggerRef.current = trigger
+    }
+
     updateDayMutation.reset()
     setDayModal({ mode: 'edit', day })
     setDayName(day.name)
@@ -355,11 +365,16 @@ export function ProgramPage() {
   function handleDeleteDayClick(day: ProgramDay) {
     deleteDayMutation.reset()
     removeDayExerciseMutation.reset()
+    deleteConfirmationTriggerRef.current = dayModalTriggerRef.current
     setDayModal(null)
     setDeleteConfirmation({ type: 'day', day })
   }
 
-  function openAddExercisePicker(dayId: string) {
+  function openAddExercisePicker(dayId: string, trigger?: HTMLElement) {
+    if (trigger) {
+      exercisePickerTriggerRef.current = trigger
+    }
+
     setExercisePicker({ dayId })
     setSelectedExerciseId('')
   }
@@ -380,6 +395,7 @@ export function ProgramPage() {
   function handleRemoveExercise(dayId: string, exercise: DayExerciseItem) {
     deleteDayMutation.reset()
     removeDayExerciseMutation.reset()
+    deleteConfirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setDeleteConfirmation({ type: 'exercise', dayId, exercise })
   }
 
@@ -502,9 +518,9 @@ export function ProgramPage() {
                 deleteDisabled={program.isActive || deleteProgramMutation.isPending}
               />
             ) : null}
-            <button
-              type="button"
-              onClick={openAddDayModal}
+              <button
+                type="button"
+                onClick={(event) => openAddDayModal(event.currentTarget)}
               disabled={!program}
               className="min-h-11 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
@@ -562,7 +578,7 @@ export function ProgramPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => openEditDayModal(day)}
+                    onClick={(event) => openEditDayModal(day, event.currentTarget)}
                     data-press="icon"
                     data-press-tone="blue"
                     title="Edit day"
@@ -613,7 +629,7 @@ export function ProgramPage() {
                 <div className="mt-3">
                   <button
                     type="button"
-                    onClick={() => openAddExercisePicker(day.id)}
+                    onClick={(event) => openAddExercisePicker(day.id, event.currentTarget)}
                     className="min-h-11 w-full rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
                   >
                     + Add exercise
@@ -633,99 +649,96 @@ export function ProgramPage() {
       <BottomTabBar />
 
       {dayModal ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') closeDayModal()
-          }}
+        <Dialog
+          labelledBy="program-day-dialog-title"
+          onClose={closeDayModal}
+          closeOnEscape={!dayFormIsSaving}
+          restoreFocusRef={dayModalTriggerRef}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="flex max-h-[calc(100dvh-3rem)] w-full max-w-md flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="program-day-dialog-title"
-            className="flex max-h-[calc(100dvh-3rem)] w-full max-w-md flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
-          >
-            <form onSubmit={handleDaySubmit} className="flex min-h-0 flex-col">
-              <div className="border-b border-slate-100 px-5 py-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  {dayModal.mode === 'add' ? 'Add Day' : 'Edit Day'}
-                </p>
-                <h2 id="program-day-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
-                  {dayModal.mode === 'add' ? 'New day' : dayModal.day.name}
-                </h2>
-              </div>
-              <div className="min-h-0 space-y-4 overflow-y-auto p-5">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Name
-                  </span>
-                  <input
-                    type="text"
-                    maxLength={60}
-                    value={dayName}
-                    onChange={(event) => setDayName(event.target.value)}
-                    placeholder="e.g. PUSH"
-                    className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
-                    required
-                  />
-                </label>
-                <div>
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-                    Badge color
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {DAY_BADGE_COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setDayBadgeColor(color)}
-                        data-press="swatch"
-                        aria-label={`Choose badge color ${color}`}
-                        aria-pressed={dayBadgeColor === color}
-                        className={`h-11 w-11 rounded-full ${color} ${
-                          dayBadgeColor === color ? 'ring-2 ring-offset-2 ring-slate-900' : ''
-                        }`}
-                      />
-                    ))}
-                  </div>
+          <form onSubmit={handleDaySubmit} className="flex min-h-0 flex-col">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                {dayModal.mode === 'add' ? 'Add Day' : 'Edit Day'}
+              </p>
+              <h2 id="program-day-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+                {dayModal.mode === 'add' ? 'New day' : dayModal.day.name}
+              </h2>
+            </div>
+            <div className="min-h-0 space-y-4 overflow-y-auto p-5">
+              <label htmlFor="program-day-name" className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Name
+                </span>
+                <input
+                  id="program-day-name"
+                  type="text"
+                  aria-describedby={dayFormError || dayFormHasError ? 'program-day-error' : undefined}
+                  maxLength={60}
+                  value={dayName}
+                  onChange={(event) => setDayName(event.target.value)}
+                  placeholder="e.g. PUSH"
+                  className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                  required
+                />
+              </label>
+              <div>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Badge color
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {DAY_BADGE_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setDayBadgeColor(color)}
+                      data-press="swatch"
+                      aria-label={`Choose badge color ${color}`}
+                      aria-pressed={dayBadgeColor === color}
+                      className={`h-11 w-11 rounded-full ${color} ${
+                        dayBadgeColor === color ? 'ring-2 ring-offset-2 ring-slate-900' : ''
+                      }`}
+                    />
+                  ))}
                 </div>
-
-                {dayFormError || dayFormHasError ? (
-                  <p className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                    {dayFormError || 'Unable to save day. Please try again.'}
-                  </p>
-                ) : null}
-
-                {dayModal.mode === 'edit' ? (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteDayClick(dayModal.day)}
-                    className="min-h-11 w-full rounded-[12px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100"
-                  >
-                    Delete Day
-                  </button>
-                ) : null}
               </div>
-              <div className="flex gap-2 border-t border-slate-100 p-4">
+
+              {dayFormError || dayFormHasError ? (
+                <p id="program-day-error" role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                  {dayFormError || 'Unable to save day. Please try again.'}
+                </p>
+              ) : null}
+
+              {dayModal.mode === 'edit' ? (
                 <button
                   type="button"
-                  onClick={closeDayModal}
-                  disabled={dayFormIsSaving}
-                  className="flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                  onClick={() => handleDeleteDayClick(dayModal.day)}
+                  className="min-h-11 w-full rounded-[12px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100"
                 >
-                  Cancel
+                  Delete Day
                 </button>
-                <button
-                  type="submit"
-                  disabled={dayFormIsSaving}
-                  className="flex-1 rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-                >
-                  {dayFormIsSaving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+              ) : null}
+            </div>
+            <div className="flex gap-2 border-t border-slate-100 p-4">
+              <button
+                type="button"
+                onClick={closeDayModal}
+                disabled={dayFormIsSaving}
+                className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={dayFormIsSaving}
+                className="min-h-11 flex-1 rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+              >
+                {dayFormIsSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </form>
+        </Dialog>
       ) : null}
 
       {exercisePicker ? (
@@ -746,69 +759,67 @@ export function ProgramPage() {
           onConfirm={handleExercisePickerConfirm}
           onClose={closeExercisePicker}
           onCreated={(exercise) => setSelectedExerciseId(exercise.id)}
+          restoreFocusRef={exercisePickerTriggerRef}
         />
       ) : null}
 
       {deleteConfirmation ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') closeDeleteConfirmation()
-          }}
+        <Dialog
+          role="alertdialog"
+          labelledBy="program-delete-dialog-title"
+          describedBy="program-delete-dialog-description"
+          onClose={closeDeleteConfirmation}
+          closeOnEscape={!deleteConfirmationIsPending}
+          restoreFocusRef={deleteConfirmationTriggerRef}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="program-delete-dialog-title"
-            className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
-          >
-            <div>
-              <h2 id="program-delete-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
-                {deleteConfirmation.type === 'day'
-                  ? `Delete ${deleteConfirmation.day.name}?`
-                  : `Remove ${deleteConfirmation.exercise.name}?`}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                {deleteConfirmation.type === 'day'
-                  ? `This deletes ${deleteConfirmation.day.name} and its ${deleteConfirmation.day.exercises.length} ${
-                      deleteConfirmation.day.exercises.length === 1 ? 'exercise' : 'exercises'
-                    } from your routine.`
-                  : `This removes ${deleteConfirmation.exercise.name} from this day.`}
-              </p>
+          <div>
+            <h2 id="program-delete-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+              {deleteConfirmation.type === 'day'
+                ? `Delete ${deleteConfirmation.day.name}?`
+                : `Remove ${deleteConfirmation.exercise.name}?`}
+            </h2>
+            <p id="program-delete-dialog-description" className="mt-2 text-sm leading-6 text-slate-500">
+              {deleteConfirmation.type === 'day'
+                ? `This deletes ${deleteConfirmation.day.name} and its ${deleteConfirmation.day.exercises.length} ${
+                    deleteConfirmation.day.exercises.length === 1 ? 'exercise' : 'exercises'
+                  } from your routine.`
+                : `This removes ${deleteConfirmation.exercise.name} from this day.`}
+            </p>
 
-              {deleteConfirmationHasError ? (
-                <p className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                  {deleteConfirmation.type === 'day'
-                    ? 'Unable to delete day. Please try again.'
-                    : 'Unable to remove exercise. Please try again.'}
-                </p>
-              ) : null}
-            </div>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={closeDeleteConfirmation}
-                disabled={deleteConfirmationIsPending}
-                className="flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                disabled={deleteConfirmationIsPending}
-                className="flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
-              >
-                {deleteConfirmationIsPending
-                  ? 'Deleting...'
-                  : deleteConfirmation.type === 'day'
-                    ? 'Delete Day'
-                    : 'Remove Exercise'}
-              </button>
-            </div>
+            {deleteConfirmationHasError ? (
+              <p role="alert" className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {deleteConfirmation.type === 'day'
+                  ? 'Unable to delete day. Please try again.'
+                  : 'Unable to remove exercise. Please try again.'}
+              </p>
+            ) : null}
           </div>
-        </div>
-      ) : null}
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={closeDeleteConfirmation}
+              disabled={deleteConfirmationIsPending}
+              className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDelete}
+              disabled={deleteConfirmationIsPending}
+              className="min-h-11 flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+            >
+              {deleteConfirmationIsPending
+                ? 'Deleting...'
+                : deleteConfirmation.type === 'day'
+                  ? 'Delete Day'
+                  : 'Remove Exercise'}
+            </button>
+          </div>
+        </Dialog>
+       ) : null}
 
       {programDeleteDialogOpen && program ? (
         <ProgramDeleteDialog
