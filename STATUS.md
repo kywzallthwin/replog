@@ -1,9 +1,7 @@
 # RepLog Status
 
 ## Current Phase
-- Phase 0, Baseline: complete and committed.
-- Phase 1, PostgreSQL: complete and verified locally against PostgreSQL.
-- Phase 2, Production Serving: complete and verified locally against PostgreSQL.
+- Phases 0-2 (baseline, PostgreSQL, production serving): complete and verified.
 - Phase 3, Render/Neon Security: implemented and verified locally; deployment configuration is present.
 - Deployment: live at https://replog-tracker.onrender.com; Render and Neon were manually verified.
 - SQLite data may be discarded; no production data requires preservation.
@@ -24,7 +22,8 @@
 
 ## Current Work
 - Current wave: `WAVE1.md`.
-- Current ticket: `W1-05` (`proposed`); W1-04 is done after its 375px/manual and independent reviews. W1-03 is done after its final 375px/manual review. W1-01's baseline audit and W1-02's test foundation are accepted.
+- Current ticket: `W1-05` (`done`); dashboard behavior and loading decisions are resolved. The branded loader prototype was visually approved at 375px.
+- Next ticket: `W1-06` (`ready`); correct shell, navigation, and dashboard mobile issues including the approved Up Next, program-link, shell, and loading treatment.
 - Settled decisions: public registration, canonical kilogram storage with later pound display conversion, and immediate permanent account deletion.
 - Do not implement the latter two product features during Wave 1.
 
@@ -37,6 +36,7 @@
 - Client auth UI lint, typecheck, and build pass; the client build retains the existing warning about the main JavaScript chunk exceeding 500 kB.
 - W1-01 local audit and review completed at exactly 375px; the corrected F-01 evidence citation was verified and the ticket is done.
 - W1-02 review passed: the client harness blocks unexpected network traffic and clears test QueryClients. The client suite has 13 passing tests including the promoted W1-04 profile contracts; all 10 server tests pass, and W1-04's 375px/manual and independent reviews passed.
+- W1-05 decision review passed: dashboard Up Next, active-program links, and branded loading treatment decisions are resolved. The three-rep loader prototype was visually approved at 375px. Documentation only; no application code changed.
 - `npm audit --omit=dev` reports existing dependency vulnerabilities; no automatic audit fix was applied.
 
 ## Manual Actions
@@ -51,21 +51,18 @@
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Review and confirm W1-05's dashboard decisions before beginning any dashboard implementation.
-- [ ] Define and add dashboard streak progress; confirm streak rules and timezone behavior before implementation.
-- [ ] Improve Suggested Today behavior and empty states; confirm suggestion rules before implementation.
-- [ ] Add a Dashboard button linking to the active program page, with `/program` as the fallback.
-- [ ] Improve page-level loading states with the RepLog logo and a consistent branded loading treatment; confirm animation style and screen coverage before implementation, then resolve W1-05 dashboard decisions before W1-06.
+- Begin W1-06: implement the approved shell, navigation, dashboard, and loading treatment on branch `fix/w1-06-shell-dashboard-mobile`.
+- [ ] Before application streak work, write the calculation and timezone rules as a separate testable ticket.
 - Do not begin Wave 2 / Phase 4 until the mobile UI audit is complete.
 
 ## Deferred Backlog
-- `/guide`, rest timer enhancements, last-time references, workout notes, unit preferences, SVG chart, and day reordering.
+- `/guide`, dashboard streak progress and timezone rules, rest timer enhancements, last-time references, workout notes, unit preferences, SVG chart, and day reordering.
 
 ## Remaining Risks
 - Google OAuth and email delivery remain unverified because those integrations are optional and not configured.
 - Render Free and Neon Free can sleep; the first request after idle time can be slow.
 - Rate limits use process-local memory and reset when the single Free instance restarts.
 - Existing concurrent order-allocation and check-then-write behavior remains unchanged.
-- The client JavaScript bundle remains above the current 500 kB warning threshold; W1-05 dashboard decisions remain unresolved before further Wave 1 implementation.
+- The client JavaScript bundle remains above the current 500 kB warning threshold; W1-06 implementation is next.
 - Existing production dependency audit findings remain.
 - No credentials or environment files may be committed.
