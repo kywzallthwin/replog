@@ -8,6 +8,7 @@ import { getBadgeClass } from '../lib/badgeColors'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
+import { PageLoader } from '../components/ui/PageLoader'
 
 function getGreeting() {
   const hour = new Date().getHours()
@@ -136,9 +137,7 @@ export function DashboardPage() {
         </div>
 
         {isPending ? (
-          <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="text-sm font-semibold text-slate-500">Loading dashboard...</p>
-          </section>
+          <PageLoader statusMessage="Loading dashboard" />
         ) : null}
 
         {isError ? (
@@ -176,7 +175,12 @@ export function DashboardPage() {
               ) : null}
               <section className={`mb-5 rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)] ${dashboard.activeSession ? 'hidden' : ''}`}>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Suggested today{dashboard.activeProgram ? ` · ${dashboard.activeProgram.name}` : ''}
+                  Up Next{dashboard.activeProgram ? ' · ' : ''}
+                  {dashboard.activeProgram ? (
+                    <Link to={`/program/${dashboard.activeProgram.id}`} className="transition hover:text-slate-600">
+                      {dashboard.activeProgram.name}
+                    </Link>
+                  ) : null}
                 </p>
                 {dashboard.suggestedDay ? (
                   <>
@@ -206,8 +210,20 @@ export function DashboardPage() {
                           : 'Start Workout'}
                     </button>
                   </>
+                ) : dashboard.activeProgram ? (
+                  <Link
+                    to={`/program/${dashboard.activeProgram.id}`}
+                    className="mt-3 inline-flex min-h-11 items-center rounded-[13px] bg-slate-900 px-5 text-[15px] font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Edit Program
+                  </Link>
                 ) : (
-                  <p className="mt-3 text-sm text-slate-500">No routine days yet.</p>
+                  <Link
+                    to="/program"
+                    className="mt-3 inline-flex min-h-11 items-center rounded-[13px] bg-slate-900 px-5 text-[15px] font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Browse Programs
+                  </Link>
                 )}
               </section>
 

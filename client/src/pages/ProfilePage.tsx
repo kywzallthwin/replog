@@ -5,6 +5,7 @@ import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { BrandLogo } from '../components/BrandLogo'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
+import { PageLoader } from '../components/ui/PageLoader'
 
 function formatMemberSince(createdAt?: string) {
   if (!createdAt) {
@@ -20,7 +21,7 @@ function formatMemberSince(createdAt?: string) {
 export function ProfilePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: user } = useQuery({
+  const { data: user, isPending: userPending } = useQuery({
     queryKey: authMeQueryKey,
     queryFn: getCurrentUser,
     retry: false,
@@ -61,18 +62,24 @@ export function ProfilePage() {
           </Link>
         </header>
 
-        <section className="border-b border-slate-100 px-5 py-7 text-center">
-          <div className="mx-auto mb-3 flex h-[76px] w-[76px] items-center justify-center rounded-full bg-slate-900 text-[28px] font-extrabold tracking-[-0.02em] text-white">
-            {user?.avatarInitial ?? 'U'}
+        {userPending ? (
+          <div className="p-6">
+            <PageLoader statusMessage="Loading profile" />
           </div>
-          <h2 className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
-            {user?.username ?? 'User'}
-          </h2>
-          <p className="mt-1 break-all text-sm text-slate-500">{user?.email ?? 'Loading...'}</p>
-          <p className="mt-1 text-xs font-medium text-slate-400">
-            {formatMemberSince(user?.createdAt)}
-          </p>
-        </section>
+        ) : (
+          <>
+            <section className="border-b border-slate-100 px-5 py-7 text-center">
+              <div className="mx-auto mb-3 flex h-[76px] w-[76px] items-center justify-center rounded-full bg-slate-900 text-[28px] font-extrabold tracking-[-0.02em] text-white">
+                {user?.avatarInitial ?? 'U'}
+              </div>
+              <h2 className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+                {user?.username ?? 'User'}
+              </h2>
+              <p className="mt-1 break-all text-sm text-slate-500">{user?.email ?? ''}</p>
+              <p className="mt-1 text-xs font-medium text-slate-400">
+                {formatMemberSince(user?.createdAt)}
+              </p>
+            </section>
 
         <section className="grid grid-cols-3 border-b border-slate-100">
           <div className="border-r border-slate-100 px-2 py-4 text-center">
@@ -127,6 +134,8 @@ export function ProfilePage() {
             </p>
           ) : null}
         </section>
+          </>
+        )}
       </div>
       <BottomTabBar />
     </main>

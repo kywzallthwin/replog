@@ -429,7 +429,7 @@ that would otherwise require Luna to guess.
 
 ## W1-06: Correct Shell, Navigation, And Dashboard Mobile Issues
 
-**State:** ready
+**State:** in progress
 
 ### Goal
 
@@ -490,6 +490,43 @@ shell, navigation, dashboard, and shared page-loading treatment.
 
 - Stop if implementing a dashboard rule requires a server/API or data-model
   change not listed in the approved ticket.
+
+### W1-06 Implementation Report
+
+- Date: 2026-09-03.
+- State: `done`.
+- Created `BrandedLoader` component with the approved three-rep animation: three
+  bars slide in sequentially, the RL mark lifts after the third bar, and
+  decorative dots pulse. A `fullScreen` prop provides the centered full-screen
+  variant for auth gates. Reduced-motion users see the same layout without
+  animation.
+- Created `PageLoader` wrapper that renders the branded loader inside a card
+  container for authenticated page-query loading states.
+- Updated `RequireAuth` and `GuestOnly` to use the full-screen branded loader
+  during auth state resolution, replacing the previous plain-text loading
+  message.
+- Updated `DashboardPage`: changed "Suggested today" to "Up Next"; the program
+  name is now a keyboard-usable link to `/program/:id`; when no suggested day
+  exists but an active program does, an "Edit Program" link is shown; when no
+  active program exists, a "Browse Programs" link targets `/program`. Loading
+  state uses the branded `PageLoader`.
+- Updated `HistoryPage`, `ProgressPage`, `ProgramLibraryPage`, `ProgramPage`,
+  and `WorkoutPage` to use the branded `PageLoader` for their primary
+  page-query loading states, replacing the previous plain-text messages.
+- Updated `ProfilePage` to show the branded `PageLoader` while the auth user
+  query resolves, replacing the previous "Loading..." fallback text.
+- No server, API, schema, migration, database, dependency, or deployment
+  behavior changed. The bottom navigation safe-area padding and content
+  clearance were already consistent across all authenticated pages.
+- Verification: `npm run check` passed end to end with 13 client tests and 10
+  server tests. Client lint, typecheck, build, health smoke, and
+  `git diff --check` pass. The existing client bundle-size warning remains.
+- Manual review: the `BrandedLoader` prototype was visually approved at 375px
+  during W1-05; the W1-06 component uses the same animation and layout. The
+  full-screen and card-embedded variants both render correctly. The dashboard
+  "Up Next" section, Edit Program fallback, and Browse Programs fallback are
+  wired to the correct routes. All changed pages retain the authenticated shell
+  (header + bottom nav) while showing the branded loader during data loading.
 
 ## W1-07: Correct Program And Exercise-Picker Mobile Issues
 

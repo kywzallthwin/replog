@@ -31,6 +31,7 @@ import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
 import { useRestTimer, type RestTimerSessionStatus } from '../lib/useRestTimer'
 import { BrandLogo } from '../components/BrandLogo'
 import { Dialog } from '../components/ui/Dialog'
+import { PageLoader } from '../components/ui/PageLoader'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -1007,7 +1008,7 @@ export function WorkoutPage() {
 
         {isPending ? (
           <section className="p-6">
-            <p className="text-sm font-semibold text-slate-500">Loading workout...</p>
+            <PageLoader statusMessage="Loading workout" />
           </section>
         ) : null}
 
