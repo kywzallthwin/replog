@@ -20,6 +20,7 @@ import { BrandLogo } from '../components/BrandLogo'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog, type ProgramDeleteTarget } from '../components/programs/ProgramDeleteDialog'
+import { Dialog } from '../components/ui/Dialog'
 
 type CreateMode = 'template' | 'blank' | 'copy'
 
@@ -317,169 +318,163 @@ export function ProgramLibraryPage() {
       <BottomTabBar />
 
       {createModal ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') closeCreateModal()
-          }}
+        <Dialog
+          labelledBy="create-program-dialog-title"
+          onClose={closeCreateModal}
+          closeOnEscape={!createMutation.isPending}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-3rem)] w-full max-w-lg overflow-y-auto rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="create-program-dialog-title"
-            className="max-h-[calc(100dvh-3rem)] w-full max-w-lg overflow-y-auto rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
-          >
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">New routine</p>
-            <h2 id="create-program-dialog-title" className="mt-1 text-2xl font-extrabold tracking-[-0.03em] text-slate-900">
-              Try another program
-            </h2>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">New routine</p>
+          <h2 id="create-program-dialog-title" className="mt-1 text-2xl font-extrabold tracking-[-0.03em] text-slate-900">
+            Try another program
+          </h2>
 
-            <div className="mt-5 grid grid-cols-3 gap-2 rounded-[12px] bg-slate-100 p-1">
-              {(['template', 'blank', 'copy'] as const).map((mode) => (
+          <div className="mt-5 grid grid-cols-3 gap-2 rounded-[12px] bg-slate-100 p-1">
+            {(['template', 'blank', 'copy'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => {
+                  if (mode === 'copy') {
+                    const firstProgram = programs[0]
+                    openCreateModal(mode, firstProgram)
+                  } else {
+                    openCreateModal(mode)
+                  }
+                }}
+                className={`min-h-11 rounded-[9px] px-2 text-xs font-bold capitalize ${createModal.mode === mode ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.1)]' : 'text-slate-500'}`}
+              >
+                {mode === 'template' ? 'Template' : mode === 'copy' ? 'Copy' : 'Blank'}
+              </button>
+            ))}
+          </div>
+
+          {createModal.mode === 'template' ? (
+            <div className="mt-4 space-y-2">
+              {templatesPending ? <p role="status" aria-live="polite" className="text-sm text-slate-500">Loading templates...</p> : null}
+              {templates.map((template) => (
                 <button
-                  key={mode}
+                  key={template.id}
                   type="button"
-                  onClick={() => {
-                    if (mode === 'copy') {
-                      const firstProgram = programs[0]
-                      openCreateModal(mode, firstProgram)
-                    } else {
-                      openCreateModal(mode)
-                    }
-                  }}
-                  className={`min-h-11 rounded-[9px] px-2 text-xs font-bold capitalize ${createModal.mode === mode ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.1)]' : 'text-slate-500'}`}
+                  onClick={() => handleTemplateSelect(template)}
+                  className={`min-h-11 w-full rounded-[14px] border p-4 text-left transition ${selectedTemplateId === template.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
                 >
-                  {mode === 'template' ? 'Template' : mode === 'copy' ? 'Copy' : 'Blank'}
+                  <span className="block font-bold text-slate-900">{template.name}</span>
+                  <span className="mt-1 block text-sm leading-5 text-slate-500">{template.description}</span>
+                  <span className="mt-2 block text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
+                    {template.days} days · {template.exerciseCount} exercises
+                  </span>
                 </button>
               ))}
             </div>
+          ) : null}
 
-            {createModal.mode === 'template' ? (
-              <div className="mt-4 space-y-2">
-                {templatesPending ? <p className="text-sm text-slate-500">Loading templates...</p> : null}
-                {templates.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => handleTemplateSelect(template)}
-                    className={`w-full rounded-[14px] border p-4 text-left transition ${selectedTemplateId === template.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-                  >
-                    <span className="block font-bold text-slate-900">{template.name}</span>
-                    <span className="mt-1 block text-sm leading-5 text-slate-500">{template.description}</span>
-                    <span className="mt-2 block text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
-                      {template.days} days · {template.exerciseCount} exercises
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            {createModal.mode === 'copy' ? (
-              <label className="mt-4 block">
-                <span className="mb-1.5 block text-sm font-semibold text-slate-700">Copy from</span>
-                <FluidSelect
-                  value={createModal.sourceProgramId ?? ''}
-                  ariaLabel="Copy from"
-                  options={programs.map((program) => ({ value: program.id, label: program.name }))}
-                  onValueChange={(programId) => {
-                    const sourceProgram = programs.find((program) => program.id === programId)
-                    setCreateModal({ mode: 'copy', sourceProgramId: programId })
-                    setProgramName(sourceProgram ? `${sourceProgram.name} Copy` : 'Program Copy')
-                  }}
-                />
-              </label>
-            ) : null}
-
+          {createModal.mode === 'copy' ? (
             <label className="mt-4 block">
-              <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
-              <input
-                value={programName}
-                maxLength={80}
-                onChange={(event) => setProgramName(event.target.value)}
-                className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
-                placeholder="e.g. Three Month Beginner Plan"
+              <span className="mb-1.5 block text-sm font-semibold text-slate-700">Copy from</span>
+              <FluidSelect
+                value={createModal.sourceProgramId ?? ''}
+                ariaLabel="Copy from"
+                options={programs.map((program) => ({ value: program.id, label: program.name }))}
+                onValueChange={(programId) => {
+                  const sourceProgram = programs.find((program) => program.id === programId)
+                  setCreateModal({ mode: 'copy', sourceProgramId: programId })
+                  setProgramName(sourceProgram ? `${sourceProgram.name} Copy` : 'Program Copy')
+                }}
               />
             </label>
+          ) : null}
 
-            {formError ? <p className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">{formError}</p> : null}
+          <label htmlFor="create-program-name" className="mt-4 block">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
+            <input
+              id="create-program-name"
+              value={programName}
+              aria-describedby={formError ? 'create-program-error' : undefined}
+              maxLength={80}
+              onChange={(event) => setProgramName(event.target.value)}
+              className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+              placeholder="e.g. Three Month Beginner Plan"
+            />
+          </label>
 
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={closeCreateModal}
-                disabled={createMutation.isPending}
-                className="min-h-11 flex-1 rounded-[13px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:text-slate-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={submitCreate}
-                disabled={createMutation.isPending}
-                className="min-h-11 flex-1 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-              >
-                {createMutation.isPending ? 'Creating...' : 'Create program'}
-              </button>
-            </div>
+          {formError ? <p id="create-program-error" role="alert" className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">{formError}</p> : null}
+
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={closeCreateModal}
+              disabled={createMutation.isPending}
+              className="min-h-11 flex-1 rounded-[13px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:text-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitCreate}
+              disabled={createMutation.isPending}
+              className="min-h-11 flex-1 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+            >
+              {createMutation.isPending ? 'Creating...' : 'Create program'}
+            </button>
           </div>
-        </div>
+        </Dialog>
       ) : null}
 
       {renameTarget ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape' && !renameMutation.isPending) setRenameTarget(null)
+        <Dialog
+          labelledBy="rename-program-dialog-title"
+          onClose={() => {
+            if (!renameMutation.isPending) setRenameTarget(null)
           }}
+          closeOnEscape={!renameMutation.isPending}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4"
+          className="w-full max-w-md rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="rename-program-dialog-title"
-            className="w-full max-w-md rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
-          >
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Program settings</p>
-            <h2 id="rename-program-dialog-title" className="mt-1 text-2xl font-extrabold tracking-[-0.03em] text-slate-900">
-              Rename program
-            </h2>
-            <label className="mt-5 block">
-              <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
-              <input
-                value={renameName}
-                maxLength={80}
-                onChange={(event) => setRenameName(event.target.value)}
-                className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
-              />
-            </label>
-            {renameMutation.isError ? (
-              <p className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">
-                A program with this name may already exist.
-              </p>
-            ) : null}
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setRenameTarget(null)}
-                disabled={renameMutation.isPending}
-                className="min-h-11 flex-1 rounded-[13px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:text-slate-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (renameName.trim()) {
-                    renameMutation.mutate({ programId: renameTarget.id, name: renameName.trim() })
-                  }
-                }}
-                disabled={renameMutation.isPending || !renameName.trim()}
-                className="min-h-11 flex-1 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-              >
-                {renameMutation.isPending ? 'Saving...' : 'Save name'}
-              </button>
-            </div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Program settings</p>
+          <h2 id="rename-program-dialog-title" className="mt-1 text-2xl font-extrabold tracking-[-0.03em] text-slate-900">
+            Rename program
+          </h2>
+          <label htmlFor="rename-program-name" className="mt-5 block">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
+            <input
+              id="rename-program-name"
+              value={renameName}
+              aria-describedby={renameMutation.isError ? 'rename-program-error' : undefined}
+              maxLength={80}
+              onChange={(event) => setRenameName(event.target.value)}
+              className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+            />
+          </label>
+          {renameMutation.isError ? (
+            <p id="rename-program-error" role="alert" className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">
+              A program with this name may already exist.
+            </p>
+          ) : null}
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setRenameTarget(null)}
+              disabled={renameMutation.isPending}
+              className="min-h-11 flex-1 rounded-[13px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:text-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (renameName.trim()) {
+                  renameMutation.mutate({ programId: renameTarget.id, name: renameName.trim() })
+                }
+              }}
+              disabled={renameMutation.isPending || !renameName.trim()}
+              className="min-h-11 flex-1 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+            >
+              {renameMutation.isPending ? 'Saving...' : 'Save name'}
+            </button>
           </div>
-        </div>
+        </Dialog>
       ) : null}
 
       {deleteTarget ? (

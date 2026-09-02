@@ -24,7 +24,7 @@
 
 ## Current Work
 - Current wave: `WAVE1.md`.
-- Current ticket: `W1-02` (`done`); next ticket is `W1-03` (`proposed`, not started). W1-01's 375px baseline audit and review are complete.
+- Current ticket: `W1-05` (`proposed`); W1-04 is done after its 375px/manual and independent reviews. W1-03 is done after its final 375px/manual review. W1-01's baseline audit and W1-02's test foundation are accepted.
 - Settled decisions: public registration, canonical kilogram storage with later pound display conversion, and immediate permanent account deletion.
 - Do not implement the latter two product features during Wave 1.
 
@@ -36,7 +36,7 @@
 - `npm run smoke:health` passes against the compiled server.
 - Client auth UI lint, typecheck, and build pass; the client build retains the existing warning about the main JavaScript chunk exceeding 500 kB.
 - W1-01 local audit and review completed at exactly 375px; the corrected F-01 evidence citation was verified and the ticket is done.
-- W1-02 review passed: the client harness blocks unexpected network traffic, clears test QueryClients, and keeps 4 known-defect assertions as explicit expected failures; 6 normal client tests and all 10 server tests pass.
+- W1-02 review passed: the client harness blocks unexpected network traffic and clears test QueryClients. The client suite has 13 passing tests including the promoted W1-04 profile contracts; all 10 server tests pass, and W1-04's 375px/manual and independent reviews passed.
 - `npm audit --omit=dev` reports existing dependency vulnerabilities; no automatic audit fix was applied.
 
 ## Manual Actions
@@ -51,7 +51,7 @@
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Prepare W1-03; do not begin implementation until its ticket is moved to `in progress`. Later promote W1-02's expected-failure assertions after the owning UI fixes land.
+- Review and confirm W1-05's dashboard decisions before beginning any dashboard implementation.
 - [ ] Define and add dashboard streak progress; confirm streak rules and timezone behavior before implementation.
 - [ ] Improve Suggested Today behavior and empty states; confirm suggestion rules before implementation.
 - [ ] Add a Dashboard button linking to the active program page, with `/program` as the fallback.
@@ -66,6 +66,6 @@
 - Render Free and Neon Free can sleep; the first request after idle time can be slow.
 - Rate limits use process-local memory and reset when the single Free instance restarts.
 - Existing concurrent order-allocation and check-then-write behavior remains unchanged.
-- The client JavaScript bundle remains above the current 500 kB warning threshold; W1-02 retains four temporary expected-failure checks for W1-03/W1-04/W1-07 UI issues and they must be promoted after those fixes land.
+- The client JavaScript bundle remains above the current 500 kB warning threshold; W1-05 dashboard decisions remain unresolved before further Wave 1 implementation.
 - Existing production dependency audit findings remain.
 - No credentials or environment files may be committed.

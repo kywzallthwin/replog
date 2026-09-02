@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { MoreHorizontal } from 'lucide-react'
 
@@ -28,6 +28,7 @@ export function ProgramActionsMenu({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null)
+  const menuId = useId()
 
   const updateMenuPosition = useCallback(() => {
     const trigger = triggerRef.current
@@ -72,6 +73,14 @@ export function ProgramActionsMenu({
     updateMenuPosition()
   }, [isOpen, updateMenuPosition])
 
+  useLayoutEffect(() => {
+    if (!isOpen || !menuPosition) {
+      return
+    }
+
+    menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()
+  }, [isOpen, menuPosition])
+
   useEffect(() => {
     if (!isOpen) {
       return
@@ -85,6 +94,7 @@ export function ProgramActionsMenu({
       const target = event.target as Node
 
       if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        triggerRef.current?.focus()
         onToggle()
       }
     }
@@ -92,6 +102,7 @@ export function ProgramActionsMenu({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault()
+        triggerRef.current?.focus()
         onToggle()
       }
     }
@@ -109,7 +120,50 @@ export function ProgramActionsMenu({
     }
   }, [isOpen, onToggle, updateMenuPosition])
 
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const menu = menuRef.current
+    if (!menu) return
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      triggerRef.current?.focus()
+      onToggle()
+      return
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault()
+      event.stopPropagation()
+      triggerRef.current?.focus()
+      onToggle()
+      return
+    }
+
+    const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
+    if (!items.length) return
+
+    const activeIndex = items.indexOf(document.activeElement as HTMLButtonElement)
+    let nextIndex: number | null = null
+
+    if (event.key === 'ArrowDown') {
+      nextIndex = (activeIndex + 1 + items.length) % items.length
+    } else if (event.key === 'ArrowUp') {
+      nextIndex = (activeIndex - 1 + items.length) % items.length
+    } else if (event.key === 'Home') {
+      nextIndex = 0
+    } else if (event.key === 'End') {
+      nextIndex = items.length - 1
+    }
+
+    if (nextIndex !== null) {
+      event.preventDefault()
+      items[nextIndex]?.focus()
+    }
+  }
+
   function closeAndRun(action?: () => void) {
+    triggerRef.current?.focus()
     onToggle()
     action?.()
   }
@@ -117,16 +171,18 @@ export function ProgramActionsMenu({
   const menu = isOpen && menuPosition ? (
     <div
       ref={menuRef}
+      id={menuId}
       role="menu"
       aria-label={`${programName} actions`}
+      onKeyDown={handleMenuKeyDown}
       className="fixed z-[70] w-40 rounded-[12px] border border-slate-200 bg-white p-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.14)]"
       style={{
         left: menuPosition.left,
         ...(menuPosition.top !== undefined ? { top: menuPosition.top } : { bottom: menuPosition.bottom }),
       }}
     >
-      {onCopy ? <button type="button" role="menuitem" onClick={() => closeAndRun(onCopy)} className="flex min-h-10 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">Copy</button> : null}
-      {onRename ? <button type="button" role="menuitem" onClick={() => closeAndRun(onRename)} className="flex min-h-10 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">Rename</button> : null}
+      {onCopy ? <button type="button" role="menuitem" onClick={() => closeAndRun(onCopy)} className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">Copy</button> : null}
+      {onRename ? <button type="button" role="menuitem" onClick={() => closeAndRun(onRename)} className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">Rename</button> : null}
       {onDelete ? (
         <button
           type="button"
@@ -134,7 +190,7 @@ export function ProgramActionsMenu({
           onClick={() => closeAndRun(onDelete)}
           disabled={deleteDisabled}
           title={deleteDisabled ? 'Activate another program before deleting this one' : 'Delete program'}
-          className={`flex min-h-10 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold ${deleteDisabled ? 'cursor-not-allowed text-slate-400' : 'text-red-600 hover:bg-red-50'}`}
+          className={`flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold ${deleteDisabled ? 'cursor-not-allowed text-slate-400' : 'text-red-600 hover:bg-red-50'}`}
         >
           Delete
         </button>
@@ -148,7 +204,9 @@ export function ProgramActionsMenu({
         ref={triggerRef}
         type="button"
         aria-label={`More actions for ${programName}`}
+        aria-haspopup="menu"
         aria-expanded={isOpen}
+        aria-controls={isOpen ? menuId : undefined}
         onClick={onToggle}
         className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
       >

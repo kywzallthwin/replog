@@ -1,12 +1,11 @@
 import type { ReactElement } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChangePasswordPage } from '../pages/ChangePasswordPage'
 import { EditProfilePage } from '../pages/EditProfilePage'
 import { authMeQueryKey, changePassword, getCurrentUser, updateCurrentUser } from '../lib/auth'
-import { failForKnownBaselineDefect } from './expected-failure'
 import { createTestQueryClient } from './query-client'
 
 vi.mock('../lib/auth', () => ({
@@ -70,25 +69,53 @@ describe('profile form fields', () => {
     vi.mocked(changePassword).mockResolvedValue(undefined)
   })
 
-  it.fails('associates edit-profile labels with their inputs', () => {
-    return failForKnownBaselineDefect(() => {
-      const { container } = renderWithProfile(<EditProfilePage />)
-      const contracts = getFieldContracts(container, ['Username', 'Email'])
+  it('associates edit-profile labels with their inputs and autocomplete values', () => {
+    const { container } = renderWithProfile(<EditProfilePage />)
 
-      return contracts?.every((contract, index) => (
-        contract.associated && contract.autocomplete === ['username', 'email'][index]
-      ))
-    }, 'edit-profile labels are not associated with their inputs and autocomplete values')
+    expect(getFieldContracts(container, ['Username', 'Email'])).toEqual([
+      { label: 'Username', associated: true, autocomplete: 'username' },
+      { label: 'Email', associated: true, autocomplete: 'email' },
+    ])
   })
 
-  it.fails('associates change-password labels with suitable autocomplete fields', () => {
-    return failForKnownBaselineDefect(() => {
-      const { container } = renderWithProfile(<ChangePasswordPage />)
-      const contracts = getFieldContracts(container, ['Current Password', 'New Password', 'Confirm New Password'])
+  it('associates change-password labels with suitable autocomplete fields', () => {
+    const { container } = renderWithProfile(<ChangePasswordPage />)
 
-      return contracts?.every((contract, index) => (
-        contract.associated && contract.autocomplete === ['current-password', 'new-password', 'new-password'][index]
-      ))
-    }, 'change-password labels are not associated with their inputs and autocomplete values')
+    expect(getFieldContracts(container, ['Current Password', 'New Password', 'Confirm New Password'])).toEqual([
+      { label: 'Current Password', associated: true, autocomplete: 'current-password' },
+      { label: 'New Password', associated: true, autocomplete: 'new-password' },
+      { label: 'Confirm New Password', associated: true, autocomplete: 'new-password' },
+    ])
+  })
+
+  it('announces password feedback and keeps visibility controls tappable', async () => {
+    const { container } = renderWithProfile(<ChangePasswordPage />)
+
+    for (const name of ['Show current password', 'Show new password', 'Show confirm password']) {
+      expect(screen.getByRole('button', { name })).toHaveClass('min-h-11', 'min-w-11')
+    }
+
+    const currentPassword = screen.getByLabelText('Current Password')
+    const newPassword = screen.getByLabelText('New Password')
+    const confirmPassword = screen.getByLabelText('Confirm New Password')
+    const form = container.querySelector('form')
+
+    if (!form) {
+      throw new Error('Change-password form was not rendered')
+    }
+
+    fireEvent.change(currentPassword, { target: { value: 'current-password' } })
+    fireEvent.change(newPassword, { target: { value: 'new-password' } })
+    fireEvent.change(confirmPassword, { target: { value: 'different-password' } })
+    fireEvent.submit(form)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('New passwords do not match')
+
+    fireEvent.change(confirmPassword, { target: { value: 'new-password' } })
+    fireEvent.submit(form)
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('Password updated.')
+    })
   })
 })

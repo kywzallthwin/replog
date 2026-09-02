@@ -158,12 +158,12 @@ Wave 1 fixes can be verified without depending on the real API.
   scripts, and ticket documentation. No application, server API, schema,
   migration, database, or deployment file was changed.
 - Verification: `npm run check` passed with 5 client files, 6 normal tests,
-  4 expected failures, and 10 server tests. W1-02 is accepted; W1-03 remains
-  proposed and unstarted.
+  4 expected failures, and 10 server tests. W1-02 is accepted; W1-03 was the
+  next proposed ticket at the time of this report.
 
 ## W1-03: Correct Shared Accessibility And Interaction Primitives
 
-**State:** proposed
+**State:** done
 
 ### Goal
 
@@ -218,9 +218,20 @@ consistent accessible fields, dialogs, menus, tabs, and navigation controls.
 - Stop if expected semantics conflict with the mockup or an unresolved
   product decision.
 
+### W1-03 Implementation Report
+
+- Date: 2026-09-02.
+- State: `done`.
+- Added a shared `Dialog` primitive with initial focus, Tab and Shift+Tab containment, allowed Escape dismissal, focus restoration, and body scroll locking. The lock preserves nested overlays and restores prior body styles and scroll position.
+- Migrated program creation, rename, delete, day, exercise-picker, custom-exercise, workout delete, and cancel overlays to the shared contract. Added labelled descriptions, explicit field IDs where needed, live status/error regions, and 44px standalone action targets.
+- Improved the program action menu with menu-button semantics, focus entry/restoration, arrow/Home/End navigation, Escape/Tab handling, and 44px menu items. Exercise-picker source controls now expose tab semantics and keyboard navigation; the custom-exercise state uses the active picker dialog semantics.
+- Shared auth-field validation messages now use an alert contract. No server, API, schema, migration, database, dependency, or deployment behavior changed.
+- Verification: `npm run check` passed end to end. Client tests report 10 passing tests and 2 expected W1-04 profile failures; server tests report 10 passing tests. Client lint, typecheck, build, health smoke, and `git diff --check` pass. The existing client bundle-size warning remains.
+- Manual review: Chrome CDP at exactly 375px verified the program create dialog, program action menu, program exercise picker/custom-exercise flow, and active-workout swap/delete/cancel dialogs. Focus entered each overlay, Tab remained contained, Escape returned focus to the trigger, menu arrow navigation worked, controls stayed within the viewport, and body scroll locking cleared. The temporary active workout session used for this check was deleted afterward.
+
 ## W1-04: Correct Authentication And Profile Mobile Issues
 
-**State:** proposed
+**State:** done
 
 ### Goal
 
@@ -265,6 +276,30 @@ the authentication and profile screens.
 
 - Stop if the fix requires changing server authentication behavior.
 - Stop if a legal, privacy, or external-service decision is required.
+
+### W1-04 Implementation Report
+
+- Date: 2026-09-02.
+- State: `done`.
+- Added explicit IDs, label associations, and `username`, `email`,
+  `current-password`, and `new-password` autocomplete values to the profile
+  edit and change-password forms.
+- Added announced profile/logout and password mutation feedback, 44px password
+  visibility controls, and a 44px logout target. Password visibility toggles
+  preserve input focus and selection.
+- Promoted the two profile field contracts and added password feedback/touch
+  target coverage. No server, API, schema, migration, database, dependency, or
+  deployment behavior changed.
+- Verification: `npm run check` passed end to end with 13 client tests and 10
+  server tests. Client lint, typecheck, build, health smoke, and
+  `git diff --check` pass. The existing client bundle-size warning remains.
+- Manual review: Chrome CDP at exactly 375px checked `/login`, `/register`,
+  `/forgot-password`, `/reset-password`, `/profile`, `/profile/edit`, and
+  `/profile/password`; each had no document-level horizontal overflow, and the
+  profile field and visibility contracts rendered as expected.
+- Acceptance: independent review passed. Browser autofill and real soft-keyboard
+  rendering were not available in this environment, but no finding remained from
+  the available route, test, and 375px checks.
 
 ## W1-05: Resolve Dashboard Behavior And Loading Decisions
 

@@ -71,9 +71,13 @@ export function EditProfilePage() {
           </div>
 
           <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Username</label>
+            <label htmlFor="edit-profile-username" className="mb-1.5 block text-sm font-medium text-slate-700">
+              Username
+            </label>
             <input
+              id="edit-profile-username"
               type="text"
+              autoComplete="username"
               value={username ?? user?.username ?? ''}
               onChange={(event) => setUsername(event.target.value)}
               required
@@ -84,9 +88,13 @@ export function EditProfilePage() {
           </div>
 
           <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+            <label htmlFor="edit-profile-email" className="mb-1.5 block text-sm font-medium text-slate-700">
+              Email
+            </label>
             <input
+              id="edit-profile-email"
               type="email"
+              autoComplete="email"
               value={email ?? user?.email ?? ''}
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -95,7 +103,7 @@ export function EditProfilePage() {
           </div>
 
           {error ? (
-            <p className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p id="edit-profile-error" role="alert" className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {error}
             </p>
           ) : null}

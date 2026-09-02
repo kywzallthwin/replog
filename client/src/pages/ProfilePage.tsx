@@ -117,12 +117,12 @@ export function ProfilePage() {
             type="button"
             disabled={logoutMutation.isPending}
             onClick={() => logoutMutation.mutate()}
-            className="flex w-full items-center rounded-[14px] border border-red-200 bg-white px-4 py-4 text-sm font-semibold text-red-500 disabled:cursor-not-allowed disabled:text-red-300"
+            className="flex min-h-11 w-full items-center rounded-[14px] border border-red-200 bg-white px-4 py-4 text-sm font-semibold text-red-500 disabled:cursor-not-allowed disabled:text-red-300"
           >
             {logoutMutation.isPending ? 'Logging out...' : 'Log Out'}
           </button>
           {logoutMutation.isError ? (
-            <p className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p role="alert" className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               Unable to log out. Please try again.
             </p>
           ) : null}
