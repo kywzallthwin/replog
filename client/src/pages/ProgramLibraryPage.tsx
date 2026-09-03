@@ -10,9 +10,10 @@ import {
   getPrograms,
   programsQueryKey,
   updateProgram,
-  type ProgramSummary,
-  type ProgramTemplate,
-} from '../lib/programs'
+   type ProgramSummary,
+   type ProgramTemplate,
+   getCopiedProgramName,
+ } from '../lib/programs'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
@@ -52,7 +53,7 @@ export function ProgramLibraryPage() {
     queryFn: getPrograms,
     retry: false,
   })
-  const { data: templates = [], isPending: templatesPending } = useQuery({
+  const { data: templates = [], isPending: templatesPending, isError: templatesError } = useQuery({
     queryKey: ['programs', 'templates'],
     queryFn: getProgramTemplates,
     retry: false,
@@ -122,7 +123,7 @@ export function ProgramLibraryPage() {
       return
     }
 
-    setProgramName(sourceProgram ? `${sourceProgram.name} Copy` : 'My Program')
+    setProgramName(sourceProgram ? getCopiedProgramName(sourceProgram.name) : 'My Program')
   }
 
   function closeCreateModal() {
@@ -178,6 +179,18 @@ export function ProgramLibraryPage() {
     if (!createModal || !programName.trim()) {
       setFormError('Enter a program name.')
       return
+    }
+
+    if (createModal.mode === 'template') {
+      if (templatesPending) {
+        setFormError('Templates are still loading. Please wait.')
+        return
+      }
+
+      if (templatesError || !templates.some((template) => template.id === selectedTemplateId)) {
+        setFormError('Unable to load a valid template. Please try again.')
+        return
+      }
     }
 
     createMutation.mutate({
@@ -344,6 +357,7 @@ export function ProgramLibraryPage() {
                     openCreateModal(mode)
                   }
                 }}
+                disabled={createMutation.isPending}
                 className={`min-h-11 rounded-[9px] px-2 text-xs font-bold capitalize ${createModal.mode === mode ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.1)]' : 'text-slate-500'}`}
               >
                 {mode === 'template' ? 'Template' : mode === 'copy' ? 'Copy' : 'Blank'}
@@ -354,15 +368,17 @@ export function ProgramLibraryPage() {
           {createModal.mode === 'template' ? (
             <div className="mt-4 space-y-2">
               {templatesPending ? <p role="status" aria-live="polite" className="text-sm text-slate-500">Loading templates...</p> : null}
+              {templatesError ? <p role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">Unable to load templates. Please try again.</p> : null}
               {templates.map((template) => (
                 <button
                   key={template.id}
                   type="button"
                   onClick={() => handleTemplateSelect(template)}
-                  className={`min-h-11 w-full rounded-[14px] border p-4 text-left transition ${selectedTemplateId === template.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                  disabled={createMutation.isPending || templatesPending || templatesError}
+                  className={`min-h-11 w-full rounded-[14px] border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${selectedTemplateId === template.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
                 >
-                  <span className="block font-bold text-slate-900">{template.name}</span>
-                  <span className="mt-1 block text-sm leading-5 text-slate-500">{template.description}</span>
+                  <span className="block break-words font-bold text-slate-900 [overflow-wrap:anywhere]">{template.name}</span>
+                  <span className="mt-1 block break-words text-sm leading-5 text-slate-500 [overflow-wrap:anywhere]">{template.description}</span>
                   <span className="mt-2 block text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
                     {template.days} days · {template.exerciseCount} exercises
                   </span>
@@ -381,7 +397,7 @@ export function ProgramLibraryPage() {
                 onValueChange={(programId) => {
                   const sourceProgram = programs.find((program) => program.id === programId)
                   setCreateModal({ mode: 'copy', sourceProgramId: programId })
-                  setProgramName(sourceProgram ? `${sourceProgram.name} Copy` : 'Program Copy')
+                   setProgramName(sourceProgram ? getCopiedProgramName(sourceProgram.name) : 'Program Copy')
                 }}
               />
             </label>

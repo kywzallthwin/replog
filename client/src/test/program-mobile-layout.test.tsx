@@ -3,11 +3,19 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { ProgramDeleteDialog } from '../components/programs/ProgramDeleteDialog'
+import { getCopiedProgramName } from '../lib/programs'
 import { createTestQueryClient } from './query-client'
 
 const longName = 'UnbrokenExerciseNameThatMustRemainVisibleAtMobileWidths0123456789'
 
 describe('program mobile layout contract', () => {
+  it('keeps copied program names within the 80-character API limit', () => {
+    const copiedName = getCopiedProgramName('A'.repeat(80))
+
+    expect(copiedName).toHaveLength(80)
+    expect(copiedName.endsWith(' Copy')).toBe(true)
+  })
+
   it('wraps long picker names instead of clipping them', () => {
     const queryClient = createTestQueryClient()
 

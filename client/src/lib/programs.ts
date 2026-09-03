@@ -125,6 +125,11 @@ export const programsQueryKey = ['programs'] as const
 export const activeProgramQueryKey = ['programs', 'active'] as const
 export const programQueryKey = (programId: string) => ['programs', programId] as const
 
+export function getCopiedProgramName(name: string) {
+  const suffix = ' Copy'
+  return `${name.slice(0, 80 - suffix.length).trimEnd()}${suffix}`
+}
+
 export async function getPrograms() {
   const response = await api.get<ProgramsResponse>('/programs')
 
