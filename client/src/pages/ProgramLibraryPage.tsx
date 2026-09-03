@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -44,6 +44,7 @@ export function ProgramLibraryPage() {
   const [deleteTarget, setDeleteTarget] = useState<ProgramDeleteTarget | null>(null)
   const [renameName, setRenameName] = useState('')
   const [programName, setProgramName] = useState('')
+  const newProgramButtonRef = useRef<HTMLButtonElement>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState('beginner-full-body')
   const [formError, setFormError] = useState('')
   const { data: programs = [], isPending, isError } = useQuery({
@@ -202,6 +203,7 @@ export function ProgramLibraryPage() {
           </div>
           <TopNav />
           <button
+            ref={newProgramButtonRef}
             type="button"
             onClick={() => openCreateModal('template')}
             className="min-h-11 w-fit rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 sm:ml-auto"
@@ -487,8 +489,9 @@ export function ProgramLibraryPage() {
               setDeleteTarget(null)
             }
           }}
-          onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
-        />
+           onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+           fallbackFocusRef={newProgramButtonRef}
+         />
       ) : null}
     </main>
   )

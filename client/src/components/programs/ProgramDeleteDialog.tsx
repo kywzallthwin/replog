@@ -16,6 +16,7 @@ export function ProgramDeleteDialog({
   onCancel,
   onConfirm,
   restoreFocusRef,
+  fallbackFocusRef,
 }: {
   program: ProgramDeleteTarget
   isDeleting: boolean
@@ -23,6 +24,7 @@ export function ProgramDeleteDialog({
   onCancel: () => void
   onConfirm: () => void
   restoreFocusRef?: RefObject<HTMLElement | null>
+  fallbackFocusRef?: RefObject<HTMLElement | null>
 }) {
   return (
     <Dialog
@@ -32,6 +34,8 @@ export function ProgramDeleteDialog({
       onClose={onCancel}
       closeOnEscape={!isDeleting}
       restoreFocusRef={restoreFocusRef}
+      fallbackFocusRef={fallbackFocusRef}
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
       className="w-full max-w-md rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
     >
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Program settings</p>

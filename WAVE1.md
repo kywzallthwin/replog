@@ -536,7 +536,7 @@ shell, navigation, dashboard, and shared page-loading treatment.
 
 ## W1-07: Correct Program And Exercise-Picker Mobile Issues
 
-**State:** proposed
+**State:** ready
 
 ### Goal
 
@@ -551,34 +551,67 @@ menus, dialogs, and exercise selection.
 - Long names, empty states, scrolling, and touch targets.
 - Apply the shared dialog focus, Escape, background-scroll, and focus-restore
   contract to program and exercise overlays.
+- Preserve existing exercise reordering and the current two-step custom-exercise
+  flow: save returns to the picker with the new exercise selected, then the user
+  confirms Add Exercise.
 
 ### Out of scope
 
 - Whole-day reordering.
 - Custom exercise edit/delete feature work.
 - Changes to program API semantics.
+- Workout-specific picker acceptance, which belongs to W1-08; shared picker
+  changes must not regress the workout add/swap modes.
 
 ### Acceptance criteria
 
 - AC1: Changed program screens are usable at 375px without clipped content or
   horizontal scrolling.
-- AC2: Menus and dialogs are keyboard accessible and do not strand focus.
-- AC3: Empty, loading, error, and long-name states remain understandable.
-- AC4: Existing program creation, activation, editing, and deletion behavior
-  remains intact.
+- AC2: Menus and dialogs are keyboard accessible, contain Tab and Shift+Tab,
+  dismiss safely, and restore focus to a surviving trigger or an intentional
+  stable fallback when the trigger was deleted.
+- AC3: Empty, loading, error, and long-name states remain understandable;
+  primary program, day, exercise, and dialog names wrap at mobile widths,
+  including unbroken maximum-length values.
+- AC4: Existing template, blank, copy, rename, activation, program deletion,
+  day CRUD, exercise add/remove/reorder, and custom-exercise creation behavior
+  remains intact. Copy-generated names remain within the server's 80-character
+  limit.
 - AC5: Program menus, dialogs, and the nested custom-exercise form keep focus
   contained, dismiss safely, and expose their labels and actions at 375px.
+- AC6: Standalone changed actions remain at least 44px by 44px; dialog content
+  scrolls internally at constrained mobile heights while background scrolling is
+  locked.
+- AC7: The picker distinguishes an empty source from a search with no matches,
+  preserves Program days and All exercises grouping, marks already-added
+  exercises clearly, and keeps the saved custom exercise selected.
+- AC8: Pending mutations prevent conflicting state changes and expose an
+  understandable status; duplicate-name messages are reserved for conflict
+  responses and other failures offer a safe retry message.
 
 ### Verification
 
 - Run focused client tests, lint, and typecheck.
-- Manually check program and picker flows at 375px.
-- Test keyboard, Escape, scrolling, and long exercise names.
+- Manually check program and picker flows at exactly 375x900 and constrained
+  375x667.
+- Test keyboard, Escape precedence for copy-program and exercise-category
+  selects, scrolling, focus fallback, long exercise names, pending states, and
+  failed mutations.
 
 ### Stop conditions
 
 - Stop if the issue requires adding deferred program features or changing the
   server contract.
+
+### W1-07 Implementation Notes
+
+- Long primary names wrap; secondary category summaries may truncate when the
+  available row width requires it.
+- Saving a custom exercise returns to the picker with that exercise selected;
+  it does not add the exercise until Add Exercise is confirmed.
+- The five implementation commits are grouped by keyboard/focus behavior,
+  mobile layout and scrolling, program creation states, picker states, and
+  mutation feedback.
 
 ## W1-08: Correct Active-Workout Mobile Issues
 

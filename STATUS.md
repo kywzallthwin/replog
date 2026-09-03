@@ -22,8 +22,8 @@
 
 ## Current Work
 - Current wave: `WAVE1.md`.
-- Current ticket: `W1-06` (`review`); corrected shell, navigation, dashboard, and loading treatment are implemented and ready for independent acceptance review.
-- Next ticket: `W1-07` (`proposed`); correct program and exercise-picker mobile issues.
+- Current ticket: `W1-07` (`ready`); implementation is proceeding in five atomic fix commits after the W1-06 review handoff.
+- W1-06 remains `review`; its independent acceptance state is not changed by this implementation session.
 - Settled decisions: public registration, canonical kilogram storage with later pound display conversion, and immediate permanent account deletion.
 - Do not implement the latter two product features during Wave 1.
 
@@ -52,7 +52,7 @@
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Complete independent acceptance review of W1-06, then begin W1-07: correct program and exercise-picker mobile issues.
+- Implement W1-07 in the five scoped fix steps, verify each step, and commit each completed change locally.
 - [ ] Before application streak work, write the calculation and timezone rules as a separate testable ticket.
 - Do not begin Wave 2 / Phase 4 until the mobile UI audit is complete.
 

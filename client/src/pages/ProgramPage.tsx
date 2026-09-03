@@ -164,6 +164,7 @@ export function ProgramPage() {
   const dayModalTriggerRef = useRef<HTMLElement | null>(null)
   const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
   const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
+  const addDayButtonRef = useRef<HTMLButtonElement>(null)
 
   const { data: program, isError, isPending } = useQuery({
     queryKey: programQueryKey(programId),
@@ -520,6 +521,7 @@ export function ProgramPage() {
               />
             ) : null}
               <button
+                ref={addDayButtonRef}
                 type="button"
                 onClick={(event) => openAddDayModal(event.currentTarget)}
               disabled={!program}
@@ -769,7 +771,8 @@ export function ProgramPage() {
           describedBy="program-delete-dialog-description"
           onClose={closeDeleteConfirmation}
           closeOnEscape={!deleteConfirmationIsPending}
-          restoreFocusRef={deleteConfirmationTriggerRef}
+           restoreFocusRef={deleteConfirmationTriggerRef}
+           fallbackFocusRef={addDayButtonRef}
           overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
           className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >

@@ -129,6 +129,7 @@ export function FluidSelect({
     if (event.key === 'Escape') {
       if (isOpen) {
         event.preventDefault()
+        event.stopPropagation()
         setIsOpen(false)
       }
       return
