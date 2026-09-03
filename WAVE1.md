@@ -303,7 +303,7 @@ the authentication and profile screens.
 
 ## W1-05: Resolve Dashboard Behavior And Loading Decisions
 
-**State:** proposed
+**State:** done
 
 ### Goal
 
@@ -312,40 +312,124 @@ that would otherwise require Luna to guess.
 
 ### Scope
 
-- Define streak calculation and timezone rules.
-- Define Suggested Today selection and empty-state behavior.
+- Record dashboard streak progress and timezone behavior as deferred rather than
+  inventing rules for Wave 1.
+- Define the persistent Up Next selection and empty-state behavior.
 - Decide the active-program link behavior and `/program` fallback.
-- Define branded loading treatment, animation style, and screen coverage.
-- Convert the approved decisions into acceptance criteria for W1-06.
+- Define the proposed branded loading treatment, animation style, and screen
+  coverage, then provide a temporary visual prototype for approval.
+- Convert the approved decisions into measurable acceptance criteria for W1-06.
 
 ### Out of scope
 
 - Implementing dashboard code.
+- Implementing streaks, timezone storage, or weekly training schedules in the
+  React client, API, or database.
 - Changing workout, progress, or authentication rules.
 - Choosing legal or privacy policy language.
 
 ### Acceptance criteria
 
-- AC1: Streak rules and timezone behavior are written as testable examples.
-- AC2: Suggested Today behavior is defined for normal, empty, and missing-day
-  cases.
+- AC1: Wave 1 explicitly records streak progress and timezone behavior as
+  deferred; W1-06 does not add a streak card, streak API field, or timezone
+  assumption.
+- AC2: Up Next behavior is defined with testable examples for a first workout,
+  normal sequence, rest days, missing prior context, and empty programs.
 - AC3: The active-program link and fallback behavior are unambiguous.
-- AC4: Loading treatment scope and reduced-motion behavior are defined.
+- AC4: Loading treatment scope, visual treatment, animation, accessible status,
+  and reduced-motion behavior are defined, with a temporary prototype available
+  for visual review.
 - AC5: W1-06 contains measurable criteria based on the approved decisions.
 
 ### Verification
 
 - User reviews and approves the documented product decisions.
 - Planning/review pass confirms no behavior remains ambiguous.
+- Inspect the documentation diff and run `git diff --check`.
+- Confirm no application, API, schema, migration, dependency, or deployment
+  files changed.
 
 ### Stop conditions
 
-- Stop until the user approves streak, timezone, suggestion, and loading
-  behavior.
+- Stop before dashboard implementation until the temporary loader prototype is
+  visually approved.
+
+### W1-05 Decision Record
+
+- Date: 2026-09-03.
+- Streak progress and timezone behavior are deferred to a later product
+  decision. Wave 1 will not infer a streak definition from the existing
+  session timestamps.
+- The dashboard label becomes `Up Next`. It shows the next non-empty day in the
+  active program's ascending order. A rest day requires no interaction; the
+  recommendation remains unchanged until a workout is completed.
+- The latest completed session continues to mean the existing dashboard API's
+  most recently started finished session. Changing that timestamp rule is
+  deferred with streak behavior.
+- With no completed session in the active program, Up Next is the first day
+  containing exercises. After a completed day, it is the next later non-empty
+  day, wrapping to the first non-empty day when necessary. If the latest
+  completed session's day is deleted or belongs to another program, it falls
+  back to the first non-empty day.
+- If the active program has no day containing exercises, the dashboard shows an
+  Edit Program action and no Start Workout action. If there is no active
+  program, the Program action falls back to `/program`.
+- The primary Program action links to `/program/:activeProgramId` when an active
+  program exists and to `/program` otherwise.
+- The proposed loader uses the existing RepLog mark, a polite status message,
+  and a three-rep animation: the three bars slide in sequentially, the `RL` mark
+  lifts after the third bar, and decorative dots pulse. Auth gates use a centered
+  full-screen version; primary page queries on Dashboard, History, Progress,
+  Program Library, Program Editor, Workout, and Profile preserve the
+  authenticated shell and replace the page content with the branded treatment.
+  Reduced-motion users see the same layout without animation. Inline mutations,
+  background navigation refreshes, and nested dialog fetches retain their
+  contextual pending states.
+- Temporary visual prototype for review:
+  `C:\Users\User\AppData\Local\Temp\opencode\replog-w1-05-loader-prototype.html`.
+
+### Up Next Examples
+
+- Given ordered active days `Upper A`, `Lower A`, `Upper B`, and no completed
+  session, the result is `Upper A`.
+- After completing `Lower A`, the result is `Upper B`.
+- After completing `Upper B`, the result wraps to `Upper A`.
+- If `Lower A` has zero exercises, it is skipped; after `Upper A`, the result
+  is `Upper B`.
+- If the latest completed day was deleted or belongs to another program, the
+  result is the first non-empty day in the current active program.
+- If three rest days pass without a completion, the result does not change and
+  no rest-day action is required.
+- If every active-program day is empty, the result is an Edit Program action
+  with no Start Workout action. With no active program, the Program action
+  targets `/program`.
+- If an active workout exists, the existing Resume Workout state takes
+  precedence and starting another workout remains unavailable.
+
+### W1-05 Review Report
+
+- State: `done`.
+- The decision record and W1-06 acceptance criteria were updated; no React, API,
+  schema, migration, or deployment code changed.
+- The temporary prototype contains auth-gate, shell-preserving page-query, and
+  reduced-motion examples at the 375px acceptance width. Its controls switch
+  between the three-rep animation and static previews.
+- Chrome DevTools metrics verification at exactly `375x900` reported a
+  `375px` viewport, no overflowing element, and a prototype phone that stayed
+  inside the available content width; the 375px screenshot was captured at
+  `C:\Users\User\AppData\Local\Temp\opencode\replog-w1-05-loader-375-reps.png`.
+- The same browser check reported `rep-bar-in`, `rep-mark-lift`, and
+  `loading-dot` under no-preference motion and `none` after switching the
+  reduced-motion preview.
+- Approval: the user visually approved the three-rep loader prototype at 375px.
+  The three bars slide in sequentially, the RL mark lifts after the third bar,
+  and decorative dots pulse. Reduced-motion mode disables animation and shows
+  the same layout statically. The prototype remains temporary and outside Git.
+  W1-05 is accepted; W1-06 is the next ticket.
 
 ## W1-06: Correct Shell, Navigation, And Dashboard Mobile Issues
 
-**State:** proposed
+**State:** review
 
 ### Goal
 
@@ -355,7 +439,11 @@ shell, navigation, dashboard, and shared page-loading treatment.
 ### Scope
 
 - Top/bottom navigation and application shell.
-- Dashboard layout, states, links, and approved loading treatment.
+- Dashboard layout, persistent Up Next states, active-program links, and the
+  approved loading treatment.
+- The shared branded loading treatment for the Dashboard, History, Progress,
+  Program Library, Program Editor, Workout, and Profile primary page-query
+  states, while preserving the authenticated page shell where applicable.
 - Safe-area spacing, fixed navigation, overflow, and mobile scrolling.
 - Verify that the fixed mobile navigation does not cover the final dashboard
   content or actions.
@@ -365,6 +453,8 @@ shell, navigation, dashboard, and shared page-loading treatment.
 - Program, workout, history, or progress feature changes outside shared shell
   behavior.
 - New dashboard rules not approved in W1-05.
+- Streak progress, timezone storage, weekday scheduling, or daily rest-day
+  configuration.
 
 ### Acceptance criteria
 
@@ -373,10 +463,22 @@ shell, navigation, dashboard, and shared page-loading treatment.
 - AC2: Fixed navigation does not cover interactive content.
 - AC3: Active navigation and dashboard links are clear and keyboard usable.
 - AC4: Loading, empty, error, and populated states meet W1-05 decisions.
-- AC5: Existing dashboard API behavior remains unchanged unless explicitly
-  approved in W1-05.
+- AC5: Dashboard API behavior remains unchanged except for the explicitly
+  approved non-empty Up Next selection; no streak or timezone contract is
+  introduced.
 - AC6: At the bottom of each changed dashboard state, the last actionable
   content remains reachable above the fixed navigation at 375px.
+- AC7: Up Next keeps the same day across rest days without requiring a rest-day
+  action, selects the first or next non-empty ordered day according to W1-05,
+  and wraps correctly. When an active program has no usable day, it shows Edit
+  Program; when no active program exists, it uses the `/program` fallback.
+- AC8: The primary Program action opens `/program/:activeProgramId` when an
+  active program exists and `/program` otherwise; all changed links are named
+  and keyboard usable.
+- AC9: Auth-gate loading is full-screen; primary page-query loading preserves
+  the authenticated shell, exposes a polite status, and becomes static under
+  `prefers-reduced-motion: reduce`. Mutation, dialog, and background-navigation
+  refresh pending states are not replaced by the page loader.
 
 ### Verification
 
@@ -388,6 +490,49 @@ shell, navigation, dashboard, and shared page-loading treatment.
 
 - Stop if implementing a dashboard rule requires a server/API or data-model
   change not listed in the approved ticket.
+
+### W1-06 Implementation Report
+
+- Date: 2026-09-03.
+- State: `review`.
+- Corrected dashboard selection to choose only non-empty ordered days, skip
+  empty days, wrap after the last usable day, and return `null` when every day
+  is empty. No API field or data-model change was introduced.
+- Added dynamic active-program targets to the shared desktop and mobile Program
+  navigation links, with `/program` fallback and correct active state for
+  `/program/:programId`.
+- Replaced the initial loader implementation with the approved inline RepLog
+  mark animation: the real three bars slide in sequentially, the RL monogram
+  lifts, and dots pulse on the prototype's repeating timing. Auth gates use a
+  centered full-screen lockup; page queries preserve the shell in a loading
+  card. Reduced-motion users receive a static equivalent.
+- Profile now waits for both identity and dashboard statistics before showing
+  profile content, and displays a safe stats error instead of false zeroes when
+  the dashboard query fails. Empty dashboard copy no longer refers to a
+  suggested routine.
+- Added focused client coverage for loader semantics/variants, Program
+  navigation targets, dashboard fallback states, background refresh behavior,
+  and Profile loading. Added a server integration suite covering all approved
+  Up Next examples, including deleted/other-program fallback and all-empty
+  behavior.
+- Verification: `npm run check` passed end to end with 22 client tests and 11
+  server tests. Client/server lint, typecheck, build, health smoke, and
+  `git diff --check` pass. The existing client bundle-size warning remains.
+- Manual review: local Chrome CDP at exactly `375x900` verified an authenticated
+  dashboard with `/program/:activeProgramId` navigation, no horizontal
+  overflow, and reachable bottom navigation. A blocked local History query
+  verified the shell-preserving loader, `Loading history...` polite status,
+  reduced-motion mode, and no horizontal overflow. The temporary local browser
+  account used for this check was disposable.
+
+### W1-06 Review Notes
+
+- Review date: 2026-09-03.
+- The initial W1-06 commit was reviewed and corrected for non-empty Up Next
+  selection, empty-day start controls, exact loader behavior, Profile query
+  loading, missing tests, and branch placement.
+- The ticket is ready for independent acceptance review. No production deploy,
+  database migration, schema change, or credential change was made.
 
 ## W1-07: Correct Program And Exercise-Picker Mobile Issues
 
@@ -672,9 +817,9 @@ is listed separately so an unobserved state is not mistaken for a route defect.
   status-announcement, and standalone touch-target contract.
 - W1-04 owns the profile form associations, autocomplete, mutation feedback,
   and password-visibility target corrections.
-- W1-05 remains a product-decision gate for streak rules, Suggested Today,
-  active-program navigation, and branded loading; the audit did not invent
-  implementation behavior for those items.
+- W1-05 remains a product-decision gate for Up Next, active-program navigation,
+  and branded loading; dashboard streak rules and timezone behavior are
+  explicitly deferred.
 - W1-06 must preserve the observed no-overflow and bottom-navigation clearance
   while covering the unobserved active dashboard state.
 - W1-07 owns program/editor/picker overlay behavior, including the nested custom

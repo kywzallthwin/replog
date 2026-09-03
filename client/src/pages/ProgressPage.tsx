@@ -5,6 +5,7 @@ import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
+import { PageLoader } from '../components/ui/PageLoader'
 
 function formatFullDate(startedAt: string) {
   return new Intl.DateTimeFormat('en', {
@@ -87,9 +88,7 @@ export function ProgressPage() {
         </header>
 
         {isPending ? (
-          <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="text-sm font-semibold text-slate-500">Loading progress...</p>
-          </section>
+          <PageLoader statusMessage="Loading progress..." />
         ) : null}
 
         {isError ? (

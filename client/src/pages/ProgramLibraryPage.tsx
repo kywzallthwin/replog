@@ -21,6 +21,7 @@ import { FluidSelect } from '../components/forms/FluidSelect'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog, type ProgramDeleteTarget } from '../components/programs/ProgramDeleteDialog'
 import { Dialog } from '../components/ui/Dialog'
+import { PageLoader } from '../components/ui/PageLoader'
 
 type CreateMode = 'template' | 'blank' | 'copy'
 
@@ -210,9 +211,7 @@ export function ProgramLibraryPage() {
         </header>
 
         {isPending ? (
-          <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(15,23,42,0.12)]">
-            <p className="text-sm font-semibold text-slate-500">Loading your programs...</p>
-          </section>
+          <PageLoader statusMessage="Loading your programs..." />
         ) : null}
 
         {isError ? (

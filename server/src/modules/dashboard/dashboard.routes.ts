@@ -75,11 +75,14 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
   ])
   const totalVolumeKg = setLogs.reduce((total, set) => total + set.weightKg * set.reps, 0)
   const days = activeProgram?.days ?? []
+  const nonEmptyDays = days.filter((day) => day.dayExercises.length > 0)
   const latestSessionDay = latestSession?.day
   const latestDayOrder =
     latestSessionDay && latestSessionDay.programId === activeProgram?.id ? latestSessionDay.order : null
   const suggestedDay =
-    days.find((day) => day.order === (latestDayOrder ?? 0) + 1) ?? days[0] ?? null
+    latestDayOrder === null
+      ? nonEmptyDays[0] ?? null
+      : nonEmptyDays.find((day) => day.order > latestDayOrder) ?? nonEmptyDays[0] ?? null
 
   res.json({
     activeSession: activeSession
