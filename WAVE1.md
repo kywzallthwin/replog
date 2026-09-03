@@ -536,7 +536,7 @@ shell, navigation, dashboard, and shared page-loading treatment.
 
 ## W1-07: Correct Program And Exercise-Picker Mobile Issues
 
-**State:** ready
+**State:** review
 
 ### Goal
 
@@ -612,6 +612,31 @@ menus, dialogs, and exercise selection.
 - The five implementation commits are grouped by keyboard/focus behavior,
   mobile layout and scrolling, program creation states, picker states, and
   mutation feedback.
+
+### W1-07 Implementation Report
+
+- Date: 2026-09-04.
+- State: `review`.
+- `607bf3c` makes copy-program and exercise-category selects stop Escape at the
+  nested listbox, keeps disabled program delete actions keyboard-focusable, and
+  adds stable fallback focus for destructive dialogs.
+- `303a6e2` wraps long primary names and dialog copy, and bounds program delete
+  and rename dialogs for internal mobile scrolling.
+- `8bf3e99` keeps generated copy names within 80 characters and makes template
+  loading failures visible and non-submittable.
+- `e82d60c` distinguishes empty picker sources from no-match searches, clears
+  stale add-exercise errors on reopen, and disables conflicting picker controls
+  while saving.
+- `e961268` adds safe conflict-versus-generic mutation messages, announces
+  reorder failures, and blocks conflicting program-editor mutations.
+- Focused client coverage now has 30 passing tests across 10 files. Client
+  lint, typecheck, production build, Prisma generation/validation, and
+  `git diff --check` pass. The existing client bundle-size warning remains.
+- The repository-wide `npm run check` reached the server test phase but could
+  not connect to PostgreSQL at `localhost:5432`; the installed
+  `postgresql-x64-17` service is stopped and this session lacks permission to
+  open it. Server tests, health smoke, and exact 375px browser acceptance are
+  therefore pending independent review with the local database available.
 
 ## W1-08: Correct Active-Workout Mobile Issues
 

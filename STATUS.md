@@ -22,18 +22,19 @@
 
 ## Current Work
 - Current wave: `WAVE1.md`.
-- Current ticket: `W1-07` (`ready`); implementation is proceeding in five atomic fix commits after the W1-06 review handoff.
+- Current ticket: `W1-07` (`review`); five atomic fix commits implement the program and exercise-picker mobile hardening.
 - W1-06 remains `review`; its independent acceptance state is not changed by this implementation session.
 - Settled decisions: public registration, canonical kilogram storage with later pound display conversion, and immediate permanent account deletion.
 - Do not implement the latter two product features during Wave 1.
 
 ## Verification
-- `npm run check` passes end to end against local PostgreSQL.
+- `npm run check` passes through client checks but is currently blocked at server tests because local PostgreSQL is stopped and cannot be opened from this session.
 - GitHub Actions CI run 7 passes on commit `0ad1b17`.
 - Security, production serving, program, session, and database tests pass.
 - `git diff --check` passes.
 - `npm run smoke:health` passes against the compiled server.
 - Client auth UI lint, typecheck, and build pass; the client build retains the existing warning about the main JavaScript chunk exceeding 500 kB.
+- W1-07 implementation commits `607bf3c`, `303a6e2`, `8bf3e99`, `e82d60c`, and `e961268` pass focused client verification with 30 tests across 10 files. Program/select keyboard behavior, long-name wrapping, bounded dialogs, template/copy creation states, picker empty/pending states, mutation feedback, and editor conflict guards are implemented.
 - W1-01 local audit and review completed at exactly 375px; the corrected F-01 evidence citation was verified and the ticket is done.
 - W1-02 review passed: the client harness blocks unexpected network traffic and clears test QueryClients. The client suite has 13 passing tests including the promoted W1-04 profile contracts; all 10 server tests pass, and W1-04's 375px/manual and independent reviews passed.
 - W1-05 decision review passed: dashboard Up Next, active-program links, and branded loading treatment decisions are resolved. The three-rep loader prototype was visually approved at 375px. Documentation only; no application code changed.
@@ -41,7 +42,7 @@
 - `npm audit --omit=dev` reports existing dependency vulnerabilities; no automatic audit fix was applied.
 
 ## Manual Actions
-- Local PostgreSQL 17 is running with separate `replog` and `replog_test` databases.
+- Local PostgreSQL 17 is installed with separate `replog` and `replog_test` databases, but the `postgresql-x64-17` service was stopped during this session and could not be started due to service permissions.
 - The ignored `server/.env` contains local PostgreSQL URLs; never commit it. Local Prisma CLI falls back to `DATABASE_URL` when `DATABASE_URL_UNPOOLED` is absent.
 - Production URL: `https://replog-tracker.onrender.com`.
 - Render `/health` and `/ready` both return 200; the initial free-tier cold start was observed and recovered successfully.
@@ -52,7 +53,7 @@
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Implement W1-07 in the five scoped fix steps, verify each step, and commit each completed change locally.
+- Start local PostgreSQL with sufficient permissions, rerun server tests and `npm run check`, then complete independent 375px acceptance review of W1-07.
 - [ ] Before application streak work, write the calculation and timezone rules as a separate testable ticket.
 - Do not begin Wave 2 / Phase 4 until the mobile UI audit is complete.
 
