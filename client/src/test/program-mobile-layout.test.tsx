@@ -58,6 +58,65 @@ describe('program mobile layout contract', () => {
     expect(screen.getByText(longName)).toHaveClass('min-w-0', 'break-words')
   })
 
+  it('describes a program with empty days as empty rather than no search matches', () => {
+    const queryClient = createTestQueryClient()
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExercisePickerDialog
+          mode="add"
+          exerciseOptions={[]}
+          program={{
+            id: 'program-1',
+            name: 'Program',
+            isActive: true,
+            days: [{ id: 'day-1', name: 'Empty day', badgeColor: 'bg-blue-100 text-blue-800', order: 1, exercises: [] }],
+          }}
+          existingExerciseIds={[]}
+          selectedExerciseId=""
+          isOptionsPending={false}
+          isOptionsError={false}
+          isSaving={false}
+          onSelectedExercise={vi.fn()}
+          onConfirm={vi.fn()}
+          onClose={vi.fn()}
+          onCreated={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText('Your Program has no exercises yet.')).toBeInTheDocument()
+    expect(screen.queryByText('No exercises match your search.')).not.toBeInTheDocument()
+  })
+
+  it('disables picker controls while an exercise is being added', () => {
+    const queryClient = createTestQueryClient()
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExercisePickerDialog
+          mode="add"
+          exerciseOptions={[]}
+          program={null}
+          existingExerciseIds={[]}
+          selectedExerciseId=""
+          isOptionsPending={false}
+          isOptionsError={false}
+          isSaving
+          onSelectedExercise={vi.fn()}
+          onConfirm={vi.fn()}
+          onClose={vi.fn()}
+          onCreated={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole('searchbox', { name: 'Search exercises' })).toBeDisabled()
+    expect(screen.getByRole('tab', { name: 'Program days' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '+ New Exercise' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled()
+  })
+
   it('bounds program deletion content for constrained mobile heights', () => {
     render(
       <ProgramDeleteDialog

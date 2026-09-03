@@ -377,6 +377,7 @@ export function ProgramPage() {
       exercisePickerTriggerRef.current = trigger
     }
 
+    addDayExerciseMutation.reset()
     setExercisePicker({ dayId })
     setSelectedExerciseId('')
   }
