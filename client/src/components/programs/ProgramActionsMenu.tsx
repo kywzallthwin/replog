@@ -16,6 +16,7 @@ export function ProgramActionsMenu({
   onRename,
   onDelete,
   deleteDisabled = false,
+  disabled = false,
 }: {
   programName: string
   isOpen: boolean
@@ -24,6 +25,7 @@ export function ProgramActionsMenu({
   onRename?: () => void
   onDelete?: () => void
   deleteDisabled?: boolean
+  disabled?: boolean
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -205,12 +207,15 @@ export function ProgramActionsMenu({
       <button
         ref={triggerRef}
         type="button"
+        disabled={disabled}
         aria-label={`More actions for ${programName}`}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-controls={isOpen ? menuId : undefined}
-        onClick={onToggle}
-        className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+        onClick={() => {
+          if (!disabled) onToggle()
+        }}
+        className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
       >
         <MoreHorizontal size={18} strokeWidth={2} aria-hidden="true" />
       </button>

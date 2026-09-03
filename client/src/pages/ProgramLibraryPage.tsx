@@ -10,9 +10,10 @@ import {
   getPrograms,
   programsQueryKey,
   updateProgram,
-   type ProgramSummary,
-   type ProgramTemplate,
-   getCopiedProgramName,
+  type ProgramSummary,
+  type ProgramTemplate,
+  getCopiedProgramName,
+  getProgramMutationError,
  } from '../lib/programs'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
@@ -42,6 +43,7 @@ export function ProgramLibraryPage() {
   const [renameTarget, setRenameTarget] = useState<ProgramSummary | null>(null)
   const [openMenuProgramId, setOpenMenuProgramId] = useState<string | null>(null)
   const [activationBlockedProgramId, setActivationBlockedProgramId] = useState<string | null>(null)
+  const [activationError, setActivationError] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<ProgramDeleteTarget | null>(null)
   const [renameName, setRenameName] = useState('')
   const [programName, setProgramName] = useState('')
@@ -84,15 +86,19 @@ export function ProgramLibraryPage() {
         navigate(`/program/${program.id}`)
       }
     },
-    onError: () => setFormError('A program with this name may already exist. Try another name.'),
+    onError: (error) => setFormError(getProgramMutationError(error, 'A program with this name already exists. Try another name.', 'Unable to create the program. Please try again.')),
   })
   const activateMutation = useMutation({
     mutationFn: activateProgram,
     onSuccess: async () => {
       setActivationBlockedProgramId(null)
+      setActivationError('')
       await invalidateProgramData()
     },
-    onError: (_error, programId) => setActivationBlockedProgramId(programId),
+    onError: (error, programId) => {
+      setActivationBlockedProgramId(programId)
+      setActivationError(getProgramMutationError(error, 'Finish or cancel your active workout before switching programs.', 'Unable to switch programs. Please try again.'))
+    },
   })
   const deleteMutation = useMutation({
     mutationFn: deleteProgram,
@@ -162,10 +168,12 @@ export function ProgramLibraryPage() {
     if (dashboard?.activeSession) {
       activateMutation.reset()
       setActivationBlockedProgramId(programId)
+      setActivationError('Finish or cancel your active workout before switching programs.')
       return
     }
 
     setActivationBlockedProgramId(null)
+    setActivationError('')
     activateMutation.reset()
     activateMutation.mutate(programId)
   }
@@ -264,8 +272,9 @@ export function ProgramLibraryPage() {
                   onToggle={() => toggleProgramMenu(activeProgram.id)}
                   onCopy={() => { setOpenMenuProgramId(null); openCreateModal('copy', activeProgram) }}
                   onRename={() => openRenameModal(activeProgram)}
-                  onDelete={() => undefined}
-                  deleteDisabled
+                   onDelete={() => undefined}
+                   deleteDisabled
+                   disabled={createMutation.isPending || renameMutation.isPending || deleteMutation.isPending || activateMutation.isPending}
                 />
               </div>
             </article>
@@ -305,13 +314,14 @@ export function ProgramLibraryPage() {
                       isOpen={openMenuProgramId === program.id}
                       onToggle={() => toggleProgramMenu(program.id)}
                       onCopy={() => { setOpenMenuProgramId(null); openCreateModal('copy', program) }}
-                      onRename={() => openRenameModal(program)}
-                      onDelete={() => openDeleteDialog(program)}
+                       onRename={() => openRenameModal(program)}
+                       onDelete={() => openDeleteDialog(program)}
+                       disabled={createMutation.isPending || renameMutation.isPending || deleteMutation.isPending || activateMutation.isPending}
                     />
                   </div>
                   {(activationBlockedProgramId === program.id || (activateMutation.isError && activateMutation.variables === program.id)) ? (
                     <p role="alert" className="mt-3 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium leading-5 text-slate-600">
-                      Finish or cancel your active workout before switching programs.
+                      {activationError || 'Finish or cancel your active workout before switching programs.'}
                     </p>
                   ) : null}
                 </article>
@@ -394,6 +404,7 @@ export function ProgramLibraryPage() {
                 value={createModal.sourceProgramId ?? ''}
                 ariaLabel="Copy from"
                 options={programs.map((program) => ({ value: program.id, label: program.name }))}
+                disabled={createMutation.isPending}
                 onValueChange={(programId) => {
                   const sourceProgram = programs.find((program) => program.id === programId)
                   setCreateModal({ mode: 'copy', sourceProgramId: programId })
@@ -466,7 +477,7 @@ export function ProgramLibraryPage() {
           </label>
           {renameMutation.isError ? (
             <p id="rename-program-error" role="alert" className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">
-              A program with this name may already exist.
+               {getProgramMutationError(renameMutation.error, 'A program with this name already exists.', 'Unable to rename the program. Please try again.')}
             </p>
           ) : null}
           <div className="mt-5 flex gap-2">

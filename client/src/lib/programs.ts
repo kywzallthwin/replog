@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { api } from './api'
 import type { ExerciseCategory } from './exercises'
 
@@ -128,6 +129,10 @@ export const programQueryKey = (programId: string) => ['programs', programId] as
 export function getCopiedProgramName(name: string) {
   const suffix = ' Copy'
   return `${name.slice(0, 80 - suffix.length).trimEnd()}${suffix}`
+}
+
+export function getProgramMutationError(error: unknown, conflictMessage: string, fallbackMessage: string) {
+  return axios.isAxiosError(error) && error.response?.status === 409 ? conflictMessage : fallbackMessage
 }
 
 export async function getPrograms() {

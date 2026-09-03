@@ -33,6 +33,7 @@ import {
   reorderDayExercise,
   updateDay,
   getProgram,
+  getProgramMutationError,
   DAY_BADGE_COLORS,
   type DayBadgeColor,
   type DayExerciseItem,
@@ -101,6 +102,7 @@ function SortableExerciseRow({ exercise, isReordering, onRemove }: SortableExerc
       <button
         type="button"
         onClick={onRemove}
+        disabled={isReordering}
         data-press="icon"
         data-press-tone="red"
         title="Remove exercise"
@@ -159,6 +161,7 @@ export function ProgramPage() {
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState>(null)
   const [activationBlocked, setActivationBlocked] = useState(false)
+  const [activationError, setActivationError] = useState('')
   const [programDeleteDialogOpen, setProgramDeleteDialogOpen] = useState(false)
   const [programMenuOpen, setProgramMenuOpen] = useState(false)
   const dayModalTriggerRef = useRef<HTMLElement | null>(null)
@@ -199,9 +202,13 @@ export function ProgramPage() {
     mutationFn: () => activateProgram(programId),
     onSuccess: async () => {
       setActivationBlocked(false)
+      setActivationError('')
       await invalidateProgramData()
     },
-    onError: () => setActivationBlocked(true),
+    onError: (error) => {
+      setActivationBlocked(true)
+      setActivationError(getProgramMutationError(error, 'Finish or cancel the active workout before switching programs.', 'Unable to activate this program. Please try again.'))
+    },
   })
   const deleteProgramMutation = useMutation({
     mutationFn: () => deleteProgram(programId),
@@ -308,8 +315,16 @@ export function ProgramPage() {
   const dayFormHasError = addDayMutation.isError || updateDayMutation.isError
   const deleteConfirmationIsPending = deleteDayMutation.isPending || removeDayExerciseMutation.isPending
   const deleteConfirmationHasError = deleteDayMutation.isError || removeDayExerciseMutation.isError
+  const editorMutationIsPending = dayFormIsSaving
+    || deleteConfirmationIsPending
+    || addDayExerciseMutation.isPending
+    || reorderDayExerciseMutation.isPending
 
   function openAddDayModal(trigger?: HTMLElement) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     if (trigger) {
       dayModalTriggerRef.current = trigger
     }
@@ -322,6 +337,10 @@ export function ProgramPage() {
   }
 
   function openEditDayModal(day: ProgramDay, trigger?: HTMLElement) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     if (trigger) {
       dayModalTriggerRef.current = trigger
     }
@@ -365,6 +384,10 @@ export function ProgramPage() {
   }
 
   function handleDeleteDayClick(day: ProgramDay) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     deleteDayMutation.reset()
     removeDayExerciseMutation.reset()
     deleteConfirmationTriggerRef.current = dayModalTriggerRef.current
@@ -373,6 +396,10 @@ export function ProgramPage() {
   }
 
   function openAddExercisePicker(dayId: string, trigger?: HTMLElement) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     if (trigger) {
       exercisePickerTriggerRef.current = trigger
     }
@@ -396,6 +423,10 @@ export function ProgramPage() {
   }
 
   function handleRemoveExercise(dayId: string, exercise: DayExerciseItem) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     deleteDayMutation.reset()
     removeDayExerciseMutation.reset()
     deleteConfirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -441,7 +472,7 @@ export function ProgramPage() {
   )
 
   function handleDragEnd(day: ProgramDay, event: DragEndEvent) {
-    if (!event.over || event.active.id === event.over.id) {
+    if (editorMutationIsPending || !event.over || event.active.id === event.over.id) {
       return
     }
 
@@ -469,15 +500,21 @@ export function ProgramPage() {
     if (dashboard?.activeSession) {
       activateProgramMutation.reset()
       setActivationBlocked(true)
+      setActivationError('Finish or cancel the active workout before switching programs.')
       return
     }
 
     setActivationBlocked(false)
+    setActivationError('')
     activateProgramMutation.reset()
     activateProgramMutation.mutate()
   }
 
   function openProgramDeleteDialog() {
+    if (editorMutationIsPending) {
+      return
+    }
+
     deleteProgramMutation.reset()
     setProgramMenuOpen(false)
     setProgramDeleteDialogOpen(true)
@@ -506,7 +543,7 @@ export function ProgramPage() {
               <button
                 type="button"
                 onClick={handleActivateProgram}
-                disabled={activateProgramMutation.isPending}
+                 disabled={activateProgramMutation.isPending || editorMutationIsPending}
                 className="min-h-11 rounded-[13px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
               >
                 {activateProgramMutation.isPending ? 'Activating...' : 'Make active'}
@@ -519,13 +556,14 @@ export function ProgramPage() {
                 onToggle={() => setProgramMenuOpen((isOpen) => !isOpen)}
                 onDelete={openProgramDeleteDialog}
                 deleteDisabled={program.isActive || deleteProgramMutation.isPending}
+                disabled={editorMutationIsPending || activateProgramMutation.isPending || deleteProgramMutation.isPending}
               />
             ) : null}
               <button
                 ref={addDayButtonRef}
                 type="button"
                 onClick={(event) => openAddDayModal(event.currentTarget)}
-              disabled={!program}
+                disabled={!program || editorMutationIsPending}
               className="min-h-11 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               + Add Day
@@ -535,7 +573,7 @@ export function ProgramPage() {
 
         {activationBlocked || activateProgramMutation.isError ? (
           <p role="alert" className="mb-4 rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600">
-            Finish or cancel the active workout before switching programs.
+             {activationError || 'Finish or cancel the active workout before switching programs.'}
           </p>
         ) : null}
 
@@ -581,6 +619,7 @@ export function ProgramPage() {
                   <button
                     type="button"
                     onClick={(event) => openEditDayModal(day, event.currentTarget)}
+                    disabled={editorMutationIsPending}
                     data-press="icon"
                     data-press-tone="blue"
                     title="Edit day"
@@ -619,7 +658,7 @@ export function ProgramPage() {
                           <SortableExerciseRow
                             key={exercise.id}
                             exercise={exercise}
-                            isReordering={reorderDayExerciseMutation.isPending}
+                            isReordering={editorMutationIsPending}
                             onRemove={() => handleRemoveExercise(day.id, exercise)}
                           />
                         ))}
@@ -632,7 +671,8 @@ export function ProgramPage() {
                   <button
                     type="button"
                     onClick={(event) => openAddExercisePicker(day.id, event.currentTarget)}
-                    className="min-h-11 w-full rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                    disabled={editorMutationIsPending}
+                    className="min-h-11 w-full rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
                   >
                     + Add exercise
                   </button>
@@ -643,7 +683,7 @@ export function ProgramPage() {
         ) : null}
 
         {reorderDayExerciseMutation.isError ? (
-          <p className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             Unable to reorder the exercise. Please try again.
           </p>
         ) : null}
@@ -714,9 +754,10 @@ export function ProgramPage() {
 
               {dayModal.mode === 'edit' ? (
                 <button
-                  type="button"
-                  onClick={() => handleDeleteDayClick(dayModal.day)}
-                  className="min-h-11 w-full rounded-[12px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100"
+                   type="button"
+                   onClick={() => handleDeleteDayClick(dayModal.day)}
+                   disabled={dayFormIsSaving}
+                   className="min-h-11 w-full rounded-[12px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Delete Day
                 </button>
