@@ -541,7 +541,7 @@ export function ProgramPage() {
         ) : null}
 
         {isPending ? (
-          <PageLoader statusMessage="Loading program" />
+          <PageLoader statusMessage="Loading program..." />
         ) : null}
 
         {isError ? (

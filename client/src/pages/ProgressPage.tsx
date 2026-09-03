@@ -88,7 +88,7 @@ export function ProgressPage() {
         </header>
 
         {isPending ? (
-          <PageLoader statusMessage="Loading progress" />
+          <PageLoader statusMessage="Loading progress..." />
         ) : null}
 
         {isError ? (

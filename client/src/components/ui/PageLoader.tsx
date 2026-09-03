@@ -6,8 +6,8 @@ type PageLoaderProps = {
 
 export function PageLoader({ statusMessage }: PageLoaderProps) {
   return (
-    <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
+    <div className="grid min-h-[250px] place-items-center rounded-[24px] bg-white p-7 text-center shadow-[0_10px_26px_rgba(15,23,42,0.09)]">
       <BrandedLoader statusMessage={statusMessage} />
-    </section>
+    </div>
   )
 }

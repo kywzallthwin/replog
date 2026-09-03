@@ -1,94 +1,56 @@
-import { BrandLogo } from '../BrandLogo'
-
 type BrandedLoaderProps = {
   statusMessage?: string
   fullScreen?: boolean
 }
 
-export function BrandedLoader({ statusMessage = 'Loading\u2026', fullScreen = false }: BrandedLoaderProps) {
+export function BrandedLoader({ statusMessage = 'Loading...', fullScreen = false }: BrandedLoaderProps) {
   return (
     <div
-      role="status"
-      aria-live="polite"
-      aria-label={statusMessage}
-      className={`flex flex-col items-center justify-center gap-5 ${fullScreen ? 'min-h-dvh' : 'py-24'}`}
+      className={`replog-loader grid justify-items-center gap-3 text-center ${fullScreen ? 'min-h-dvh place-content-center' : ''}`}
     >
-      <div className="relative flex flex-col items-center">
-        <div className="relative flex items-end gap-1.5">
-          <div className="flex flex-col gap-1.5">
-            <span className="rl-bar rl-bar-1 block h-2 w-[22px] rounded-full bg-slate-900" />
-            <span className="rl-bar rl-bar-2 block h-2 w-[16px] rounded-full bg-slate-900" />
-            <span className="rl-bar rl-bar-3 block h-2 w-[10px] rounded-full bg-slate-900" />
-          </div>
-          <span className="rl-mark block h-8 w-8">
-            <BrandLogo compact className="h-8 w-8" />
-          </span>
-        </div>
-
-        <div className="mt-4 flex items-center gap-1.5" aria-hidden="true">
-          <span className="loading-dot loading-dot-1 inline-block h-1.5 w-1.5 rounded-full bg-slate-300" />
-          <span className="loading-dot loading-dot-2 inline-block h-1.5 w-1.5 rounded-full bg-slate-300" />
-          <span className="loading-dot loading-dot-3 inline-block h-1.5 w-1.5 rounded-full bg-slate-300" />
-        </div>
+      <div className={`inline-flex items-center ${fullScreen ? 'gap-2.5' : ''}`}>
+        <svg
+          viewBox="0 0 80 80"
+          aria-hidden="true"
+          focusable="false"
+          className={fullScreen ? 'h-[42px] w-[42px]' : 'h-[54px] w-[54px]'}
+        >
+          <g fill="#0f172a">
+            <rect data-loader-bar x="7" y="17" width="25" height="8" rx="4" />
+            <rect data-loader-bar x="7" y="31" width="19" height="8" rx="4" />
+            <rect data-loader-bar x="7" y="45" width="13" height="8" rx="4" />
+          </g>
+          <g
+            data-loader-monogram
+            fill="none"
+            stroke="#0f172a"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="7"
+          >
+            <path d="M38 56V14h14c8.5 0 14 4.3 14 11s-5.5 11-14 11H38m14 0 14 20" />
+            <path d="M57 14v42h17" />
+          </g>
+        </svg>
+        {fullScreen ? (
+          <strong className="text-[23px] font-extrabold tracking-[-0.04em] text-slate-900">RepLog</strong>
+        ) : null}
       </div>
 
-      <p className="text-sm font-semibold text-slate-400">{statusMessage}</p>
+      <p
+        role="status"
+        aria-live="polite"
+        aria-label={statusMessage}
+        className="text-[13px] font-bold text-slate-500"
+      >
+        {statusMessage}
+      </p>
 
-      <style>{`
-        .rl-bar {
-          transform: scaleX(0);
-          transform-origin: left;
-          animation: rep-bar-in 0.3s ease-out forwards;
-        }
-        .rl-bar-1 { animation-delay: 0s; }
-        .rl-bar-2 { animation-delay: 0.15s; }
-        .rl-bar-3 { animation-delay: 0.3s; }
-
-        .rl-mark {
-          transform: translateY(6px);
-          opacity: 0;
-          animation: rep-mark-lift 0.35s ease-out 0.5s forwards;
-        }
-
-        .loading-dot {
-          opacity: 0.3;
-          animation: loading-dot-pulse 1.2s ease-in-out infinite;
-        }
-        .loading-dot-1 { animation-delay: 0s; }
-        .loading-dot-2 { animation-delay: 0.2s; }
-        .loading-dot-3 { animation-delay: 0.4s; }
-
-        @keyframes rep-bar-in {
-          from { transform: scaleX(0); }
-          to { transform: scaleX(1); }
-        }
-
-        @keyframes rep-mark-lift {
-          from { transform: translateY(6px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-
-        @keyframes loading-dot-pulse {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 1; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .rl-bar {
-            animation: none;
-            transform: scaleX(1);
-          }
-          .rl-mark {
-            animation: none;
-            transform: translateY(0);
-            opacity: 1;
-          }
-          .loading-dot {
-            animation: none;
-            opacity: 0.5;
-          }
-        }
-      `}</style>
+      <span className="replog-loading-dots inline-flex min-h-2 items-center gap-1" aria-hidden="true">
+        <span className="h-1 w-1 rounded-full bg-slate-400" />
+        <span className="h-1 w-1 rounded-full bg-slate-400" />
+        <span className="h-1 w-1 rounded-full bg-slate-400" />
+      </span>
     </div>
   )
 }

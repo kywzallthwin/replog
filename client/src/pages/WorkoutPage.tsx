@@ -1008,7 +1008,7 @@ export function WorkoutPage() {
 
         {isPending ? (
           <section className="p-6">
-            <PageLoader statusMessage="Loading workout" />
+            <PageLoader statusMessage="Loading workout..." />
           </section>
         ) : null}
 

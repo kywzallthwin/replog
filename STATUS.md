@@ -22,7 +22,7 @@
 
 ## Current Work
 - Current wave: `WAVE1.md`.
-- Current ticket: `W1-06` (`done`); shell, navigation, dashboard, and loading treatment implemented. The branded loader, Up Next label, Edit Program fallback, and page-query loading states are in place.
+- Current ticket: `W1-06` (`review`); corrected shell, navigation, dashboard, and loading treatment are implemented and ready for independent acceptance review.
 - Next ticket: `W1-07` (`proposed`); correct program and exercise-picker mobile issues.
 - Settled decisions: public registration, canonical kilogram storage with later pound display conversion, and immediate permanent account deletion.
 - Do not implement the latter two product features during Wave 1.
@@ -37,7 +37,7 @@
 - W1-01 local audit and review completed at exactly 375px; the corrected F-01 evidence citation was verified and the ticket is done.
 - W1-02 review passed: the client harness blocks unexpected network traffic and clears test QueryClients. The client suite has 13 passing tests including the promoted W1-04 profile contracts; all 10 server tests pass, and W1-04's 375px/manual and independent reviews passed.
 - W1-05 decision review passed: dashboard Up Next, active-program links, and branded loading treatment decisions are resolved. The three-rep loader prototype was visually approved at 375px. Documentation only; no application code changed.
-- W1-06 implementation complete: branded `BrandedLoader` and `PageLoader` components created, dashboard "Up Next" label and Edit Program/Browse Programs fallbacks added, all 7 authenticated pages use the branded loading treatment, auth gates use full-screen branded loader. 13 client tests and 10 server tests pass; lint, typecheck, build, health smoke, and diff checks pass.
+- W1-06 correction complete: Up Next now skips empty days and wraps correctly; empty programs expose no workout-start controls; shared Program navigation targets the active editor with `/program` fallback; the loader matches the approved three-rep prototype with reduced-motion support; Profile waits for statistics. 22 client tests and 11 server tests pass; lint, typecheck, build, health smoke, and diff checks pass. Local Chrome CDP verification at exactly 375x900 found no horizontal overflow and confirmed the authenticated dashboard and shell-preserving loader.
 - `npm audit --omit=dev` reports existing dependency vulnerabilities; no automatic audit fix was applied.
 
 ## Manual Actions
@@ -52,7 +52,7 @@
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Begin W1-07: correct program and exercise-picker mobile issues.
+- Complete independent acceptance review of W1-06, then begin W1-07: correct program and exercise-picker mobile issues.
 - [ ] Before application streak work, write the calculation and timezone rules as a separate testable ticket.
 - Do not begin Wave 2 / Phase 4 until the mobile UI audit is complete.
 

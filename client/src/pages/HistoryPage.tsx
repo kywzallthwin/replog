@@ -73,7 +73,7 @@ export function HistoryPage() {
         </header>
 
         {isPending ? (
-          <PageLoader statusMessage="Loading history" />
+          <PageLoader statusMessage="Loading history..." />
         ) : null}
 
         {isError ? (

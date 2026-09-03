@@ -96,6 +96,7 @@ export function DashboardPage() {
       }
     },
   })
+  const usableProgramDays = dashboard?.activeProgram?.days.filter((day) => day.exerciseCount > 0) ?? []
 
   return (
     <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
@@ -137,7 +138,7 @@ export function DashboardPage() {
         </div>
 
         {isPending ? (
-          <PageLoader statusMessage="Loading dashboard" />
+          <PageLoader statusMessage="Loading dashboard..." />
         ) : null}
 
         {isError ? (
@@ -227,37 +228,39 @@ export function DashboardPage() {
                 )}
               </section>
 
-              <section className="mb-5">
-                {dashboard.activeSession ? (
-                  <div className="mb-4 flex items-start gap-3 rounded-[16px] border border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-500">
-                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-200 text-[11px] font-black text-slate-600" aria-hidden="true">
-                      i
-                    </span>
-                    <p>Finish or cancel this workout before starting another.</p>
-                  </div>
-                ) : null}
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-slate-500">
-                    {dashboard.activeSession ? 'Other workouts' : 'Or pick a day:'}
-                  </p>
+              {dashboard.activeSession || usableProgramDays.length ? (
+                <section className="mb-5">
                   {dashboard.activeSession ? (
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Locked</span>
+                    <div className="mb-4 flex items-start gap-3 rounded-[16px] border border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-500">
+                      <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-200 text-[11px] font-black text-slate-600" aria-hidden="true">
+                        i
+                      </span>
+                      <p>Finish or cancel this workout before starting another.</p>
+                    </div>
                   ) : null}
-                </div>
-                <div className={`flex flex-wrap gap-2 ${dashboard.activeSession ? 'opacity-50' : ''}`}>
-                  {dashboard.activeProgram?.days.map((day) => (
-                    <button
-                      type="button"
-                      key={day.id}
-                      disabled={Boolean(dashboard.activeSession) || startSessionMutation.isPending}
-                      onClick={() => startSessionMutation.mutate(day.id)}
-                      className={`min-h-11 rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.04em] shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-black/5 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 ${getBadgeClass(day.badgeColor)}`}
-                    >
-                      {day.name}
-                    </button>
-                  ))}
-                </div>
-              </section>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-slate-500">
+                      {dashboard.activeSession ? 'Other workouts' : 'Or pick a day:'}
+                    </p>
+                    {dashboard.activeSession ? (
+                      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Locked</span>
+                    ) : null}
+                  </div>
+                  <div className={`flex flex-wrap gap-2 ${dashboard.activeSession ? 'opacity-50' : ''}`}>
+                    {usableProgramDays.map((day) => (
+                      <button
+                        type="button"
+                        key={day.id}
+                        disabled={Boolean(dashboard.activeSession) || startSessionMutation.isPending}
+                        onClick={() => startSessionMutation.mutate(day.id)}
+                        className={`min-h-11 rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.04em] shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-black/5 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 ${getBadgeClass(day.badgeColor)}`}
+                      >
+                        {day.name}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               <section>
                 <div className="mb-3 flex items-center justify-between gap-3">
@@ -290,7 +293,7 @@ export function DashboardPage() {
                     ))
                   ) : (
                     <div className="rounded-[16px] bg-white p-4 text-sm text-slate-500 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                      No sessions logged yet. Start with the suggested routine above.
+                      No sessions logged yet. Finished workouts will appear here.
                     </div>
                   )}
                 </div>

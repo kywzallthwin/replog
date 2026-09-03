@@ -74,6 +74,85 @@
   transform-origin: bottom center;
 }
 
+.replog-loader [data-loader-bar] {
+  opacity: 0.2;
+  transform: translateX(-7px);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rep-bar-in 1.5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.replog-loader [data-loader-bar]:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.replog-loader [data-loader-bar]:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.replog-loader [data-loader-monogram] {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rep-mark-lift 1.5s cubic-bezier(0.22, 1, 0.36, 1) 380ms infinite;
+}
+
+.replog-loading-dots span {
+  opacity: 0.35;
+  animation: loading-dot 1.5s ease-in-out infinite;
+}
+
+.replog-loading-dots span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.replog-loading-dots span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+@keyframes rep-bar-in {
+  0%,
+  7% {
+    opacity: 0.2;
+    transform: translateX(-7px);
+  }
+
+  19%,
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes rep-mark-lift {
+  0%,
+  28% {
+    transform: translateY(0);
+  }
+
+  40%,
+  53% {
+    transform: translateY(-3px);
+  }
+
+  65%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes loading-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+
+  28% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
 @media (hover: none) and (pointer: coarse) {
   :where(button, a[href], [role="button"]):not([data-press="row"]):not([data-press="icon"]):not([data-press="swatch"]) {
     -webkit-tap-highlight-color: transparent;
@@ -168,5 +247,25 @@
 @media (prefers-reduced-motion: reduce) {
   .fluid-select-menu {
     animation: none;
+  }
+
+  .replog-loader [data-loader-bar],
+  .replog-loader [data-loader-monogram],
+  .replog-loading-dots span {
+    animation: none;
+  }
+
+  .replog-loader [data-loader-bar] {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .replog-loader [data-loader-monogram],
+  .replog-loading-dots span {
+    transform: translateY(0);
+  }
+
+  .replog-loading-dots span {
+    opacity: 1;
   }
 }

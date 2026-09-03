@@ -21,3 +21,11 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/program', mobileLabel: 'Program', desktopLabel: 'Program', icon: ClipboardList },
   { to: '/profile', mobileLabel: 'Profile', desktopLabel: 'Profile', icon: UserRound },
 ]
+
+export function getNavItemTarget(item: NavItem, activeProgramId?: string) {
+  return item.to === '/program' && activeProgramId ? `/program/${activeProgramId}` : item.to
+}
+
+export function isNavItemActive(item: NavItem, pathname: string) {
+  return pathname === item.to || pathname.startsWith(`${item.to}/`)
+}

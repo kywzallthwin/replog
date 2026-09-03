@@ -211,7 +211,7 @@ export function ProgramLibraryPage() {
         </header>
 
         {isPending ? (
-          <PageLoader statusMessage="Loading your programs" />
+          <PageLoader statusMessage="Loading your programs..." />
         ) : null}
 
         {isError ? (

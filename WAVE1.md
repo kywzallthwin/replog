@@ -429,7 +429,7 @@ that would otherwise require Luna to guess.
 
 ## W1-06: Correct Shell, Navigation, And Dashboard Mobile Issues
 
-**State:** in progress
+**State:** review
 
 ### Goal
 
@@ -494,39 +494,45 @@ shell, navigation, dashboard, and shared page-loading treatment.
 ### W1-06 Implementation Report
 
 - Date: 2026-09-03.
-- State: `done`.
-- Created `BrandedLoader` component with the approved three-rep animation: three
-  bars slide in sequentially, the RL mark lifts after the third bar, and
-  decorative dots pulse. A `fullScreen` prop provides the centered full-screen
-  variant for auth gates. Reduced-motion users see the same layout without
-  animation.
-- Created `PageLoader` wrapper that renders the branded loader inside a card
-  container for authenticated page-query loading states.
-- Updated `RequireAuth` and `GuestOnly` to use the full-screen branded loader
-  during auth state resolution, replacing the previous plain-text loading
-  message.
-- Updated `DashboardPage`: changed "Suggested today" to "Up Next"; the program
-  name is now a keyboard-usable link to `/program/:id`; when no suggested day
-  exists but an active program does, an "Edit Program" link is shown; when no
-  active program exists, a "Browse Programs" link targets `/program`. Loading
-  state uses the branded `PageLoader`.
-- Updated `HistoryPage`, `ProgressPage`, `ProgramLibraryPage`, `ProgramPage`,
-  and `WorkoutPage` to use the branded `PageLoader` for their primary
-  page-query loading states, replacing the previous plain-text messages.
-- Updated `ProfilePage` to show the branded `PageLoader` while the auth user
-  query resolves, replacing the previous "Loading..." fallback text.
-- No server, API, schema, migration, database, dependency, or deployment
-  behavior changed. The bottom navigation safe-area padding and content
-  clearance were already consistent across all authenticated pages.
-- Verification: `npm run check` passed end to end with 13 client tests and 10
-  server tests. Client lint, typecheck, build, health smoke, and
+- State: `review`.
+- Corrected dashboard selection to choose only non-empty ordered days, skip
+  empty days, wrap after the last usable day, and return `null` when every day
+  is empty. No API field or data-model change was introduced.
+- Added dynamic active-program targets to the shared desktop and mobile Program
+  navigation links, with `/program` fallback and correct active state for
+  `/program/:programId`.
+- Replaced the initial loader implementation with the approved inline RepLog
+  mark animation: the real three bars slide in sequentially, the RL monogram
+  lifts, and dots pulse on the prototype's repeating timing. Auth gates use a
+  centered full-screen lockup; page queries preserve the shell in a loading
+  card. Reduced-motion users receive a static equivalent.
+- Profile now waits for both identity and dashboard statistics before showing
+  profile content, and displays a safe stats error instead of false zeroes when
+  the dashboard query fails. Empty dashboard copy no longer refers to a
+  suggested routine.
+- Added focused client coverage for loader semantics/variants, Program
+  navigation targets, dashboard fallback states, background refresh behavior,
+  and Profile loading. Added a server integration suite covering all approved
+  Up Next examples, including deleted/other-program fallback and all-empty
+  behavior.
+- Verification: `npm run check` passed end to end with 22 client tests and 11
+  server tests. Client/server lint, typecheck, build, health smoke, and
   `git diff --check` pass. The existing client bundle-size warning remains.
-- Manual review: the `BrandedLoader` prototype was visually approved at 375px
-  during W1-05; the W1-06 component uses the same animation and layout. The
-  full-screen and card-embedded variants both render correctly. The dashboard
-  "Up Next" section, Edit Program fallback, and Browse Programs fallback are
-  wired to the correct routes. All changed pages retain the authenticated shell
-  (header + bottom nav) while showing the branded loader during data loading.
+- Manual review: local Chrome CDP at exactly `375x900` verified an authenticated
+  dashboard with `/program/:activeProgramId` navigation, no horizontal
+  overflow, and reachable bottom navigation. A blocked local History query
+  verified the shell-preserving loader, `Loading history...` polite status,
+  reduced-motion mode, and no horizontal overflow. The temporary local browser
+  account used for this check was disposable.
+
+### W1-06 Review Notes
+
+- Review date: 2026-09-03.
+- The initial W1-06 commit was reviewed and corrected for non-empty Up Next
+  selection, empty-day start controls, exact loader behavior, Profile query
+  loading, missing tests, and branch placement.
+- The ticket is ready for independent acceptance review. No production deploy,
+  database migration, schema change, or credential change was made.
 
 ## W1-07: Correct Program And Exercise-Picker Mobile Issues
 

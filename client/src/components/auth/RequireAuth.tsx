@@ -18,8 +18,8 @@ export function RequireAuth({ children }: RequireAuthProps) {
 
   if (isPending) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-slate-100 px-4">
-        <BrandedLoader fullScreen statusMessage="Loading RepLog" />
+      <main className="min-h-dvh bg-slate-100 px-4">
+        <BrandedLoader fullScreen statusMessage="Loading RepLog..." />
       </main>
     )
   }

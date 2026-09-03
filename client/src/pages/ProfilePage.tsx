@@ -26,11 +26,16 @@ export function ProfilePage() {
     queryFn: getCurrentUser,
     retry: false,
   })
-  const { data: dashboard } = useQuery({
+  const {
+    data: dashboard,
+    isError: dashboardError,
+    isPending: dashboardPending,
+  } = useQuery({
     queryKey: dashboardQueryKey,
     queryFn: getDashboard,
     retry: false,
   })
+  const profilePending = userPending || dashboardPending
   const logoutMutation = useMutation({
     mutationFn: logoutUser,
     onSuccess: () => {
@@ -62,9 +67,9 @@ export function ProfilePage() {
           </Link>
         </header>
 
-        {userPending ? (
+        {profilePending ? (
           <div className="p-6">
-            <PageLoader statusMessage="Loading profile" />
+            <PageLoader statusMessage="Loading profile..." />
           </div>
         ) : (
           <>
@@ -81,26 +86,34 @@ export function ProfilePage() {
               </p>
             </section>
 
-        <section className="grid grid-cols-3 border-b border-slate-100">
-          <div className="border-r border-slate-100 px-2 py-4 text-center">
-            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
-              {dashboard?.stats.workoutCount ?? 0}
-            </div>
-            <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Workouts</div>
-          </div>
-          <div className="border-r border-slate-100 px-2 py-4 text-center">
-            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
-              {dashboard?.stats.setCount ?? 0}
-            </div>
-            <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Sets</div>
-          </div>
-          <div className="px-2 py-4 text-center">
-            <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
-              {Math.round(dashboard?.stats.totalVolumeKg ?? 0)}kg
-            </div>
-            <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Lifted</div>
-          </div>
-        </section>
+            {dashboardError ? (
+              <section className="border-b border-slate-100 px-5 py-4">
+                <p role="alert" className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  Unable to load workout stats. Please refresh and try again.
+                </p>
+              </section>
+            ) : (
+              <section className="grid grid-cols-3 border-b border-slate-100">
+                <div className="border-r border-slate-100 px-2 py-4 text-center">
+                  <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
+                    {dashboard?.stats.workoutCount}
+                  </div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Workouts</div>
+                </div>
+                <div className="border-r border-slate-100 px-2 py-4 text-center">
+                  <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
+                    {dashboard?.stats.setCount}
+                  </div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Sets</div>
+                </div>
+                <div className="px-2 py-4 text-center">
+                  <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
+                    {Math.round(dashboard?.stats.totalVolumeKg ?? 0)}kg
+                  </div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Lifted</div>
+                </div>
+              </section>
+            )}
 
         <section className="px-5 py-5">
           <p className="mb-3 text-[13px] font-semibold text-slate-500">Settings</p>
