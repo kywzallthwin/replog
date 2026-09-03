@@ -82,10 +82,10 @@ function NewExerciseForm({
     <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-col overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-4">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Exercise library</p>
-        <h2 id="new-exercise-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+        <h2 id="new-exercise-dialog-title" className="mt-1 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
           New Exercise
         </h2>
-        <p id="new-exercise-dialog-description" className="mt-2 text-sm leading-6 text-slate-500">
+        <p id="new-exercise-dialog-description" className="mt-2 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
           Create a custom exercise you can add to any workout or Program.
         </p>
       </div>
@@ -302,7 +302,7 @@ export function ExercisePickerDialog({
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
               {mode === 'add' ? 'Add Exercise' : 'Swap Exercise'}
             </p>
-            <h2 id="exercise-picker-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+             <h2 id="exercise-picker-dialog-title" className="mt-1 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
               {mode === 'add' ? 'Choose an exercise' : currentExerciseName}
             </h2>
           </div>
@@ -370,7 +370,7 @@ export function ExercisePickerDialog({
               <div className="space-y-4">
                 {visibleGroups.map((group) => (
                   <section key={group.id}>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{group.label}</p>
+                     <p className="mb-2 break-words text-xs font-bold uppercase tracking-[0.14em] text-slate-400 [overflow-wrap:anywhere]">{group.label}</p>
                     <div className="space-y-2">
                       {group.exercises.map((exercise) => {
                         const isCurrent = currentExerciseId === exercise.id
@@ -400,10 +400,10 @@ export function ExercisePickerDialog({
                             >
                               <span className="h-2 w-2 rounded-full bg-current" />
                             </span>
-                            <span className="grow">{exercise.name}</span>
-                            {exercise.isCustom ? <span className={isSelected ? 'text-xs text-white/70' : 'text-xs text-slate-400'}>Yours</span> : null}
-                            {isCurrent ? <span className={isSelected ? 'text-xs text-white/70' : 'text-xs text-slate-400'}>Current</span> : null}
-                            {isAdded ? <span className="text-xs text-slate-400">Added</span> : null}
+                             <span className="min-w-0 grow break-words [overflow-wrap:anywhere]">{exercise.name}</span>
+                             {exercise.isCustom ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Yours</span> : null}
+                             {isCurrent ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Current</span> : null}
+                             {isAdded ? <span className="shrink-0 text-xs text-slate-400">Added</span> : null}
                           </button>
                         )
                       })}

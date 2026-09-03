@@ -495,7 +495,7 @@ export function ProgramPage() {
               <BrandLogo className="h-6 w-auto" />
             </Link>
             <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Program editor</p>
-            <h1 className="mt-1 truncate text-3xl font-bold tracking-[-0.03em] text-slate-900">
+             <h1 className="mt-1 break-words text-3xl font-bold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
               {program?.name ?? 'Edit Program'}
             </h1>
           </div>
@@ -571,7 +571,7 @@ export function ProgramPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <span
-                      className={`max-w-[55%] truncate rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(day.badgeColor)}`}
+                       className={`max-w-[55%] break-words rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] [overflow-wrap:anywhere] ${getBadgeClass(day.badgeColor)}`}
                     >
                       {day.name}
                     </span>
@@ -663,7 +663,7 @@ export function ProgramPage() {
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                 {dayModal.mode === 'add' ? 'Add Day' : 'Edit Day'}
               </p>
-              <h2 id="program-day-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+               <h2 id="program-day-dialog-title" className="mt-1 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
                 {dayModal.mode === 'add' ? 'New day' : dayModal.day.name}
               </h2>
             </div>
@@ -777,12 +777,12 @@ export function ProgramPage() {
           className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >
           <div>
-            <h2 id="program-delete-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+             <h2 id="program-delete-dialog-title" className="break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
               {deleteConfirmation.type === 'day'
                 ? `Delete ${deleteConfirmation.day.name}?`
                 : `Remove ${deleteConfirmation.exercise.name}?`}
             </h2>
-            <p id="program-delete-dialog-description" className="mt-2 text-sm leading-6 text-slate-500">
+             <p id="program-delete-dialog-description" className="mt-2 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
               {deleteConfirmation.type === 'day'
                 ? `This deletes ${deleteConfirmation.day.name} and its ${deleteConfirmation.day.exercises.length} ${
                     deleteConfirmation.day.exercises.length === 1 ? 'exercise' : 'exercises'
