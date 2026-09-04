@@ -672,6 +672,51 @@ menus, dialogs, and exercise selection.
   repository check had already passed before this UI-only correction; exact
   375px/375x667 browser verification remains pending.
 
+### W1-07 Drag Interaction Correction
+
+- Date: 2026-09-04.
+- Added a non-scaling `DragOverlay` with a stable 60px row preview, vertical
+  movement constraint, and short eased drop animation. The active list row is
+  now a stable placeholder instead of being stretched to the height of a
+  neighboring wrapped row.
+- Reorder cache updates remain synchronous before query cancellation, so the
+  destination order is visible immediately on release.
+- Client tests (31), lint, typecheck, and production build pass. Manual
+  verification at exactly 375x900 and 375x667 remains required for final UI
+  acceptance.
+
+### W1-07 Reorder Timing Correction
+
+- Date: 2026-09-04.
+- Removed the redundant active-exercise cleanup timer, shortened the overlay
+  drop animation to 130ms, and made related query invalidation fire in the
+  background after the authoritative reorder response.
+- Reorder controls now unlock when the server confirms the operation instead
+  of waiting for program, active-program, and dashboard refreshes. Failed
+  requests retain the existing rollback behavior.
+- Client tests, lint, typecheck, production build, and the full repository
+  check pass. Manual browser verification remains required.
+
+### W1-07 Drop Animation Correction
+
+- Date: 2026-09-04.
+- Added a local displayed-order override so the reordered destination layout
+  is available in the same drag-end render that dnd-kit uses to measure its
+  drop animation. The override reconciles with the server response and rolls
+  back cleanly on failure.
+- The drag preview now matches the row's control spacing, while the source is
+  a transparent height-preserving placeholder. This prevents the overlay from
+  resizing or competing visually with the destination row.
+- Client tests (31), lint, typecheck, and production build pass. Exact
+  375px/375x667 browser verification remains required.
+
+### W1-07 Immediate Drop Adjustment
+
+- Date: 2026-09-04.
+- Removed the post-release DragOverlay animation so the synchronously updated
+  destination row appears immediately when the pointer or thumb is released.
+- Tests and builds were not run for this adjustment at the user's request.
+
 ## W1-08: Correct Active-Workout Mobile Issues
 
 **State:** proposed
