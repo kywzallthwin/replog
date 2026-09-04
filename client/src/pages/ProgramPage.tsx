@@ -91,11 +91,11 @@ function SortableExerciseRow({ exercise, isReordering, onRemove }: SortableExerc
     <div
       ref={setNodeRef}
       style={{
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : transform),
         transition,
       }}
-      className={`flex items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${
-        isDragging ? 'relative z-10 rounded-[10px] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]' : ''
+      className={`flex min-h-[60px] items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${
+        isDragging ? 'relative z-10 rounded-[10px] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]' : 'bg-transparent'
       }`}
     >
       <span className="min-w-0 grow break-words font-medium text-slate-700">{exercise.name}</span>
@@ -257,10 +257,11 @@ export function ProgramPage() {
   })
   const reorderDayExerciseMutation = useMutation({
     mutationFn: reorderDayExercise,
-    onMutate: async ({ dayId, dayExerciseId, targetIndex }) => {
-      await queryClient.cancelQueries({ queryKey: programQueryKey(programId) })
+      onMutate: async ({ dayId, dayExerciseId, targetIndex }) => {
       const previousProgram = queryClient.getQueryData<Program | null>(programQueryKey(programId))
 
+      // Move the row before awaiting query cancellation so it never flashes back
+      // into its original slot between the drag gesture and the server request.
       queryClient.setQueryData<Program | null>(programQueryKey(programId), (currentProgram) => {
         if (!currentProgram) {
           return currentProgram
@@ -288,6 +289,8 @@ export function ProgramPage() {
           }),
         }
       })
+
+      await queryClient.cancelQueries({ queryKey: programQueryKey(programId) })
 
       return { previousProgram }
     },
@@ -608,14 +611,14 @@ export function ProgramPage() {
                 key={day.id}
                 className="rounded-[18px] border border-slate-100 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <span
-                       className={`max-w-[55%] break-words rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] [overflow-wrap:anywhere] ${getBadgeClass(day.badgeColor)}`}
+                       className={`inline-flex max-w-full break-words rounded-[10px] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] [overflow-wrap:anywhere] ${getBadgeClass(day.badgeColor)}`}
                     >
                       {day.name}
                     </span>
-                    <span className="min-w-0 truncate text-sm font-semibold text-slate-500">{dayCategorySubtitle(day)}</span>
+                    <span className="mt-1 block min-w-0 truncate text-sm font-semibold text-slate-500">{dayCategorySubtitle(day)}</span>
                   </div>
                   <button
                     type="button"

@@ -35,6 +35,7 @@
 - `npm run smoke:health` passes against the compiled server.
 - Client auth UI lint, typecheck, and build pass; the client build retains the existing warning about the main JavaScript chunk exceeding 500 kB.
 - W1-07 implementation commits `607bf3c`, `303a6e2`, `8bf3e99`, `e82d60c`, and `e961268`, plus the review corrections in the working tree, pass focused client verification with 31 tests across 11 files. Program/select keyboard behavior, long-name wrapping, bounded dialogs, template/copy creation states, picker empty/pending states, deletion destination focus, mutation feedback, and editor conflict guards are implemented. The full repository check passes with 11 server tests.
+- W1-07 UI correction adds a compact multi-line-safe day badge and removes the reorder flash by applying the optimistic move before query cancellation. Client tests, lint, typecheck, and build pass again.
 - W1-01 local audit and review completed at exactly 375px; the corrected F-01 evidence citation was verified and the ticket is done.
 - W1-02 review passed: the client harness blocks unexpected network traffic and clears test QueryClients. The client suite has 13 passing tests including the promoted W1-04 profile contracts; all 10 server tests pass, and W1-04's 375px/manual and independent reviews passed.
 - W1-05 decision review passed: dashboard Up Next, active-program links, and branded loading treatment decisions are resolved. The three-rep loader prototype was visually approved at 375px. Documentation only; no application code changed.

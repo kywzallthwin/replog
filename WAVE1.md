@@ -658,6 +658,20 @@ menus, dialogs, and exercise selection.
   375px/375x667 browser acceptance remains pending, so W1-07 remains in
   `review` until that independent check passes.
 
+### W1-07 UI Correction Report
+
+- Date: 2026-09-04.
+- Improved long day labels by giving the primary badge the available mobile
+  width, placing the category summary below it, and using a multi-line-safe
+  rounded rectangle instead of a capsule.
+- Removed the reorder flash by applying the optimistic exercise order before
+  awaiting React Query cancellation. Dragged rows keep stable dimensions,
+  remain vertically constrained visually, and retain their elevation while
+  moving.
+- Focused client tests, lint, typecheck, and production build pass. The full
+  repository check had already passed before this UI-only correction; exact
+  375px/375x667 browser verification remains pending.
+
 ## W1-08: Correct Active-Workout Mobile Issues
 
 **State:** proposed
