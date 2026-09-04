@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   activateProgram,
   activeProgramQueryKey,
@@ -38,6 +38,7 @@ function programStats(program: ProgramSummary) {
 
 export function ProgramLibraryPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const [createModal, setCreateModal] = useState<CreateModalState>(null)
   const [renameTarget, setRenameTarget] = useState<ProgramSummary | null>(null)
@@ -48,6 +49,7 @@ export function ProgramLibraryPage() {
   const [renameName, setRenameName] = useState('')
   const [programName, setProgramName] = useState('')
   const newProgramButtonRef = useRef<HTMLButtonElement>(null)
+  const programsHeadingRef = useRef<HTMLHeadingElement>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState('beginner-full-body')
   const [formError, setFormError] = useState('')
   const { data: programs = [], isPending, isError } = useQuery({
@@ -68,6 +70,15 @@ export function ProgramLibraryPage() {
   })
   const activeProgram = programs.find((program) => program.isActive) ?? null
   const otherPrograms = programs.filter((program) => !program.isActive)
+
+  useEffect(() => {
+    if (location.state?.focus !== 'programs-heading') {
+      return
+    }
+
+    programsHeadingRef.current?.focus()
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.pathname, location.state, navigate])
 
   async function invalidateProgramData() {
     await queryClient.invalidateQueries({ queryKey: programsQueryKey })
@@ -217,7 +228,7 @@ export function ProgramLibraryPage() {
         <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <BrandLogo className="h-6 w-auto" />
-            <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Programs</h1>
+             <h1 ref={programsHeadingRef} tabIndex={-1} className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Programs</h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
               Try different routines without losing the workouts you have already logged.
             </p>
@@ -418,7 +429,8 @@ export function ProgramLibraryPage() {
             <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
             <input
               id="create-program-name"
-              value={programName}
+               value={programName}
+               disabled={createMutation.isPending}
               aria-describedby={formError ? 'create-program-error' : undefined}
               maxLength={80}
               onChange={(event) => setProgramName(event.target.value)}
@@ -468,7 +480,8 @@ export function ProgramLibraryPage() {
             <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
             <input
               id="rename-program-name"
-              value={renameName}
+               value={renameName}
+               disabled={renameMutation.isPending}
               aria-describedby={renameMutation.isError ? 'rename-program-error' : undefined}
               maxLength={80}
               onChange={(event) => setRenameName(event.target.value)}

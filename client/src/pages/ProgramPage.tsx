@@ -215,7 +215,7 @@ export function ProgramPage() {
     onSuccess: async () => {
       await invalidateProgramData()
       setProgramDeleteDialogOpen(false)
-      navigate('/program')
+       navigate('/program', { state: { focus: 'programs-heading' } })
     },
   })
 
@@ -315,7 +315,8 @@ export function ProgramPage() {
   const dayFormHasError = addDayMutation.isError || updateDayMutation.isError
   const deleteConfirmationIsPending = deleteDayMutation.isPending || removeDayExerciseMutation.isPending
   const deleteConfirmationHasError = deleteDayMutation.isError || removeDayExerciseMutation.isError
-  const editorMutationIsPending = dayFormIsSaving
+  const editorMutationIsPending = activateProgramMutation.isPending
+    || dayFormIsSaving
     || deleteConfirmationIsPending
     || addDayExerciseMutation.isPending
     || reorderDayExerciseMutation.isPending
@@ -682,6 +683,12 @@ export function ProgramPage() {
           </div>
         ) : null}
 
+        {reorderDayExerciseMutation.isPending ? (
+          <p role="status" aria-live="polite" className="mt-4 rounded-[10px] bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
+            Reordering exercise...
+          </p>
+        ) : null}
+
         {reorderDayExerciseMutation.isError ? (
           <p role="alert" className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             Unable to reorder the exercise. Please try again.
@@ -719,6 +726,7 @@ export function ProgramPage() {
                   aria-describedby={dayFormError || dayFormHasError ? 'program-day-error' : undefined}
                   maxLength={60}
                   value={dayName}
+                  disabled={dayFormIsSaving}
                   onChange={(event) => setDayName(event.target.value)}
                   placeholder="e.g. PUSH"
                   className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
@@ -734,7 +742,8 @@ export function ProgramPage() {
                     <button
                       key={color}
                       type="button"
-                      onClick={() => setDayBadgeColor(color)}
+                       onClick={() => setDayBadgeColor(color)}
+                       disabled={dayFormIsSaving}
                       data-press="swatch"
                       aria-label={`Choose badge color ${color}`}
                       aria-pressed={dayBadgeColor === color}

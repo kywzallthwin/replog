@@ -28,13 +28,13 @@
 - Do not implement the latter two product features during Wave 1.
 
 ## Verification
-- `npm run check` passes through client checks but is currently blocked at server tests because local PostgreSQL is stopped and cannot be opened from this session.
+- `npm run check` passes end to end with local PostgreSQL, including 31 client tests and 11 server tests.
 - GitHub Actions CI run 7 passes on commit `0ad1b17`.
 - Security, production serving, program, session, and database tests pass.
 - `git diff --check` passes.
 - `npm run smoke:health` passes against the compiled server.
 - Client auth UI lint, typecheck, and build pass; the client build retains the existing warning about the main JavaScript chunk exceeding 500 kB.
-- W1-07 implementation commits `607bf3c`, `303a6e2`, `8bf3e99`, `e82d60c`, and `e961268` pass focused client verification with 30 tests across 10 files. Program/select keyboard behavior, long-name wrapping, bounded dialogs, template/copy creation states, picker empty/pending states, mutation feedback, and editor conflict guards are implemented.
+- W1-07 implementation commits `607bf3c`, `303a6e2`, `8bf3e99`, `e82d60c`, and `e961268`, plus the review corrections in the working tree, pass focused client verification with 31 tests across 11 files. Program/select keyboard behavior, long-name wrapping, bounded dialogs, template/copy creation states, picker empty/pending states, deletion destination focus, mutation feedback, and editor conflict guards are implemented. The full repository check passes with 11 server tests.
 - W1-01 local audit and review completed at exactly 375px; the corrected F-01 evidence citation was verified and the ticket is done.
 - W1-02 review passed: the client harness blocks unexpected network traffic and clears test QueryClients. The client suite has 13 passing tests including the promoted W1-04 profile contracts; all 10 server tests pass, and W1-04's 375px/manual and independent reviews passed.
 - W1-05 decision review passed: dashboard Up Next, active-program links, and branded loading treatment decisions are resolved. The three-rep loader prototype was visually approved at 375px. Documentation only; no application code changed.
@@ -42,7 +42,7 @@
 - `npm audit --omit=dev` reports existing dependency vulnerabilities; no automatic audit fix was applied.
 
 ## Manual Actions
-- Local PostgreSQL 17 is installed with separate `replog` and `replog_test` databases, but the `postgresql-x64-17` service was stopped during this session and could not be started due to service permissions.
+- Local PostgreSQL 17 is installed with separate `replog` and `replog_test` databases; the full server suite now passes.
 - The ignored `server/.env` contains local PostgreSQL URLs; never commit it. Local Prisma CLI falls back to `DATABASE_URL` when `DATABASE_URL_UNPOOLED` is absent.
 - Production URL: `https://replog-tracker.onrender.com`.
 - Render `/health` and `/ready` both return 200; the initial free-tier cold start was observed and recovered successfully.
@@ -53,7 +53,7 @@
 - Render applies migrations during the build; do not auto-seed the demo user in production.
 
 ## Next Actions
-- Start local PostgreSQL with sufficient permissions, rerun server tests and `npm run check`, then complete independent 375px acceptance review of W1-07.
+- Complete independent 375px and 375x667 acceptance review of W1-07. Confirm editor deletion destination focus and pending mutation states in Chrome.
 - [ ] Before application streak work, write the calculation and timezone rules as a separate testable ticket.
 - Do not begin Wave 2 / Phase 4 until the mobile UI audit is complete.
 

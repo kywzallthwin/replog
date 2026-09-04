@@ -641,6 +641,23 @@ menus, dialogs, and exercise selection.
   open it. Server tests, health smoke, and exact 375px browser acceptance are
   therefore pending independent review with the local database available.
 
+### W1-07 Correction Report
+
+- Date: 2026-09-04.
+- Added a one-shot `programs-heading` navigation focus request for editor
+  deletion. The Programs page focuses its stable heading after navigation so
+  focus does not remain on an unmounted menu trigger.
+- Included activation in the editor-wide pending mutation lock, disabled
+  submitted create, rename, day-name, and badge-color controls, and added a
+  polite announced `Reordering exercise...` state.
+- Added a route-level focus regression test. Client coverage now has 31
+  passing tests across 11 files; client lint, typecheck, and production build
+  pass. The existing client bundle-size warning remains.
+- The earlier server-check blocker is cleared: the full repository `npm run
+  check` now passes with 31 client tests and 11 server tests. Exact
+  375px/375x667 browser acceptance remains pending, so W1-07 remains in
+  `review` until that independent check passes.
+
 ## W1-08: Correct Active-Workout Mobile Issues
 
 **State:** proposed
