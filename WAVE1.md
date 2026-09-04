@@ -524,6 +524,9 @@ shell, navigation, dashboard, and shared page-loading treatment.
   verified the shell-preserving loader, `Loading history...` polite status,
   reduced-motion mode, and no horizontal overflow. The temporary local browser
   account used for this check was disposable.
+- Follow-up visual refinement: the shared loader now displays only the animated
+  three bars and RL mark. The loading status remains screen-reader-only, and no
+  development preview flag or comparison mode is retained.
 
 ### W1-06 Review Notes
 

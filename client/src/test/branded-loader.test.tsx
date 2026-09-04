@@ -19,8 +19,8 @@ describe('branded loading treatment', () => {
   it('uses the full-screen brand lockup for auth gates', () => {
     const { container } = render(<BrandedLoader fullScreen statusMessage="Loading RepLog..." />)
 
-    expect(screen.getByText('RepLog')).toBeInTheDocument()
-    expect(screen.getByRole('status', { name: 'Loading RepLog...' })).toBeInTheDocument()
+    expect(screen.queryByText('RepLog')).not.toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading RepLog...' })).toHaveClass('sr-only')
     expect(container.firstElementChild).toHaveClass('min-h-dvh', 'place-content-center')
   })
 
