@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
+import { FluidSelect } from '../components/forms/FluidSelect'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog } from '../components/programs/ProgramDeleteDialog'
 import { Dialog } from '../components/ui/Dialog'
@@ -45,6 +46,37 @@ function LockedDialogHarness() {
       <button type="button" onClick={() => setIsOpen(false)}>Close</button>
     </Dialog>
   ) : null
+}
+
+function DeletingTriggerDialogHarness() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [showTrigger, setShowTrigger] = useState(true)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const fallbackRef = useRef<HTMLButtonElement>(null)
+
+  return (
+    <>
+      {showTrigger ? (
+        <button ref={triggerRef} type="button" onClick={() => setIsOpen(true)}>
+          Open removable dialog
+        </button>
+      ) : null}
+      <button ref={fallbackRef} type="button">Stable fallback</button>
+      {isOpen ? (
+        <Dialog
+          labelledBy="deleting-dialog-title"
+          restoreFocusRef={triggerRef}
+          fallbackFocusRef={fallbackRef}
+          onClose={() => setIsOpen(false)}
+        >
+          <h2 id="deleting-dialog-title">Deleting dialog</h2>
+          <button type="button" onClick={() => { setShowTrigger(false); setIsOpen(false) }}>
+            Delete trigger
+          </button>
+        </Dialog>
+      ) : null}
+    </>
+  )
 }
 
 describe('dialog and menu keyboard contract', () => {
@@ -136,6 +168,64 @@ describe('dialog and menu keyboard contract', () => {
 
     expect(document.body.style.position).toBe('')
     expect(document.body.style.overflow).toBe('')
+  })
+
+  it('keeps an open nested select Escape from closing its parent dialog', () => {
+    const onClose = vi.fn()
+
+    render(
+      <Dialog labelledBy="select-dialog-title" onClose={onClose}>
+        <h2 id="select-dialog-title">Select dialog</h2>
+        <FluidSelect
+          value="first"
+          options={[{ value: 'first', label: 'First' }, { value: 'second', label: 'Second' }]}
+          onValueChange={vi.fn()}
+          ariaLabel="Copy from"
+        />
+      </Dialog>,
+    )
+
+    const select = screen.getByRole('button', { name: 'Copy from: First' })
+    fireEvent.click(select)
+    expect(screen.getByRole('listbox', { name: 'Copy from' })).toBeInTheDocument()
+
+    fireEvent.keyDown(select, { key: 'Escape' })
+
+    expect(screen.queryByRole('listbox', { name: 'Copy from' })).not.toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('keeps a disabled-only menu action focusable and non-activating', async () => {
+    const onDelete = vi.fn()
+
+    render(
+      <ProgramActionsMenu
+        programName="Active Program"
+        isOpen
+        onToggle={vi.fn()}
+        onDelete={onDelete}
+        deleteDisabled
+      />,
+    )
+
+    const deleteItem = await screen.findByRole('menuitem', { name: 'Delete' })
+    expect(deleteItem).toHaveFocus()
+    expect(deleteItem).toHaveAttribute('aria-disabled', 'true')
+
+    fireEvent.click(deleteItem)
+
+    expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('uses fallback focus when the original destructive trigger is removed', () => {
+    render(<DeletingTriggerDialogHarness />)
+
+    const trigger = screen.getByRole('button', { name: 'Open removable dialog' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete trigger' }))
+
+    expect(screen.getByRole('button', { name: 'Stable fallback' })).toHaveFocus()
   })
 
   it('gives the custom exercise form the active picker dialog contract', () => {

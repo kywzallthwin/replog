@@ -524,6 +524,9 @@ shell, navigation, dashboard, and shared page-loading treatment.
   verified the shell-preserving loader, `Loading history...` polite status,
   reduced-motion mode, and no horizontal overflow. The temporary local browser
   account used for this check was disposable.
+- Follow-up visual refinement: the shared loader now displays only the animated
+  three bars and RL mark. The loading status remains screen-reader-only, and no
+  development preview flag or comparison mode is retained.
 
 ### W1-06 Review Notes
 
@@ -536,7 +539,7 @@ shell, navigation, dashboard, and shared page-loading treatment.
 
 ## W1-07: Correct Program And Exercise-Picker Mobile Issues
 
-**State:** proposed
+**State:** review
 
 ### Goal
 
@@ -551,34 +554,168 @@ menus, dialogs, and exercise selection.
 - Long names, empty states, scrolling, and touch targets.
 - Apply the shared dialog focus, Escape, background-scroll, and focus-restore
   contract to program and exercise overlays.
+- Preserve existing exercise reordering and the current two-step custom-exercise
+  flow: save returns to the picker with the new exercise selected, then the user
+  confirms Add Exercise.
 
 ### Out of scope
 
 - Whole-day reordering.
 - Custom exercise edit/delete feature work.
 - Changes to program API semantics.
+- Workout-specific picker acceptance, which belongs to W1-08; shared picker
+  changes must not regress the workout add/swap modes.
 
 ### Acceptance criteria
 
 - AC1: Changed program screens are usable at 375px without clipped content or
   horizontal scrolling.
-- AC2: Menus and dialogs are keyboard accessible and do not strand focus.
-- AC3: Empty, loading, error, and long-name states remain understandable.
-- AC4: Existing program creation, activation, editing, and deletion behavior
-  remains intact.
+- AC2: Menus and dialogs are keyboard accessible, contain Tab and Shift+Tab,
+  dismiss safely, and restore focus to a surviving trigger or an intentional
+  stable fallback when the trigger was deleted.
+- AC3: Empty, loading, error, and long-name states remain understandable;
+  primary program, day, exercise, and dialog names wrap at mobile widths,
+  including unbroken maximum-length values.
+- AC4: Existing template, blank, copy, rename, activation, program deletion,
+  day CRUD, exercise add/remove/reorder, and custom-exercise creation behavior
+  remains intact. Copy-generated names remain within the server's 80-character
+  limit.
 - AC5: Program menus, dialogs, and the nested custom-exercise form keep focus
   contained, dismiss safely, and expose their labels and actions at 375px.
+- AC6: Standalone changed actions remain at least 44px by 44px; dialog content
+  scrolls internally at constrained mobile heights while background scrolling is
+  locked.
+- AC7: The picker distinguishes an empty source from a search with no matches,
+  preserves Program days and All exercises grouping, marks already-added
+  exercises clearly, and keeps the saved custom exercise selected.
+- AC8: Pending mutations prevent conflicting state changes and expose an
+  understandable status; duplicate-name messages are reserved for conflict
+  responses and other failures offer a safe retry message.
 
 ### Verification
 
 - Run focused client tests, lint, and typecheck.
-- Manually check program and picker flows at 375px.
-- Test keyboard, Escape, scrolling, and long exercise names.
+- Manually check program and picker flows at exactly 375x900 and constrained
+  375x667.
+- Test keyboard, Escape precedence for copy-program and exercise-category
+  selects, scrolling, focus fallback, long exercise names, pending states, and
+  failed mutations.
 
 ### Stop conditions
 
 - Stop if the issue requires adding deferred program features or changing the
   server contract.
+
+### W1-07 Implementation Notes
+
+- Long primary names wrap; secondary category summaries may truncate when the
+  available row width requires it.
+- Saving a custom exercise returns to the picker with that exercise selected;
+  it does not add the exercise until Add Exercise is confirmed.
+- The five implementation commits are grouped by keyboard/focus behavior,
+  mobile layout and scrolling, program creation states, picker states, and
+  mutation feedback.
+
+### W1-07 Implementation Report
+
+- Date: 2026-09-04.
+- State: `review`.
+- `607bf3c` makes copy-program and exercise-category selects stop Escape at the
+  nested listbox, keeps disabled program delete actions keyboard-focusable, and
+  adds stable fallback focus for destructive dialogs.
+- `303a6e2` wraps long primary names and dialog copy, and bounds program delete
+  and rename dialogs for internal mobile scrolling.
+- `8bf3e99` keeps generated copy names within 80 characters and makes template
+  loading failures visible and non-submittable.
+- `e82d60c` distinguishes empty picker sources from no-match searches, clears
+  stale add-exercise errors on reopen, and disables conflicting picker controls
+  while saving.
+- `e961268` adds safe conflict-versus-generic mutation messages, announces
+  reorder failures, and blocks conflicting program-editor mutations.
+- Focused client coverage now has 30 passing tests across 10 files. Client
+  lint, typecheck, production build, Prisma generation/validation, and
+  `git diff --check` pass. The existing client bundle-size warning remains.
+- The repository-wide `npm run check` reached the server test phase but could
+  not connect to PostgreSQL at `localhost:5432`; the installed
+  `postgresql-x64-17` service is stopped and this session lacks permission to
+  open it. Server tests, health smoke, and exact 375px browser acceptance are
+  therefore pending independent review with the local database available.
+
+### W1-07 Correction Report
+
+- Date: 2026-09-04.
+- Added a one-shot `programs-heading` navigation focus request for editor
+  deletion. The Programs page focuses its stable heading after navigation so
+  focus does not remain on an unmounted menu trigger.
+- Included activation in the editor-wide pending mutation lock, disabled
+  submitted create, rename, day-name, and badge-color controls, and added a
+  polite announced `Reordering exercise...` state.
+- Added a route-level focus regression test. Client coverage now has 31
+  passing tests across 11 files; client lint, typecheck, and production build
+  pass. The existing client bundle-size warning remains.
+- The earlier server-check blocker is cleared: the full repository `npm run
+  check` now passes with 31 client tests and 11 server tests. Exact
+  375px/375x667 browser acceptance remains pending, so W1-07 remains in
+  `review` until that independent check passes.
+
+### W1-07 UI Correction Report
+
+- Date: 2026-09-04.
+- Improved long day labels by giving the primary badge the available mobile
+  width, placing the category summary below it, and using a multi-line-safe
+  rounded rectangle instead of a capsule.
+- Removed the reorder flash by applying the optimistic exercise order before
+  awaiting React Query cancellation. Dragged rows keep stable dimensions,
+  remain vertically constrained visually, and retain their elevation while
+  moving.
+- Focused client tests, lint, typecheck, and production build pass. The full
+  repository check had already passed before this UI-only correction; exact
+  375px/375x667 browser verification remains pending.
+
+### W1-07 Drag Interaction Correction
+
+- Date: 2026-09-04.
+- Added a non-scaling `DragOverlay` with a stable 60px row preview, vertical
+  movement constraint, and short eased drop animation. The active list row is
+  now a stable placeholder instead of being stretched to the height of a
+  neighboring wrapped row.
+- Reorder cache updates remain synchronous before query cancellation, so the
+  destination order is visible immediately on release.
+- Client tests (31), lint, typecheck, and production build pass. Manual
+  verification at exactly 375x900 and 375x667 remains required for final UI
+  acceptance.
+
+### W1-07 Reorder Timing Correction
+
+- Date: 2026-09-04.
+- Removed the redundant active-exercise cleanup timer, shortened the overlay
+  drop animation to 130ms, and made related query invalidation fire in the
+  background after the authoritative reorder response.
+- Reorder controls now unlock when the server confirms the operation instead
+  of waiting for program, active-program, and dashboard refreshes. Failed
+  requests retain the existing rollback behavior.
+- Client tests, lint, typecheck, production build, and the full repository
+  check pass. Manual browser verification remains required.
+
+### W1-07 Drop Animation Correction
+
+- Date: 2026-09-04.
+- Added a local displayed-order override so the reordered destination layout
+  is available in the same drag-end render that dnd-kit uses to measure its
+  drop animation. The override reconciles with the server response and rolls
+  back cleanly on failure.
+- The drag preview now matches the row's control spacing, while the source is
+  a transparent height-preserving placeholder. This prevents the overlay from
+  resizing or competing visually with the destination row.
+- Client tests (31), lint, typecheck, and production build pass. Exact
+  375px/375x667 browser verification remains required.
+
+### W1-07 Immediate Drop Adjustment
+
+- Date: 2026-09-04.
+- Removed the post-release DragOverlay animation so the synchronously updated
+  destination row appears immediately when the pointer or thumb is released.
+- Tests and builds were not run for this adjustment at the user's request.
 
 ## W1-08: Correct Active-Workout Mobile Issues
 

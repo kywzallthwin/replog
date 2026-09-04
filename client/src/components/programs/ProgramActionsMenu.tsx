@@ -16,6 +16,7 @@ export function ProgramActionsMenu({
   onRename,
   onDelete,
   deleteDisabled = false,
+  disabled = false,
 }: {
   programName: string
   isOpen: boolean
@@ -24,6 +25,7 @@ export function ProgramActionsMenu({
   onRename?: () => void
   onDelete?: () => void
   deleteDisabled?: boolean
+  disabled?: boolean
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -78,7 +80,7 @@ export function ProgramActionsMenu({
       return
     }
 
-    menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()
+    menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
   }, [isOpen, menuPosition])
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export function ProgramActionsMenu({
       return
     }
 
-    const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')]
+    const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
     if (!items.length) return
 
     const activeIndex = items.indexOf(document.activeElement as HTMLButtonElement)
@@ -187,8 +189,10 @@ export function ProgramActionsMenu({
         <button
           type="button"
           role="menuitem"
-          onClick={() => closeAndRun(onDelete)}
-          disabled={deleteDisabled}
+          aria-disabled={deleteDisabled || undefined}
+          onClick={() => {
+            if (!deleteDisabled) closeAndRun(onDelete)
+          }}
           title={deleteDisabled ? 'Activate another program before deleting this one' : 'Delete program'}
           className={`flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold ${deleteDisabled ? 'cursor-not-allowed text-slate-400' : 'text-red-600 hover:bg-red-50'}`}
         >
@@ -203,12 +207,15 @@ export function ProgramActionsMenu({
       <button
         ref={triggerRef}
         type="button"
+        disabled={disabled}
         aria-label={`More actions for ${programName}`}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-controls={isOpen ? menuId : undefined}
-        onClick={onToggle}
-        className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+        onClick={() => {
+          if (!disabled) onToggle()
+        }}
+        className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
       >
         <MoreHorizontal size={18} strokeWidth={2} aria-hidden="true" />
       </button>

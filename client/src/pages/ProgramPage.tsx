@@ -33,6 +33,7 @@ import {
   reorderDayExercise,
   updateDay,
   getProgram,
+  getProgramMutationError,
   DAY_BADGE_COLORS,
   type DayBadgeColor,
   type DayExerciseItem,
@@ -90,17 +91,18 @@ function SortableExerciseRow({ exercise, isReordering, onRemove }: SortableExerc
     <div
       ref={setNodeRef}
       style={{
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : transform),
         transition,
       }}
-      className={`flex items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${
-        isDragging ? 'relative z-10 rounded-[10px] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]' : ''
+      className={`flex min-h-[60px] items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${
+        isDragging ? 'relative z-10 rounded-[10px] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]' : 'bg-transparent'
       }`}
     >
       <span className="min-w-0 grow break-words font-medium text-slate-700">{exercise.name}</span>
       <button
         type="button"
         onClick={onRemove}
+        disabled={isReordering}
         data-press="icon"
         data-press-tone="red"
         title="Remove exercise"
@@ -159,11 +161,13 @@ export function ProgramPage() {
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState>(null)
   const [activationBlocked, setActivationBlocked] = useState(false)
+  const [activationError, setActivationError] = useState('')
   const [programDeleteDialogOpen, setProgramDeleteDialogOpen] = useState(false)
   const [programMenuOpen, setProgramMenuOpen] = useState(false)
   const dayModalTriggerRef = useRef<HTMLElement | null>(null)
   const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
   const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
+  const addDayButtonRef = useRef<HTMLButtonElement>(null)
 
   const { data: program, isError, isPending } = useQuery({
     queryKey: programQueryKey(programId),
@@ -198,16 +202,20 @@ export function ProgramPage() {
     mutationFn: () => activateProgram(programId),
     onSuccess: async () => {
       setActivationBlocked(false)
+      setActivationError('')
       await invalidateProgramData()
     },
-    onError: () => setActivationBlocked(true),
+    onError: (error) => {
+      setActivationBlocked(true)
+      setActivationError(getProgramMutationError(error, 'Finish or cancel the active workout before switching programs.', 'Unable to activate this program. Please try again.'))
+    },
   })
   const deleteProgramMutation = useMutation({
     mutationFn: () => deleteProgram(programId),
     onSuccess: async () => {
       await invalidateProgramData()
       setProgramDeleteDialogOpen(false)
-      navigate('/program')
+       navigate('/program', { state: { focus: 'programs-heading' } })
     },
   })
 
@@ -249,10 +257,11 @@ export function ProgramPage() {
   })
   const reorderDayExerciseMutation = useMutation({
     mutationFn: reorderDayExercise,
-    onMutate: async ({ dayId, dayExerciseId, targetIndex }) => {
-      await queryClient.cancelQueries({ queryKey: programQueryKey(programId) })
+      onMutate: async ({ dayId, dayExerciseId, targetIndex }) => {
       const previousProgram = queryClient.getQueryData<Program | null>(programQueryKey(programId))
 
+      // Move the row before awaiting query cancellation so it never flashes back
+      // into its original slot between the drag gesture and the server request.
       queryClient.setQueryData<Program | null>(programQueryKey(programId), (currentProgram) => {
         if (!currentProgram) {
           return currentProgram
@@ -281,6 +290,8 @@ export function ProgramPage() {
         }
       })
 
+      await queryClient.cancelQueries({ queryKey: programQueryKey(programId) })
+
       return { previousProgram }
     },
     onError: (_error, _variables, context) => {
@@ -307,8 +318,17 @@ export function ProgramPage() {
   const dayFormHasError = addDayMutation.isError || updateDayMutation.isError
   const deleteConfirmationIsPending = deleteDayMutation.isPending || removeDayExerciseMutation.isPending
   const deleteConfirmationHasError = deleteDayMutation.isError || removeDayExerciseMutation.isError
+  const editorMutationIsPending = activateProgramMutation.isPending
+    || dayFormIsSaving
+    || deleteConfirmationIsPending
+    || addDayExerciseMutation.isPending
+    || reorderDayExerciseMutation.isPending
 
   function openAddDayModal(trigger?: HTMLElement) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     if (trigger) {
       dayModalTriggerRef.current = trigger
     }
@@ -321,6 +341,10 @@ export function ProgramPage() {
   }
 
   function openEditDayModal(day: ProgramDay, trigger?: HTMLElement) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     if (trigger) {
       dayModalTriggerRef.current = trigger
     }
@@ -364,6 +388,10 @@ export function ProgramPage() {
   }
 
   function handleDeleteDayClick(day: ProgramDay) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     deleteDayMutation.reset()
     removeDayExerciseMutation.reset()
     deleteConfirmationTriggerRef.current = dayModalTriggerRef.current
@@ -372,10 +400,15 @@ export function ProgramPage() {
   }
 
   function openAddExercisePicker(dayId: string, trigger?: HTMLElement) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     if (trigger) {
       exercisePickerTriggerRef.current = trigger
     }
 
+    addDayExerciseMutation.reset()
     setExercisePicker({ dayId })
     setSelectedExerciseId('')
   }
@@ -394,6 +427,10 @@ export function ProgramPage() {
   }
 
   function handleRemoveExercise(dayId: string, exercise: DayExerciseItem) {
+    if (editorMutationIsPending) {
+      return
+    }
+
     deleteDayMutation.reset()
     removeDayExerciseMutation.reset()
     deleteConfirmationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -439,7 +476,7 @@ export function ProgramPage() {
   )
 
   function handleDragEnd(day: ProgramDay, event: DragEndEvent) {
-    if (!event.over || event.active.id === event.over.id) {
+    if (editorMutationIsPending || !event.over || event.active.id === event.over.id) {
       return
     }
 
@@ -467,15 +504,21 @@ export function ProgramPage() {
     if (dashboard?.activeSession) {
       activateProgramMutation.reset()
       setActivationBlocked(true)
+      setActivationError('Finish or cancel the active workout before switching programs.')
       return
     }
 
     setActivationBlocked(false)
+    setActivationError('')
     activateProgramMutation.reset()
     activateProgramMutation.mutate()
   }
 
   function openProgramDeleteDialog() {
+    if (editorMutationIsPending) {
+      return
+    }
+
     deleteProgramMutation.reset()
     setProgramMenuOpen(false)
     setProgramDeleteDialogOpen(true)
@@ -494,7 +537,7 @@ export function ProgramPage() {
               <BrandLogo className="h-6 w-auto" />
             </Link>
             <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Program editor</p>
-            <h1 className="mt-1 truncate text-3xl font-bold tracking-[-0.03em] text-slate-900">
+             <h1 className="mt-1 break-words text-3xl font-bold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
               {program?.name ?? 'Edit Program'}
             </h1>
           </div>
@@ -504,7 +547,7 @@ export function ProgramPage() {
               <button
                 type="button"
                 onClick={handleActivateProgram}
-                disabled={activateProgramMutation.isPending}
+                 disabled={activateProgramMutation.isPending || editorMutationIsPending}
                 className="min-h-11 rounded-[13px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
               >
                 {activateProgramMutation.isPending ? 'Activating...' : 'Make active'}
@@ -517,12 +560,14 @@ export function ProgramPage() {
                 onToggle={() => setProgramMenuOpen((isOpen) => !isOpen)}
                 onDelete={openProgramDeleteDialog}
                 deleteDisabled={program.isActive || deleteProgramMutation.isPending}
+                disabled={editorMutationIsPending || activateProgramMutation.isPending || deleteProgramMutation.isPending}
               />
             ) : null}
               <button
+                ref={addDayButtonRef}
                 type="button"
                 onClick={(event) => openAddDayModal(event.currentTarget)}
-              disabled={!program}
+                disabled={!program || editorMutationIsPending}
               className="min-h-11 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               + Add Day
@@ -532,7 +577,7 @@ export function ProgramPage() {
 
         {activationBlocked || activateProgramMutation.isError ? (
           <p role="alert" className="mb-4 rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600">
-            Finish or cancel the active workout before switching programs.
+             {activationError || 'Finish or cancel the active workout before switching programs.'}
           </p>
         ) : null}
 
@@ -566,18 +611,19 @@ export function ProgramPage() {
                 key={day.id}
                 className="rounded-[18px] border border-slate-100 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <span
-                      className={`max-w-[55%] truncate rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(day.badgeColor)}`}
+                       className={`inline-flex max-w-full break-words rounded-[10px] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] [overflow-wrap:anywhere] ${getBadgeClass(day.badgeColor)}`}
                     >
                       {day.name}
                     </span>
-                    <span className="min-w-0 truncate text-sm font-semibold text-slate-500">{dayCategorySubtitle(day)}</span>
+                    <span className="mt-1 block min-w-0 truncate text-sm font-semibold text-slate-500">{dayCategorySubtitle(day)}</span>
                   </div>
                   <button
                     type="button"
                     onClick={(event) => openEditDayModal(day, event.currentTarget)}
+                    disabled={editorMutationIsPending}
                     data-press="icon"
                     data-press-tone="blue"
                     title="Edit day"
@@ -616,7 +662,7 @@ export function ProgramPage() {
                           <SortableExerciseRow
                             key={exercise.id}
                             exercise={exercise}
-                            isReordering={reorderDayExerciseMutation.isPending}
+                            isReordering={editorMutationIsPending}
                             onRemove={() => handleRemoveExercise(day.id, exercise)}
                           />
                         ))}
@@ -629,7 +675,8 @@ export function ProgramPage() {
                   <button
                     type="button"
                     onClick={(event) => openAddExercisePicker(day.id, event.currentTarget)}
-                    className="min-h-11 w-full rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                    disabled={editorMutationIsPending}
+                    className="min-h-11 w-full rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
                   >
                     + Add exercise
                   </button>
@@ -639,8 +686,14 @@ export function ProgramPage() {
           </div>
         ) : null}
 
+        {reorderDayExerciseMutation.isPending ? (
+          <p role="status" aria-live="polite" className="mt-4 rounded-[10px] bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
+            Reordering exercise...
+          </p>
+        ) : null}
+
         {reorderDayExerciseMutation.isError ? (
-          <p className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             Unable to reorder the exercise. Please try again.
           </p>
         ) : null}
@@ -661,7 +714,7 @@ export function ProgramPage() {
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                 {dayModal.mode === 'add' ? 'Add Day' : 'Edit Day'}
               </p>
-              <h2 id="program-day-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+               <h2 id="program-day-dialog-title" className="mt-1 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
                 {dayModal.mode === 'add' ? 'New day' : dayModal.day.name}
               </h2>
             </div>
@@ -676,6 +729,7 @@ export function ProgramPage() {
                   aria-describedby={dayFormError || dayFormHasError ? 'program-day-error' : undefined}
                   maxLength={60}
                   value={dayName}
+                  disabled={dayFormIsSaving}
                   onChange={(event) => setDayName(event.target.value)}
                   placeholder="e.g. PUSH"
                   className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
@@ -691,7 +745,8 @@ export function ProgramPage() {
                     <button
                       key={color}
                       type="button"
-                      onClick={() => setDayBadgeColor(color)}
+                       onClick={() => setDayBadgeColor(color)}
+                       disabled={dayFormIsSaving}
                       data-press="swatch"
                       aria-label={`Choose badge color ${color}`}
                       aria-pressed={dayBadgeColor === color}
@@ -711,9 +766,10 @@ export function ProgramPage() {
 
               {dayModal.mode === 'edit' ? (
                 <button
-                  type="button"
-                  onClick={() => handleDeleteDayClick(dayModal.day)}
-                  className="min-h-11 w-full rounded-[12px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100"
+                   type="button"
+                   onClick={() => handleDeleteDayClick(dayModal.day)}
+                   disabled={dayFormIsSaving}
+                   className="min-h-11 w-full rounded-[12px] border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Delete Day
                 </button>
@@ -769,17 +825,18 @@ export function ProgramPage() {
           describedBy="program-delete-dialog-description"
           onClose={closeDeleteConfirmation}
           closeOnEscape={!deleteConfirmationIsPending}
-          restoreFocusRef={deleteConfirmationTriggerRef}
+           restoreFocusRef={deleteConfirmationTriggerRef}
+           fallbackFocusRef={addDayButtonRef}
           overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
           className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >
           <div>
-            <h2 id="program-delete-dialog-title" className="text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+             <h2 id="program-delete-dialog-title" className="break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
               {deleteConfirmation.type === 'day'
                 ? `Delete ${deleteConfirmation.day.name}?`
                 : `Remove ${deleteConfirmation.exercise.name}?`}
             </h2>
-            <p id="program-delete-dialog-description" className="mt-2 text-sm leading-6 text-slate-500">
+             <p id="program-delete-dialog-description" className="mt-2 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
               {deleteConfirmation.type === 'day'
                 ? `This deletes ${deleteConfirmation.day.name} and its ${deleteConfirmation.day.exercises.length} ${
                     deleteConfirmation.day.exercises.length === 1 ? 'exercise' : 'exercises'

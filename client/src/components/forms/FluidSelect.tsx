@@ -129,6 +129,7 @@ export function FluidSelect({
     if (event.key === 'Escape') {
       if (isOpen) {
         event.preventDefault()
+        event.stopPropagation()
         setIsOpen(false)
       }
       return
@@ -214,7 +215,7 @@ export function FluidSelect({
                     : 'cursor-pointer text-slate-700 hover:bg-slate-100'
             }`}
           >
-            <span className="min-w-0 truncate">{option.label}</span>
+              <span className="min-w-0 break-words [overflow-wrap:anywhere]">{option.label}</span>
             {isSelected ? (
               <svg className="ml-3 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="m5 10 3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -240,9 +241,9 @@ export function FluidSelect({
           aria-activedescendant={isOpen && activeIndex >= 0 ? `${selectId}-option-${activeIndex}` : undefined}
           onClick={() => (isOpen ? setIsOpen(false) : openMenu())}
           onKeyDown={handleKeyDown}
-          className="flex h-12 w-full items-center justify-between gap-3 rounded-[14px] border border-slate-200 bg-white px-4 text-left text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] outline-none transition-[border-color,box-shadow] duration-200 hover:border-slate-300 focus-visible:border-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+           className="flex min-h-12 h-auto w-full items-center justify-between gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] outline-none transition-[border-color,box-shadow] duration-200 hover:border-slate-300 focus-visible:border-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
         >
-          <span className="min-w-0 truncate">{selectedOption?.label ?? placeholder}</span>
+           <span className="min-w-0 break-words [overflow-wrap:anywhere]">{selectedOption?.label ?? placeholder}</span>
           <svg
             className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
             viewBox="0 0 20 20"

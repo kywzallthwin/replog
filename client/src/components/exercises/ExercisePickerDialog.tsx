@@ -79,13 +79,13 @@ function NewExerciseForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-col overflow-hidden">
+    <form onSubmit={handleSubmit} aria-busy={isSaving || undefined} className="flex min-h-0 w-full flex-col overflow-hidden">
       <div className="border-b border-slate-100 px-5 py-4">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Exercise library</p>
-        <h2 id="new-exercise-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+        <h2 id="new-exercise-dialog-title" className="mt-1 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
           New Exercise
         </h2>
-        <p id="new-exercise-dialog-description" className="mt-2 text-sm leading-6 text-slate-500">
+        <p id="new-exercise-dialog-description" className="mt-2 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
           Create a custom exercise you can add to any workout or Program.
         </p>
       </div>
@@ -95,6 +95,7 @@ function NewExerciseForm({
           <input
             autoFocus
             value={name}
+            disabled={isSaving}
             onChange={(event) => setName(event.target.value)}
             aria-describedby={formError || error ? 'new-exercise-error' : undefined}
             maxLength={80}
@@ -106,6 +107,7 @@ function NewExerciseForm({
           <span className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Category</span>
           <FluidSelect
             value={category}
+            disabled={isSaving}
             options={categoryOrder.map((option) => ({ value: option, label: categoryLabels[option] }))}
             onValueChange={(nextCategory) => setCategory(nextCategory as ExerciseCategory)}
             ariaLabel="Exercise category"
@@ -224,8 +226,14 @@ export function ExercisePickerDialog({
     .filter((group) => group.exercises.length > 0)
   const isSourcePending = source === 'program' ? programIsPending : isOptionsPending
   const isSourceError = source === 'program' ? programIsError : isOptionsError
+  const hasSourceExercises = groups.some((group) => group.exercises.length > 0)
+  const pickerIsBusy = isSaving || createMutation.isPending
 
   function selectSource(nextSource: PickerSource) {
+    if (pickerIsBusy) {
+      return
+    }
+
     setSource(nextSource)
     setSearch('')
     onSelectedExercise('')
@@ -302,15 +310,16 @@ export function ExercisePickerDialog({
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
               {mode === 'add' ? 'Add Exercise' : 'Swap Exercise'}
             </p>
-            <h2 id="exercise-picker-dialog-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+             <h2 id="exercise-picker-dialog-title" className="mt-1 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
               {mode === 'add' ? 'Choose an exercise' : currentExerciseName}
             </h2>
           </div>
           <div className="min-h-0 overflow-y-auto p-5">
-            <input
-              type="search"
-              aria-label="Search exercises"
-              value={search}
+             <input
+               type="search"
+               aria-label="Search exercises"
+               value={search}
+               disabled={pickerIsBusy}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search exercises..."
               className="h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-slate-900"
@@ -322,8 +331,9 @@ export function ExercisePickerDialog({
                 id={`${pickerId}-program-tab`}
                 role="tab"
                 aria-selected={source === 'program'}
-                aria-controls={`${pickerId}-panel`}
-                tabIndex={source === 'program' ? 0 : -1}
+                 aria-controls={`${pickerId}-panel`}
+                 tabIndex={source === 'program' ? 0 : -1}
+                 disabled={pickerIsBusy}
                 onClick={() => selectSource('program')}
                 onKeyDown={(event) => handleSourceTabKeyDown(event, 'program')}
                 className={`min-h-11 flex-1 rounded-[9px] px-3 py-2 text-xs font-bold transition ${source === 'program' ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.1)]' : 'text-slate-500'}`}
@@ -336,8 +346,9 @@ export function ExercisePickerDialog({
                 id={`${pickerId}-all-tab`}
                 role="tab"
                 aria-selected={source === 'all'}
-                aria-controls={`${pickerId}-panel`}
-                tabIndex={source === 'all' ? 0 : -1}
+                 aria-controls={`${pickerId}-panel`}
+                 tabIndex={source === 'all' ? 0 : -1}
+                 disabled={pickerIsBusy}
                 onClick={() => selectSource('all')}
                 onKeyDown={(event) => handleSourceTabKeyDown(event, 'all')}
                 className={`min-h-11 flex-1 rounded-[9px] px-3 py-2 text-xs font-bold transition ${source === 'all' ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.1)]' : 'text-slate-500'}`}
@@ -346,9 +357,10 @@ export function ExercisePickerDialog({
               </button>
             </div>
 
-            <div
-              id={`${pickerId}-panel`}
-              role="tabpanel"
+             <div
+               id={`${pickerId}-panel`}
+               role="tabpanel"
+               aria-busy={pickerIsBusy || undefined}
               aria-labelledby={source === 'program' ? `${pickerId}-program-tab` : `${pickerId}-all-tab`}
             >
               {isSourcePending ? (
@@ -361,16 +373,18 @@ export function ExercisePickerDialog({
                   Unable to load exercises. Please try again.
                 </p>
               ) : null}
-              {!isSourcePending && !isSourceError && visibleGroups.length === 0 ? (
-                <p role="status" aria-live="polite" className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
-                  {source === 'program' && !program?.days.length ? 'Your Program has no exercises yet.' : 'No exercises match your search.'}
-                </p>
-              ) : null}
+               {!isSourcePending && !isSourceError && visibleGroups.length === 0 ? (
+                 <p role="status" aria-live="polite" className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
+                   {!hasSourceExercises
+                     ? source === 'program' ? 'Your Program has no exercises yet.' : 'No exercises are available.'
+                     : 'No exercises match your search.'}
+                 </p>
+               ) : null}
 
               <div className="space-y-4">
                 {visibleGroups.map((group) => (
                   <section key={group.id}>
-                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{group.label}</p>
+                     <p className="mb-2 break-words text-xs font-bold uppercase tracking-[0.14em] text-slate-400 [overflow-wrap:anywhere]">{group.label}</p>
                     <div className="space-y-2">
                       {group.exercises.map((exercise) => {
                         const isCurrent = currentExerciseId === exercise.id
@@ -383,7 +397,7 @@ export function ExercisePickerDialog({
                             key={`${group.id}-${exercise.id}`}
                             type="button"
                             onClick={() => onSelectedExercise(exercise.id)}
-                            disabled={isDisabled}
+                           disabled={isDisabled || isSaving}
                             aria-pressed={isSelected}
                             className={`flex min-h-11 w-full items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${
                               isDisabled
@@ -400,10 +414,10 @@ export function ExercisePickerDialog({
                             >
                               <span className="h-2 w-2 rounded-full bg-current" />
                             </span>
-                            <span className="grow">{exercise.name}</span>
-                            {exercise.isCustom ? <span className={isSelected ? 'text-xs text-white/70' : 'text-xs text-slate-400'}>Yours</span> : null}
-                            {isCurrent ? <span className={isSelected ? 'text-xs text-white/70' : 'text-xs text-slate-400'}>Current</span> : null}
-                            {isAdded ? <span className="text-xs text-slate-400">Added</span> : null}
+                             <span className="min-w-0 grow break-words [overflow-wrap:anywhere]">{exercise.name}</span>
+                             {exercise.isCustom ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Yours</span> : null}
+                             {isCurrent ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Current</span> : null}
+                             {isAdded ? <span className="shrink-0 text-xs text-slate-400">Added</span> : null}
                           </button>
                         )
                       })}
@@ -421,11 +435,13 @@ export function ExercisePickerDialog({
             <button
               type="button"
               ref={newExerciseTriggerRef}
-              onClick={() => {
+               onClick={() => {
+                 if (isSaving || createMutation.isPending) return
                 createMutation.reset()
                 setIsNewExerciseOpen(true)
               }}
-              className="mt-5 min-h-11 w-full rounded-[14px] border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-slate-500 hover:bg-slate-50"
+              disabled={pickerIsBusy}
+              className="mt-5 min-h-11 w-full rounded-[14px] border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               + New Exercise
             </button>
@@ -434,7 +450,7 @@ export function ExercisePickerDialog({
             <button
               type="button"
               onClick={onClose}
-              disabled={isSaving}
+               disabled={pickerIsBusy}
               className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
             >
               Cancel
@@ -442,7 +458,7 @@ export function ExercisePickerDialog({
             <button
               type="button"
               onClick={onConfirm}
-              disabled={!selectedExerciseId || isSaving || selectedExerciseId === currentExerciseId}
+               disabled={!selectedExerciseId || pickerIsBusy || selectedExerciseId === currentExerciseId}
               className="min-h-11 flex-1 rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
             >
               {isSaving ? 'Saving...' : mode === 'add' ? 'Add Exercise' : 'Swap'}

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   activateProgram,
   activeProgramQueryKey,
@@ -12,7 +12,9 @@ import {
   updateProgram,
   type ProgramSummary,
   type ProgramTemplate,
-} from '../lib/programs'
+  getCopiedProgramName,
+  getProgramMutationError,
+ } from '../lib/programs'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
@@ -36,14 +38,18 @@ function programStats(program: ProgramSummary) {
 
 export function ProgramLibraryPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const [createModal, setCreateModal] = useState<CreateModalState>(null)
   const [renameTarget, setRenameTarget] = useState<ProgramSummary | null>(null)
   const [openMenuProgramId, setOpenMenuProgramId] = useState<string | null>(null)
   const [activationBlockedProgramId, setActivationBlockedProgramId] = useState<string | null>(null)
+  const [activationError, setActivationError] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<ProgramDeleteTarget | null>(null)
   const [renameName, setRenameName] = useState('')
   const [programName, setProgramName] = useState('')
+  const newProgramButtonRef = useRef<HTMLButtonElement>(null)
+  const programsHeadingRef = useRef<HTMLHeadingElement>(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState('beginner-full-body')
   const [formError, setFormError] = useState('')
   const { data: programs = [], isPending, isError } = useQuery({
@@ -51,7 +57,7 @@ export function ProgramLibraryPage() {
     queryFn: getPrograms,
     retry: false,
   })
-  const { data: templates = [], isPending: templatesPending } = useQuery({
+  const { data: templates = [], isPending: templatesPending, isError: templatesError } = useQuery({
     queryKey: ['programs', 'templates'],
     queryFn: getProgramTemplates,
     retry: false,
@@ -64,6 +70,15 @@ export function ProgramLibraryPage() {
   })
   const activeProgram = programs.find((program) => program.isActive) ?? null
   const otherPrograms = programs.filter((program) => !program.isActive)
+
+  useEffect(() => {
+    if (location.state?.focus !== 'programs-heading') {
+      return
+    }
+
+    programsHeadingRef.current?.focus()
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.pathname, location.state, navigate])
 
   async function invalidateProgramData() {
     await queryClient.invalidateQueries({ queryKey: programsQueryKey })
@@ -82,15 +97,19 @@ export function ProgramLibraryPage() {
         navigate(`/program/${program.id}`)
       }
     },
-    onError: () => setFormError('A program with this name may already exist. Try another name.'),
+    onError: (error) => setFormError(getProgramMutationError(error, 'A program with this name already exists. Try another name.', 'Unable to create the program. Please try again.')),
   })
   const activateMutation = useMutation({
     mutationFn: activateProgram,
     onSuccess: async () => {
       setActivationBlockedProgramId(null)
+      setActivationError('')
       await invalidateProgramData()
     },
-    onError: (_error, programId) => setActivationBlockedProgramId(programId),
+    onError: (error, programId) => {
+      setActivationBlockedProgramId(programId)
+      setActivationError(getProgramMutationError(error, 'Finish or cancel your active workout before switching programs.', 'Unable to switch programs. Please try again.'))
+    },
   })
   const deleteMutation = useMutation({
     mutationFn: deleteProgram,
@@ -121,7 +140,7 @@ export function ProgramLibraryPage() {
       return
     }
 
-    setProgramName(sourceProgram ? `${sourceProgram.name} Copy` : 'My Program')
+    setProgramName(sourceProgram ? getCopiedProgramName(sourceProgram.name) : 'My Program')
   }
 
   function closeCreateModal() {
@@ -160,10 +179,12 @@ export function ProgramLibraryPage() {
     if (dashboard?.activeSession) {
       activateMutation.reset()
       setActivationBlockedProgramId(programId)
+      setActivationError('Finish or cancel your active workout before switching programs.')
       return
     }
 
     setActivationBlockedProgramId(null)
+    setActivationError('')
     activateMutation.reset()
     activateMutation.mutate(programId)
   }
@@ -177,6 +198,18 @@ export function ProgramLibraryPage() {
     if (!createModal || !programName.trim()) {
       setFormError('Enter a program name.')
       return
+    }
+
+    if (createModal.mode === 'template') {
+      if (templatesPending) {
+        setFormError('Templates are still loading. Please wait.')
+        return
+      }
+
+      if (templatesError || !templates.some((template) => template.id === selectedTemplateId)) {
+        setFormError('Unable to load a valid template. Please try again.')
+        return
+      }
     }
 
     createMutation.mutate({
@@ -195,13 +228,14 @@ export function ProgramLibraryPage() {
         <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <BrandLogo className="h-6 w-auto" />
-            <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Programs</h1>
+             <h1 ref={programsHeadingRef} tabIndex={-1} className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Programs</h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
               Try different routines without losing the workouts you have already logged.
             </p>
           </div>
           <TopNav />
           <button
+            ref={newProgramButtonRef}
             type="button"
             onClick={() => openCreateModal('template')}
             className="min-h-11 w-fit rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 sm:ml-auto"
@@ -249,8 +283,9 @@ export function ProgramLibraryPage() {
                   onToggle={() => toggleProgramMenu(activeProgram.id)}
                   onCopy={() => { setOpenMenuProgramId(null); openCreateModal('copy', activeProgram) }}
                   onRename={() => openRenameModal(activeProgram)}
-                  onDelete={() => undefined}
-                  deleteDisabled
+                   onDelete={() => undefined}
+                   deleteDisabled
+                   disabled={createMutation.isPending || renameMutation.isPending || deleteMutation.isPending || activateMutation.isPending}
                 />
               </div>
             </article>
@@ -290,13 +325,14 @@ export function ProgramLibraryPage() {
                       isOpen={openMenuProgramId === program.id}
                       onToggle={() => toggleProgramMenu(program.id)}
                       onCopy={() => { setOpenMenuProgramId(null); openCreateModal('copy', program) }}
-                      onRename={() => openRenameModal(program)}
-                      onDelete={() => openDeleteDialog(program)}
+                       onRename={() => openRenameModal(program)}
+                       onDelete={() => openDeleteDialog(program)}
+                       disabled={createMutation.isPending || renameMutation.isPending || deleteMutation.isPending || activateMutation.isPending}
                     />
                   </div>
                   {(activationBlockedProgramId === program.id || (activateMutation.isError && activateMutation.variables === program.id)) ? (
                     <p role="alert" className="mt-3 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium leading-5 text-slate-600">
-                      Finish or cancel your active workout before switching programs.
+                      {activationError || 'Finish or cancel your active workout before switching programs.'}
                     </p>
                   ) : null}
                 </article>
@@ -342,6 +378,7 @@ export function ProgramLibraryPage() {
                     openCreateModal(mode)
                   }
                 }}
+                disabled={createMutation.isPending}
                 className={`min-h-11 rounded-[9px] px-2 text-xs font-bold capitalize ${createModal.mode === mode ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.1)]' : 'text-slate-500'}`}
               >
                 {mode === 'template' ? 'Template' : mode === 'copy' ? 'Copy' : 'Blank'}
@@ -352,15 +389,17 @@ export function ProgramLibraryPage() {
           {createModal.mode === 'template' ? (
             <div className="mt-4 space-y-2">
               {templatesPending ? <p role="status" aria-live="polite" className="text-sm text-slate-500">Loading templates...</p> : null}
+              {templatesError ? <p role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">Unable to load templates. Please try again.</p> : null}
               {templates.map((template) => (
                 <button
                   key={template.id}
                   type="button"
                   onClick={() => handleTemplateSelect(template)}
-                  className={`min-h-11 w-full rounded-[14px] border p-4 text-left transition ${selectedTemplateId === template.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                  disabled={createMutation.isPending || templatesPending || templatesError}
+                  className={`min-h-11 w-full rounded-[14px] border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${selectedTemplateId === template.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
                 >
-                  <span className="block font-bold text-slate-900">{template.name}</span>
-                  <span className="mt-1 block text-sm leading-5 text-slate-500">{template.description}</span>
+                  <span className="block break-words font-bold text-slate-900 [overflow-wrap:anywhere]">{template.name}</span>
+                  <span className="mt-1 block break-words text-sm leading-5 text-slate-500 [overflow-wrap:anywhere]">{template.description}</span>
                   <span className="mt-2 block text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
                     {template.days} days · {template.exerciseCount} exercises
                   </span>
@@ -376,10 +415,11 @@ export function ProgramLibraryPage() {
                 value={createModal.sourceProgramId ?? ''}
                 ariaLabel="Copy from"
                 options={programs.map((program) => ({ value: program.id, label: program.name }))}
+                disabled={createMutation.isPending}
                 onValueChange={(programId) => {
                   const sourceProgram = programs.find((program) => program.id === programId)
                   setCreateModal({ mode: 'copy', sourceProgramId: programId })
-                  setProgramName(sourceProgram ? `${sourceProgram.name} Copy` : 'Program Copy')
+                   setProgramName(sourceProgram ? getCopiedProgramName(sourceProgram.name) : 'Program Copy')
                 }}
               />
             </label>
@@ -389,7 +429,8 @@ export function ProgramLibraryPage() {
             <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
             <input
               id="create-program-name"
-              value={programName}
+               value={programName}
+               disabled={createMutation.isPending}
               aria-describedby={formError ? 'create-program-error' : undefined}
               maxLength={80}
               onChange={(event) => setProgramName(event.target.value)}
@@ -428,18 +469,19 @@ export function ProgramLibraryPage() {
             if (!renameMutation.isPending) setRenameTarget(null)
           }}
           closeOnEscape={!renameMutation.isPending}
-          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4"
-          className="w-full max-w-md rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+           overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+           className="max-h-[calc(100dvh-3rem)] w-full max-w-md overflow-y-auto rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
         >
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Program settings</p>
-          <h2 id="rename-program-dialog-title" className="mt-1 text-2xl font-extrabold tracking-[-0.03em] text-slate-900">
+           <h2 id="rename-program-dialog-title" className="mt-1 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
             Rename program
           </h2>
           <label htmlFor="rename-program-name" className="mt-5 block">
             <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
             <input
               id="rename-program-name"
-              value={renameName}
+               value={renameName}
+               disabled={renameMutation.isPending}
               aria-describedby={renameMutation.isError ? 'rename-program-error' : undefined}
               maxLength={80}
               onChange={(event) => setRenameName(event.target.value)}
@@ -448,7 +490,7 @@ export function ProgramLibraryPage() {
           </label>
           {renameMutation.isError ? (
             <p id="rename-program-error" role="alert" className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">
-              A program with this name may already exist.
+               {getProgramMutationError(renameMutation.error, 'A program with this name already exists.', 'Unable to rename the program. Please try again.')}
             </p>
           ) : null}
           <div className="mt-5 flex gap-2">
@@ -487,8 +529,9 @@ export function ProgramLibraryPage() {
               setDeleteTarget(null)
             }
           }}
-          onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
-        />
+           onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+           fallbackFocusRef={newProgramButtonRef}
+         />
       ) : null}
     </main>
   )

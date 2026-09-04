@@ -27,6 +27,7 @@ type DialogProps = {
   onClose?: () => void
   closeOnEscape?: boolean
   restoreFocusRef?: RefObject<HTMLElement | null>
+  fallbackFocusRef?: RefObject<HTMLElement | null>
   initialFocusRef?: RefObject<HTMLElement | null>
   focusKey?: string | number | boolean
 }
@@ -41,6 +42,7 @@ export function Dialog({
   onClose,
   closeOnEscape = true,
   restoreFocusRef,
+  fallbackFocusRef,
   initialFocusRef,
   focusKey,
 }: DialogProps) {
@@ -74,8 +76,14 @@ export function Dialog({
 
     if (restoreTarget && document.contains(restoreTarget)) {
       restoreTarget.focus()
+      return
     }
-  }, [restoreFocusRef, restoreTarget])
+
+    const fallbackTarget = fallbackFocusRef?.current
+    if (fallbackTarget && document.contains(fallbackTarget)) {
+      fallbackTarget.focus()
+    }
+  }, [fallbackFocusRef, restoreFocusRef, restoreTarget])
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape') {
