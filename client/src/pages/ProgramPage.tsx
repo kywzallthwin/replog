@@ -1,9 +1,10 @@
 import type { FormEvent } from 'react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
@@ -11,6 +12,8 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
+  type Modifier,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -61,6 +64,18 @@ type DeleteConfirmationState =
   | { type: 'exercise'; dayId: string; exercise: DayExerciseItem }
   | null
 
+type ActiveExercise = {
+  dayId: string
+  exercise: DayExerciseItem
+} | null
+
+const restrictToVerticalAxis: Modifier = ({ transform }) => ({
+  ...transform,
+  x: 0,
+  scaleX: 1,
+  scaleY: 1,
+})
+
 function formatCategory(category: string) {
   return category.charAt(0) + category.slice(1).toLowerCase()
 }
@@ -77,6 +92,25 @@ type SortableExerciseRowProps = {
   onRemove: () => void
 }
 
+function ExerciseDragPreview({ exercise }: { exercise: DayExerciseItem }) {
+  return (
+    <div className="flex min-h-[60px] w-full items-center gap-2 rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-[0_14px_30px_rgba(15,23,42,0.18)]">
+      <span className="min-w-0 grow break-words [overflow-wrap:anywhere]">{exercise.name}</span>
+      <span aria-hidden="true" className="h-11 w-11 shrink-0" />
+      <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18" fill="currentColor">
+          <circle cx="3" cy="2" r="1.25" />
+          <circle cx="11" cy="2" r="1.25" />
+          <circle cx="3" cy="9" r="1.25" />
+          <circle cx="11" cy="9" r="1.25" />
+          <circle cx="3" cy="16" r="1.25" />
+          <circle cx="11" cy="16" r="1.25" />
+        </svg>
+      </span>
+    </div>
+  )
+}
+
 function SortableExerciseRow({ exercise, isReordering, onRemove }: SortableExerciseRowProps) {
   const {
     attributes,
@@ -91,11 +125,11 @@ function SortableExerciseRow({ exercise, isReordering, onRemove }: SortableExerc
     <div
       ref={setNodeRef}
       style={{
-        transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : transform),
+        transform: CSS.Transform.toString(transform ? { ...transform, x: 0, scaleX: 1, scaleY: 1 } : transform),
         transition,
       }}
       className={`flex min-h-[60px] items-center gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${
-        isDragging ? 'relative z-10 rounded-[10px] bg-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]' : 'bg-transparent'
+        isDragging ? 'relative z-10 rounded-[10px] bg-transparent opacity-0' : 'bg-transparent'
       }`}
     >
       <span className="min-w-0 grow break-words font-medium text-slate-700">{exercise.name}</span>
@@ -164,6 +198,8 @@ export function ProgramPage() {
   const [activationError, setActivationError] = useState('')
   const [programDeleteDialogOpen, setProgramDeleteDialogOpen] = useState(false)
   const [programMenuOpen, setProgramMenuOpen] = useState(false)
+  const [activeExercise, setActiveExercise] = useState<ActiveExercise>(null)
+  const [displayedExercises, setDisplayedExercises] = useState<Record<string, DayExerciseItem[]>>({})
   const dayModalTriggerRef = useRef<HTMLElement | null>(null)
   const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
   const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
@@ -294,12 +330,17 @@ export function ProgramPage() {
 
       return { previousProgram }
     },
-    onError: (_error, _variables, context) => {
+    onError: (_error, { dayId }, context) => {
       if (context?.previousProgram !== undefined) {
         queryClient.setQueryData(programQueryKey(programId), context.previousProgram)
+        const previousDay = context.previousProgram?.days.find((day) => day.id === dayId)
+        if (previousDay) {
+          setDisplayedExercises((current) => ({ ...current, [dayId]: previousDay.exercises }))
+        }
       }
     },
-    onSuccess: async (exercises, { dayId }) => {
+    onSuccess: (exercises, { dayId }) => {
+      setDisplayedExercises((current) => ({ ...current, [dayId]: exercises }))
       queryClient.setQueryData<Program | null>(programQueryKey(programId), (currentProgram) => {
         if (!currentProgram) {
           return currentProgram
@@ -310,7 +351,7 @@ export function ProgramPage() {
           days: currentProgram.days.map((day) => day.id === dayId ? { ...day, exercises } : day),
         }
       })
-      await invalidateProgramData()
+      void invalidateProgramData()
     },
   })
 
@@ -323,6 +364,30 @@ export function ProgramPage() {
     || deleteConfirmationIsPending
     || addDayExerciseMutation.isPending
     || reorderDayExerciseMutation.isPending
+
+  useEffect(() => {
+    const displayedEntries = Object.entries(displayedExercises)
+    if (!displayedEntries.length) {
+      return
+    }
+
+    queueMicrotask(() => {
+      setDisplayedExercises((current) => {
+        const next = { ...current }
+        let changed = false
+
+        for (const [dayId, exercises] of displayedEntries) {
+          const currentDay = program?.days.find((day) => day.id === dayId)
+          if (currentDay && currentDay.exercises.every((exercise, index) => exercise.id === exercises[index]?.id)) {
+            delete next[dayId]
+            changed = true
+          }
+        }
+
+        return changed ? next : current
+      })
+    })
+  }, [displayedExercises, program])
 
   function openAddDayModal(trigger?: HTMLElement) {
     if (editorMutationIsPending) {
@@ -475,18 +540,34 @@ export function ProgramPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
+  function handleDragStart(day: ProgramDay, event: DragStartEvent) {
+    const exercise = day.exercises.find((item) => item.id === String(event.active.id))
+    if (exercise) {
+      setActiveExercise({ dayId: day.id, exercise })
+    }
+  }
+
   function handleDragEnd(day: ProgramDay, event: DragEndEvent) {
     if (editorMutationIsPending || !event.over || event.active.id === event.over.id) {
+      setActiveExercise(null)
       return
     }
 
-    const sourceIndex = day.exercises.findIndex((exercise) => exercise.id === String(event.active.id))
-    const targetIndex = day.exercises.findIndex((exercise) => exercise.id === String(event.over?.id))
+    const exercises = displayedExercises[day.id] ?? day.exercises
+    const sourceIndex = exercises.findIndex((exercise) => exercise.id === String(event.active.id))
+    const targetIndex = exercises.findIndex((exercise) => exercise.id === String(event.over?.id))
 
     if (sourceIndex < 0 || targetIndex < 0) {
+      setActiveExercise(null)
       return
     }
 
+    const reorderedExercises = arrayMove(exercises, sourceIndex, targetIndex).map((exercise, index) => ({
+      ...exercise,
+      order: index + 1,
+    }))
+
+    setDisplayedExercises((current) => ({ ...current, [day.id]: reorderedExercises }))
     reorderDayExerciseMutation.reset()
     reorderDayExerciseMutation.mutate({
       programId,
@@ -494,6 +575,8 @@ export function ProgramPage() {
       dayExerciseId: String(event.active.id),
       targetIndex,
     })
+
+    setActiveExercise(null)
   }
 
   function handleActivateProgram() {
@@ -650,15 +733,18 @@ export function ProgramPage() {
                 {day.exercises.length ? (
                   <DndContext
                     sensors={sensors}
+                    modifiers={[restrictToVerticalAxis]}
                     collisionDetection={closestCenter}
+                    onDragStart={(event) => handleDragStart(day, event)}
                     onDragEnd={(event) => handleDragEnd(day, event)}
-                  >
-                    <SortableContext
-                      items={day.exercises.map((exercise) => exercise.id)}
-                      strategy={verticalListSortingStrategy}
+                    onDragCancel={() => setActiveExercise(null)}
                     >
-                      <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
-                        {day.exercises.map((exercise) => (
+                      <SortableContext
+                        items={(displayedExercises[day.id] ?? day.exercises).map((exercise) => exercise.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
+                        {(displayedExercises[day.id] ?? day.exercises).map((exercise) => (
                           <SortableExerciseRow
                             key={exercise.id}
                             exercise={exercise}
@@ -668,6 +754,13 @@ export function ProgramPage() {
                         ))}
                       </div>
                     </SortableContext>
+                    <DragOverlay
+                      adjustScale={false}
+                      modifiers={[restrictToVerticalAxis]}
+                      dropAnimation={null}
+                    >
+                      {activeExercise?.dayId === day.id ? <ExerciseDragPreview exercise={activeExercise.exercise} /> : null}
+                    </DragOverlay>
                   </DndContext>
                 ) : null}
 
