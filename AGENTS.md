@@ -1,79 +1,33 @@
-# AGENTS.md
+# RepLog Agent Rules
 
-## Project
-- Name: `RepLog`
-- Repo root: `D:\coding\project\workout`
-- Goal: build RepLog from the AtomicMoore mockup and build plan, using this repo as the main workspace.
+## Authority
+- `STATUS.md` is the live handoff and active-ticket pointer.
+- `WAVE1.md` is the current wave index; unfinished ticket requirements are in `tickets/`.
+- `ROADMAP.md` is the high-level delivery plan and product-decision record.
+- `Replog-mockup/Replog-mockup.html` and `Replog-Build-Plan.pdf` are UI/build references.
+- `package.json` is the workspace and command source.
 
-## Source Of Truth
-- Mockup reference: `Replog-mockup/Replog-mockup.html`
-- Build plan: `Replog-Build-Plan.pdf`
-- Root workspace config: `package.json`
-- Live handoff file: `STATUS.md`
-- High-level delivery roadmap: `ROADMAP.md`
-- Current-wave ticket file: `WAVE1.md` (follow the current wave named by `STATUS.md`)
+## Context
+- Before editing, read `STATUS.md` and only the linked active ticket.
+- Do not read every ticket or the complete roadmap by default.
+- Read `ROADMAP.md` only for product decisions or wave planning.
+- Read the mockup/PDF only for relevant structural UI work.
+- Read `package-lock.json` only when dependencies change.
+- Use targeted searches and file ranges instead of opening large files.
+- Run focused verification while developing and the full ticket check once.
 
-## Current Repository Facts
-- Git repo already initialized.
-- Root npm workspace config already exists in `package.json`.
-- Declared workspaces: `client`, `server`.
-- `client/` exists as the Vite React client workspace.
-- `server/` exists as the Express/Prisma server workspace.
-- Target deployment is one Render Free Web Service in Singapore with Neon Free PostgreSQL.
-- `render.yaml` defines the Render service; no Render-managed database is used.
-- Root dev dependency already installed: `concurrently`.
-- Root `dev` script currently runs both workspaces: `npm run dev`.
-- Last verified local Node version: `v25.6.1`.
+## Delivery
+- Implement one coherent ticket at a time; do not expand scope silently.
+- Mobile-first is required; treat 375px as the primary acceptance width.
+- Preserve the mockup's structure and intent.
+- Prefer small, independently verifiable changes.
+- Do not begin a later wave until the current wave gate is complete.
+- High-risk database, authentication, privacy, security, and deployment work needs explicit dependencies, risks, rollback considerations, and independent review.
+- Preserve unrelated worktree changes.
+- Do not commit, amend, push, or deploy without explicit user authorization.
 
-## How To Work In This Repo
-1. Read `STATUS.md` first.
-2. Read the active ticket in the current wave file before editing.
-3. Verify the current file tree and worktree before assuming progress is still accurate.
-4. Re-check `package.json` if setup-related work is involved.
-5. Re-read the relevant mockup and build-plan sections before making structural UI decisions.
-6. Prefer small, verifiable changes over large batches.
-7. Confirm each setup step is complete before moving to the next one.
-
-## Planned Build Order
-1. Complete the current Wave 1 tickets in `WAVE1.md`.
-2. Continue through the waves and dependencies in `ROADMAP.md`.
-3. Do not start the next wave until the current wave gate is complete.
-
-## Working Rules
-- Preserve the mockup's structure and intent while translating it into the app.
-- Mobile-first is the standing priority: treat 375px phone layouts as the primary acceptance target, verify mobile before larger breakpoints, and treat desktop responsive polish as optional unless it affects mobile behavior.
-- Keep `STATUS.md` as a concise handoff document, generally around 40-70 lines. Preserve current state, next actions, blockers, backlog, and only the latest few session notes; do not append an exhaustive historical changelog.
-- Do not assume a step is complete unless the files and commands confirm it.
-- Record any plan changes, blockers, or setup deviations in `STATUS.md`.
-- Update `STATUS.md` at the end of every session.
-- Update this file only when project rules, architecture, tooling assumptions, or source-of-truth files change.
-
-## Ticketed Work
-- Normal implementation work must have one compact ticket in the current wave file before code is edited.
-- A compact ticket includes State, Goal, Scope, Out of scope, Acceptance criteria, Verification, and Stop conditions.
-- Tiny, low-risk corrections may use a direct bounded prompt when they can be verified independently without a ticket file change.
-- A Build session implements one coherent ticket at a time and must not silently expand its scope.
-- Database, authentication, security, privacy, and deployment work also requires explicit dependencies, risks, rollback considerations, and independent review.
-- Preserve unrelated worktree changes. Do not commit, amend, push, or deploy without explicit user authorization.
-- After implementation, run the ticket verification, record the completion report in the ticket, move it to `review`, and update `STATUS.md`.
-
-## Expected Workspace Shape
-```text
-/workout
-  package.json
-  package-lock.json
-  AGENTS.md
-  ROADMAP.md
-  STATUS.md
-  WAVE1.md
-  render.yaml
-  /Replog-mockup
-  /client
-  /server
-```
-
-## Resume Protocol
-1. Open `STATUS.md`.
-2. Start from the first item under `Next Actions`.
-3. If repo state differs from `STATUS.md`, correct `STATUS.md` before continuing.
-4. At session end, update `STATUS.md` so the next session can resume immediately.
+## Tickets And Handoff
+- Normal multi-step work requires a ticket with State, Goal, Scope, Out of scope, Acceptance criteria, Verification, and Stop conditions.
+- Tiny, low-risk fixes may use a bounded prompt if independently verifiable.
+- Run ticket verification before marking work `review` or `done`.
+- Keep `STATUS.md` current; replace stale entries instead of appending history.

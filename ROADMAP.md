@@ -1,7 +1,7 @@
 # RepLog Roadmap
 
 This file is the high-level delivery plan. Detailed work belongs in the
-current wave file named by `STATUS.md`. Each implementation session handles
+unfinished ticket file named by `STATUS.md`. Each implementation session handles
 one coherent ticket.
 
 ## Product Decisions
@@ -12,13 +12,6 @@ one coherent ticket.
 - Mobile-first acceptance uses a 375px phone layout as the primary target.
 - Production deployment remains one Render Free Web Service with Neon Free PostgreSQL.
 
-## Current State
-
-- Phases 0-3 are complete and the MVP is deployed.
-- Wave 1 is active: mobile acceptance and frontend quality.
-- `WAVE1.md` is the canonical source for Wave 1 tickets and their states.
-- Phase 4 work must not begin until the Wave 1 mobile gate is complete.
-
 ## Waves
 
 ### Wave 1: Mobile Acceptance And Frontend Quality
@@ -28,7 +21,7 @@ accessibility behavior, add client/browser test foundations, and close the
 mobile acceptance gate without adding later product features.
 
 Depends on: current deployed MVP and local verification environment.
-Detailed tickets: `WAVE1.md`.
+Detailed tickets: `WAVE1.md` and the linked files in `tickets/`.
 
 ### Wave 2: Mockup Feature Completion
 
@@ -92,7 +85,7 @@ Depends on: Waves 1-7 and explicit user authorization to deploy.
 
 - A wave is complete only when its tickets are reviewed, verified, and marked
   `done` in the wave file.
-- `STATUS.md` must identify the active or next ticket after every session.
+- `STATUS.md` must identify the active or next ticket whenever project state changes.
 - High-risk database, authentication, privacy, security, and deployment work
   requires independent review before it is accepted.
 - No production deployment occurs without explicit user authorization.
