@@ -5,7 +5,7 @@ Completed-ticket detail is preserved in Git history.
 
 ## Tickets
 - W1-01 through W1-05: done
-- [W1-06](tickets/W1-06.md): review
+- [W1-06](tickets/W1-06.md): done
 - [W1-07](tickets/W1-07.md): review
 - [W1-08](tickets/W1-08.md): proposed
 - [W1-09](tickets/W1-09.md): proposed
