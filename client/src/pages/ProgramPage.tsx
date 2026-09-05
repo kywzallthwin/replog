@@ -37,6 +37,7 @@ import {
   updateDay,
   getProgram,
   getProgramMutationError,
+  isProgramConflict,
   DAY_BADGE_COLORS,
   type DayBadgeColor,
   type DayExerciseItem,
@@ -283,6 +284,12 @@ export function ProgramPage() {
       setExercisePicker(null)
       setSelectedExerciseId('')
     },
+    onError: async (error) => {
+      if (isProgramConflict(error)) {
+        setSelectedExerciseId('')
+      }
+      await queryClient.invalidateQueries({ queryKey: programQueryKey(programId) })
+    },
   })
   const removeDayExerciseMutation = useMutation({
     mutationFn: removeDayExercise,
@@ -294,6 +301,7 @@ export function ProgramPage() {
   const reorderDayExerciseMutation = useMutation({
     mutationFn: reorderDayExercise,
       onMutate: async ({ dayId, dayExerciseId, targetIndex }) => {
+      await queryClient.cancelQueries({ queryKey: programQueryKey(programId) })
       const previousProgram = queryClient.getQueryData<Program | null>(programQueryKey(programId))
 
       // Move the row before awaiting query cancellation so it never flashes back
@@ -325,8 +333,6 @@ export function ProgramPage() {
           }),
         }
       })
-
-      await queryClient.cancelQueries({ queryKey: programQueryKey(programId) })
 
       return { previousProgram }
     },
@@ -902,7 +908,9 @@ export function ProgramPage() {
           isOptionsPending={isExerciseOptionsPending}
           isOptionsError={isExerciseOptionsError}
           isSaving={addDayExerciseMutation.isPending}
-          saveError={addDayExerciseMutation.isError ? 'Unable to add exercise. Please try again.' : undefined}
+           saveError={addDayExerciseMutation.isError
+             ? getProgramMutationError(addDayExerciseMutation.error, 'This exercise is already in this day. The list has been refreshed.', 'Unable to add exercise. Please try again.')
+             : undefined}
           onSelectedExercise={setSelectedExerciseId}
           onConfirm={handleExercisePickerConfirm}
           onClose={closeExercisePicker}

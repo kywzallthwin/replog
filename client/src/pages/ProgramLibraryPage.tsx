@@ -125,8 +125,16 @@ export function ProgramLibraryPage() {
       setRenameTarget(null)
     },
   })
+  const libraryMutationIsPending = createMutation.isPending
+    || activateMutation.isPending
+    || deleteMutation.isPending
+    || renameMutation.isPending
 
   function openCreateModal(mode: CreateMode, sourceProgram?: ProgramSummary) {
+    if (libraryMutationIsPending) {
+      return
+    }
+
     setFormError('')
     setCreateModal({
       mode,
@@ -153,6 +161,10 @@ export function ProgramLibraryPage() {
   }
 
   function openRenameModal(program: ProgramSummary) {
+    if (libraryMutationIsPending) {
+      return
+    }
+
     renameMutation.reset()
     setOpenMenuProgramId(null)
     setRenameTarget(program)
@@ -160,6 +172,10 @@ export function ProgramLibraryPage() {
   }
 
   function openDeleteDialog(program: ProgramSummary) {
+    if (libraryMutationIsPending) {
+      return
+    }
+
     deleteMutation.reset()
     setOpenMenuProgramId(null)
     setDeleteTarget(program)
@@ -238,7 +254,8 @@ export function ProgramLibraryPage() {
             ref={newProgramButtonRef}
             type="button"
             onClick={() => openCreateModal('template')}
-            className="min-h-11 w-fit rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 sm:ml-auto"
+            disabled={libraryMutationIsPending}
+            className="min-h-11 w-fit rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:ml-auto"
           >
             + New Program
           </button>
@@ -273,7 +290,13 @@ export function ProgramLibraryPage() {
               <div className="mt-4 flex items-center gap-2">
                 <Link
                   to={`/program/${activeProgram.id}`}
-                  className="inline-flex min-h-11 items-center rounded-[10px] bg-slate-900 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800"
+                  onClick={(event) => {
+                    if (libraryMutationIsPending) {
+                      event.preventDefault()
+                    }
+                  }}
+                  aria-disabled={libraryMutationIsPending || undefined}
+                  className="inline-flex min-h-11 items-center rounded-[10px] bg-slate-900 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
                 >
                   View and edit
                 </Link>
@@ -308,15 +331,22 @@ export function ProgramLibraryPage() {
                     <button
                       type="button"
                       onClick={() => handleActivate(program.id)}
-                      disabled={activateMutation.isPending && activateMutation.variables === program.id}
+                      disabled={libraryMutationIsPending}
                       className="min-h-11 rounded-[10px] border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                     >
                       {activateMutation.isPending && activateMutation.variables === program.id ? 'Switching...' : 'Make active'}
                     </button>
                     <Link
                       to={`/program/${program.id}`}
-                      onClick={() => setOpenMenuProgramId(null)}
-                      className="inline-flex min-h-11 items-center rounded-[10px] border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                      onClick={(event) => {
+                        if (libraryMutationIsPending) {
+                          event.preventDefault()
+                          return
+                        }
+                        setOpenMenuProgramId(null)
+                      }}
+                      aria-disabled={libraryMutationIsPending || undefined}
+                      className="inline-flex min-h-11 items-center rounded-[10px] border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-60"
                     >
                       Edit
                     </Link>
@@ -344,7 +374,8 @@ export function ProgramLibraryPage() {
         <button
           type="button"
           onClick={() => openCreateModal('template')}
-          className="mt-2 flex min-h-[54px] w-full items-center justify-center rounded-[16px] border border-dashed border-slate-300 bg-slate-50 text-[13px] font-extrabold text-slate-600 transition hover:bg-white"
+          disabled={libraryMutationIsPending}
+          className="mt-2 flex min-h-[54px] w-full items-center justify-center rounded-[16px] border border-dashed border-slate-300 bg-slate-50 text-[13px] font-extrabold text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           + Create another program
         </button>

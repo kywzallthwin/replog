@@ -135,6 +135,10 @@ export function getProgramMutationError(error: unknown, conflictMessage: string,
   return axios.isAxiosError(error) && error.response?.status === 409 ? conflictMessage : fallbackMessage
 }
 
+export function isProgramConflict(error: unknown) {
+  return axios.isAxiosError(error) && error.response?.status === 409
+}
+
 export async function getPrograms() {
   const response = await api.get<ProgramsResponse>('/programs')
 
