@@ -209,6 +209,16 @@ describe('WorkoutPage regression coverage', () => {
     expect(within(form).getByLabelText(/Previous workout sets from/)).toHaveTextContent('77.5×8→60×6')
     expect(within(form).getByRole('spinbutton', { name: 'Weight kg' })).toHaveValue(80)
     expect(within(form).getAllByRole('spinbutton')[1]).toHaveValue(8)
+    expect(within(form).getByText('Last Set . KgxRepxDrop')).toBeInTheDocument()
+  })
+
+  it('shows one concise format guide when no previous sets exist', async () => {
+    renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [], lastTime: null, previousWorkout: null })] }))
+    const { form } = await openAddSetForm()
+
+    expect(within(form).queryByText('Last Set . KgxRepxDrop')).not.toBeInTheDocument()
+    expect(within(form).getAllByText('No previous sets')).toHaveLength(1)
+    expect(within(form).queryByText('No previous set', { exact: true })).not.toBeInTheDocument()
   })
 
   it('renders a completed workout as read-only with its summary', async () => {
@@ -532,16 +542,18 @@ describe('mobile layout contract', () => {
     expect(inner).not.toHaveClass('inline-flex', 'min-w-max')
   })
 
-  it('uses a 44px remove button and min-w-0 grid for drop rows', async () => {
+  it('uses compact controls and a single-row layout for drop rows', async () => {
     renderWorkout()
     const { form } = await openAddSetForm()
     fireEvent.click(within(form).getByRole('button', { name: /Add drop set/ }))
 
+    expect(within(form).getByTestId('add-drop-action')).toHaveClass('block', 'min-w-0')
+    expect(within(form).getByRole('button', { name: /Add drop set/ })).toHaveClass('h-11', 'w-full')
     const removeBtn = within(form).getByRole('button', { name: 'Remove drop 1' })
     expect(removeBtn).toHaveClass('h-11', 'w-11', 'place-items-center')
 
     const dropRow = within(form).getByTestId('drop-fields')
-    expect(dropRow).toHaveClass('grid', 'min-w-0', 'grid-cols-2')
+    expect(dropRow).toHaveClass('grid', 'min-w-0', 'grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_2.75rem]')
     expect(within(dropRow).getByRole('spinbutton', { name: 'Drop 1 weight kg' })).toBeInTheDocument()
     expect(within(dropRow).getByRole('spinbutton', { name: 'Drop 1 reps' })).toBeInTheDocument()
   })

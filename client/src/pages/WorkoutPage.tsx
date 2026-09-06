@@ -364,22 +364,6 @@ function getRepsError(value: string) {
   return ''
 }
 
-function LastSetSummary({ exercise, suggestedSet }: { exercise: WorkoutExercise; suggestedSet: { weightKg: number; reps: number; id?: string } | null }) {
-  if (!suggestedSet) {
-    return <p className="mb-3 text-xs font-semibold text-slate-400">No previous set</p>
-  }
-
-  const dropCount = suggestedSet.id && exercise.sets.some((set) => set.id === suggestedSet.id)
-    ? exercise.sets.filter((set) => set.parentSetId === suggestedSet.id).length
-    : 0
-
-  return (
-    <p className="mb-3 min-w-0 break-words text-xs font-semibold tabular-nums text-slate-500">
-      Last Set · {suggestedSet.weightKg}kg×{suggestedSet.reps}rep{dropCount ? `×${dropCount}drop` : ''}
-    </p>
-  )
-}
-
 function SetRow({
   set,
   setNumber,
@@ -1287,10 +1271,12 @@ export function WorkoutPage() {
       className="mt-3 min-w-0 rounded-[14px] border border-slate-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:p-4"
                     >
                       <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">New Set</p>
-                      <LastSetSummary exercise={exercise} suggestedSet={getSuggestedSet(exercise)} />
+                      {exercise.previousWorkout ? (
+                        <p className="mb-3 text-xs font-semibold text-slate-500">Last Set . KgxRepxDrop</p>
+                      ) : null}
                       <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} />
-                      <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3">
-                        <label className="col-span-2 block min-w-0 sm:col-span-1">
+                      <div className="grid min-w-0 gap-3">
+                        <label className="block min-w-0">
                           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
                           <FluidSelect
                             value={kind}
@@ -1305,7 +1291,8 @@ export function WorkoutPage() {
                             ariaLabel="Set kind"
                           />
                         </label>
-                        <label className="block min-w-0">
+                        <div className={`grid min-w-0 gap-2 ${kind === 'NORMAL' ? 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]' : 'grid-cols-2'}`}>
+                          <label className="block min-w-0">
                           <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
                            <input
                              ref={addWeightRef}
@@ -1319,8 +1306,8 @@ export function WorkoutPage() {
                             className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                             required
                           />
-                        </label>
-                        <label className="block min-w-0">
+                          </label>
+                          <label className="block min-w-0">
                           <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Reps</span>
                           <input
                             type="number"
@@ -1334,40 +1321,31 @@ export function WorkoutPage() {
                             className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                             required
                           />
-                        </label>
+                          </label>
+                          {kind === 'NORMAL' ? (
+                            <div data-testid="add-drop-action" className="block min-w-0">
+                              <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Drop</span>
+                              <button
+                                type="button"
+                                onClick={addDropDraft}
+                                disabled={dropDrafts.length >= 9 || workoutMutationIsPending}
+                                aria-label={`Add drop set. ${dropDrafts.length} of 9 added`}
+                                className="flex h-11 w-full items-center justify-center rounded-[10px] border border-blue-200 bg-blue-50 text-xl font-bold leading-none text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                              >
+                                {dropDrafts.length >= 9 ? '9/9' : '+'}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                      {kind === 'NORMAL' ? (
-                        <button
-                          type="button"
-                          onClick={addDropDraft}
-                          disabled={dropDrafts.length >= 9 || workoutMutationIsPending}
-                          aria-label={`Add drop set. ${dropDrafts.length} of 9 added`}
-                          className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[10px] border border-blue-200 bg-blue-50 text-sm font-bold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                        >
-                          {dropDrafts.length >= 9 ? 'Drop limit reached' : 'Add drop'}
-                        </button>
-                      ) : null}
                       {kind === 'NORMAL' && dropDrafts.length ? (
                         <div className="mt-2 space-y-2">
                           {dropDrafts.map((drop, dropIndex) => (
-                            <div key={drop.id} className="min-w-0 space-y-2.5 rounded-[12px] border border-slate-200 bg-slate-50 p-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-extrabold tracking-[0.04em] text-blue-700">
-                                  DROP {dropIndex + 1}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeDropDraft(drop.id)}
-                                  disabled={workoutMutationIsPending}
-                                  aria-label={`Remove drop ${dropIndex + 1}`}
-                                  className="grid h-11 w-11 place-items-center rounded-full text-base font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                              <div data-testid="drop-fields" className="grid min-w-0 grid-cols-2 gap-2">
-                                <label className="block min-w-0">
-                                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
+                            <div key={drop.id} data-testid="drop-fields" className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-[10px] border border-slate-200 bg-slate-50 p-2">
+                              <span className="inline-flex whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-extrabold tracking-[0.04em] text-blue-700">
+                                DROP {dropIndex + 1}
+                              </span>
+                              <label className="block min-w-0">
                                   <input
                                     type="number"
                                     inputMode="decimal"
@@ -1379,13 +1357,12 @@ export function WorkoutPage() {
                                     value={drop.weightKg}
                                     onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
                                     aria-label={`Drop ${dropIndex + 1} weight kg`}
-                                    placeholder="0"
-                                    className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                    placeholder="kg"
+                                    className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                                     required
                                   />
-                                </label>
-                                <label className="block min-w-0">
-                                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">Reps</span>
+                              </label>
+                              <label className="block min-w-0">
                                   <input
                                     type="number"
                                     inputMode="numeric"
@@ -1397,12 +1374,20 @@ export function WorkoutPage() {
                                     value={drop.reps}
                                     onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
                                     aria-label={`Drop ${dropIndex + 1} reps`}
-                                    placeholder="0"
-                                    className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                    placeholder="reps"
+                                    className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                                     required
                                   />
-                                </label>
-                              </div>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => removeDropDraft(drop.id)}
+                                disabled={workoutMutationIsPending}
+                                aria-label={`Remove drop ${dropIndex + 1}`}
+                                className="grid h-11 w-11 place-items-center rounded-full text-base font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                ×
+                              </button>
                             </div>
                           ))}
                         </div>
