@@ -459,3 +459,89 @@ describe('WorkoutPage regression coverage', () => {
     expect(await screen.findByRole('heading', { name: 'Dashboard destination' })).toBeInTheDocument()
   })
 })
+
+const longName = 'ExtremelyLongExerciseNameThatMustRemainVisible012345678901234567890123456789'
+
+describe('mobile layout contract', () => {
+  it('contains page overflow with safe-area bottom padding', async () => {
+    renderWorkout()
+    await screen.findByText('Active workout')
+
+    const main = screen.getByRole('main')
+    expect(main).toHaveClass('overflow-x-hidden', 'w-full', 'min-w-0')
+
+    const pb = main.className
+    expect(pb).toContain('pb-[calc(2rem+env(safe-area-inset-bottom))]')
+    expect(pb).not.toContain('py-8')
+  })
+
+  it('uses min-w-0 on the session section and summary headings', async () => {
+    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600, dayName: longName, programName: longName }))
+    await screen.findByText('Completed workout')
+
+    const section = document.querySelector('section.min-w-0') as HTMLElement
+    expect(section).toBeInTheDocument()
+
+    const headings = screen.getAllByRole('heading', { name: longName })
+    const summaryHeading = headings.find((h) => h.tagName === 'H2' && h.className.includes('min-w-0'))
+    expect(summaryHeading).toBeDefined()
+    expect(summaryHeading).toHaveClass('min-w-0', 'break-words')
+  })
+
+  it('contains exercise cards and exercise name wrapping', async () => {
+    renderWorkout(workoutSession({ exercises: [workoutExercise({ name: longName })] }))
+    await screen.findByText(longName)
+
+    const card = (await getExerciseCard(longName)) as HTMLElement
+    expect(card).toHaveClass('min-w-0')
+
+    const heading = screen.getByRole('heading', { name: longName })
+    expect(heading).toHaveClass('min-w-0', 'break-words')
+  })
+
+  it('wraps the previous-set history line instead of scrolling', async () => {
+    renderWorkout()
+    const { form } = await openAddSetForm()
+    const history = within(form).getByLabelText(/Previous workout sets from/)
+
+    expect(history).toHaveClass('rounded-[10px]', 'bg-slate-50', 'px-2.5', 'py-2')
+    expect(history.className).not.toContain('overflow-x-auto')
+    expect(history.className).not.toContain('min-w-max')
+
+    const inner = history.querySelector('div') as HTMLElement
+    expect(inner).toHaveClass('flex', 'min-w-0', 'flex-wrap')
+    expect(inner).not.toHaveClass('inline-flex', 'min-w-max')
+  })
+
+  it('uses a 44px remove button and min-w-0 grid for drop rows', async () => {
+    renderWorkout()
+    const { form } = await openAddSetForm()
+    fireEvent.click(within(form).getByText('+ Drop'))
+
+    const removeBtn = within(form).getByRole('button', { name: 'Remove drop' })
+    expect(removeBtn).toHaveClass('h-11', 'w-11', 'place-items-center')
+
+    const dropRow = removeBtn.closest('div.min-w-0') as HTMLElement
+    expect(dropRow).toBeInTheDocument()
+    expect(dropRow).toHaveClass('grid', 'min-w-0', 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]')
+  })
+
+  it('preserves 44px controls on set-row edit and delete actions', async () => {
+    renderWorkout()
+    const card = await getExerciseCard()
+    const editBtn = within(card).getByRole('button', { name: 'Edit set' })
+    const deleteBtn = within(card).getByRole('button', { name: 'Delete set' })
+
+    expect(editBtn).toHaveClass('h-11', 'w-11')
+    expect(deleteBtn).toHaveClass('h-11', 'w-11')
+  })
+
+  it('uses min-w-0 and safe-area padding on the page container', async () => {
+    renderWorkout()
+    await screen.findByText('Active workout')
+
+    const main = screen.getByRole('main')
+    const inner = main.querySelector('.max-w-4xl') as HTMLElement
+    expect(inner).toHaveClass('w-full', 'min-w-0')
+  })
+})
