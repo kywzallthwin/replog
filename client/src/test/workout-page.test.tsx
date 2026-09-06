@@ -178,7 +178,7 @@ async function getExerciseCard(name = 'Bench Press') {
 async function openAddSetForm() {
   const card = await getExerciseCard()
   fireEvent.click(within(card).getByRole('button', { name: 'Add Set' }))
-  const heading = within(card).getByText('Add Set', { selector: 'p' })
+  const heading = within(card).getByText('New Set', { selector: 'p' })
   const form = heading.closest('form')
   if (!form) throw new Error('Add set form was not rendered')
   return { card, form }
@@ -229,7 +229,7 @@ describe('WorkoutPage regression coverage', () => {
 
     fireEvent.change(within(form).getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '82.5' } })
     fireEvent.change(within(form).getAllByRole('spinbutton')[1], { target: { value: '7' } })
-    fireEvent.change(within(form).getByRole('textbox', { name: /Set note/ }), { target: { value: '  Smooth reps  ' } })
+    fireEvent.change(within(form).getByRole('textbox', { name: /Note/ }), { target: { value: '  Smooth reps  ' } })
     fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
 
     await waitFor(() => expect(mockedAddSet.mock.calls[0]?.[0]).toEqual({
@@ -247,15 +247,15 @@ describe('WorkoutPage regression coverage', () => {
     renderWorkout()
     const { form } = await openAddSetForm()
 
-    fireEvent.click(within(form).getByText('+ Drop'))
-    fireEvent.click(within(form).getByRole('button', { name: 'Remove drop' }))
+    fireEvent.click(within(form).getByRole('button', { name: /Add drop set/ }))
+    fireEvent.click(within(form).getByRole('button', { name: 'Remove drop 1' }))
     expect(within(form).queryByRole('spinbutton', { name: 'Drop weight kg' })).not.toBeInTheDocument()
     expect(within(form).getByRole('button', { name: 'Save Set' })).toBeInTheDocument()
 
-    fireEvent.click(within(form).getByText('+ Drop'))
-    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Drop weight kg' }), { target: { value: '60' } })
-    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Drop reps' }), { target: { value: '6' } })
-    fireEvent.click(within(form).getByRole('button', { name: 'Save Set + Drops' }))
+    fireEvent.click(within(form).getByRole('button', { name: /Add drop set/ }))
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Drop 1 weight kg' }), { target: { value: '60' } })
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Drop 1 reps' }), { target: { value: '6' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
 
     await waitFor(() => expect(mockedAddSetChain.mock.calls[0]?.[0]).toEqual({
       sessionId: 'session-1',
@@ -411,7 +411,7 @@ describe('WorkoutPage regression coverage', () => {
   })
 
   it('submits a swap and closes the picker after success', async () => {
-    renderWorkout()
+    renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [] })] }))
     const trigger = within(await getExerciseCard()).getByRole('button', { name: 'Swap' })
     fireEvent.click(trigger)
     const dialog = await screen.findByRole('dialog', { name: 'Bench Press' })
@@ -425,6 +425,16 @@ describe('WorkoutPage regression coverage', () => {
     }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bench Press' })).not.toBeInTheDocument())
     expect(trigger).toHaveFocus()
+  })
+
+  it('keeps Swap visible but disabled after sets are logged', async () => {
+    renderWorkout()
+    const swap = within(await getExerciseCard()).getByRole('button', { name: 'Swap' })
+
+    expect(swap).toBeDisabled()
+    expect(swap).toHaveAttribute('aria-describedby', 'swap-explanation-session-exercise-1')
+    expect(screen.getByText('Remove logged sets before swapping this exercise.')).toBeInTheDocument()
+    expect(mockedSwapSessionExercise).not.toHaveBeenCalled()
   })
 
   it('reports finish failure and renders the completed result after retry', async () => {
@@ -525,15 +535,15 @@ describe('mobile layout contract', () => {
   it('uses a 44px remove button and min-w-0 grid for drop rows', async () => {
     renderWorkout()
     const { form } = await openAddSetForm()
-    fireEvent.click(within(form).getByText('+ Drop'))
+    fireEvent.click(within(form).getByRole('button', { name: /Add drop set/ }))
 
-    const removeBtn = within(form).getByRole('button', { name: 'Remove drop' })
+    const removeBtn = within(form).getByRole('button', { name: 'Remove drop 1' })
     expect(removeBtn).toHaveClass('h-11', 'w-11', 'place-items-center')
 
     const dropRow = within(form).getByTestId('drop-fields')
-    expect(dropRow).toHaveClass('grid', 'min-w-0', 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]')
-    expect(within(dropRow).getByRole('spinbutton', { name: 'Drop weight kg' })).toBeInTheDocument()
-    expect(within(dropRow).getByRole('spinbutton', { name: 'Drop reps' })).toBeInTheDocument()
+    expect(dropRow).toHaveClass('grid', 'min-w-0', 'grid-cols-2')
+    expect(within(dropRow).getByRole('spinbutton', { name: 'Drop 1 weight kg' })).toBeInTheDocument()
+    expect(within(dropRow).getByRole('spinbutton', { name: 'Drop 1 reps' })).toBeInTheDocument()
   })
 
   it('keeps a nine-drop chain inside the wrapping history and editable rows', async () => {
@@ -563,12 +573,12 @@ describe('mobile layout contract', () => {
     expect(history).toHaveTextContent('1000×1000→1000×1000→999×999')
 
     for (let index = 0; index < 9; index += 1) {
-      fireEvent.click(within(form).getByText('+ Drop'))
+      fireEvent.click(within(form).getByRole('button', { name: /Add drop set/ }))
     }
-    expect(within(form).getAllByRole('button', { name: 'Remove drop' })).toHaveLength(9)
-    expect(within(form).getAllByRole('spinbutton', { name: 'Drop weight kg' })).toHaveLength(9)
-    expect(within(form).getAllByRole('spinbutton', { name: 'Drop reps' })).toHaveLength(9)
-    expect(within(form).getAllByRole('button', { name: 'Remove drop' })[0]).toHaveClass('h-11', 'w-11')
+    expect(within(form).getAllByRole('button', { name: /Remove drop/ })).toHaveLength(9)
+    expect(within(form).getAllByRole('spinbutton', { name: /Drop \d+ weight kg/ })).toHaveLength(9)
+    expect(within(form).getAllByRole('spinbutton', { name: /Drop \d+ reps/ })).toHaveLength(9)
+    expect(within(form).getAllByRole('button', { name: /Remove drop/ })[0]).toHaveClass('h-11', 'w-11')
   })
 
   it('preserves 44px controls on set-row edit and delete actions', async () => {
