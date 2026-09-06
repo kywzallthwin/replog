@@ -310,7 +310,7 @@ describe('WorkoutPage regression coverage', () => {
 
     fireEvent.change(within(form).getByRole('spinbutton', { name: 'Reps' }), { target: { value: '1.5' } })
     fireEvent.submit(form)
-    expect(within(form).getByText('Enter valid reps')).toBeInTheDocument()
+    expect(within(form).getByText('Enter whole reps from 1 to 1,000.')).toBeInTheDocument()
     expect(mockedUpdateSet).not.toHaveBeenCalled()
 
     fireEvent.change(within(form).getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '85' } })
@@ -343,7 +343,7 @@ describe('WorkoutPage regression coverage', () => {
     fireEvent.click(within(card).getByRole('button', { name: 'Edit set' }))
     fireEvent.click(within(card).getByRole('button', { name: 'Save Changes' }))
 
-    expect(await within(card).findByText('Unable to save set. Please try again.')).toBeInTheDocument()
+    await waitFor(() => expect(within(card).getByText('Unable to save set. Please try again.')).toBeInTheDocument())
     expect(within(card).getByText('Edit Set')).toBeInTheDocument()
   })
 

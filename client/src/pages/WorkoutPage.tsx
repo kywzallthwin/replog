@@ -349,6 +349,21 @@ function getSuggestedSet(exercise: WorkoutExercise) {
   return exercise.lastTime ?? getLatestSet(exercise)
 }
 
+function getWeightError(value: string) {
+  const parsed = Number(value)
+  if (!value.trim() || !Number.isFinite(parsed)) return 'Enter a weight.'
+  if (parsed < 0) return 'Weight cannot be negative.'
+  if (parsed > 1000) return 'Maximum is 1,000 kg.'
+  return ''
+}
+
+function getRepsError(value: string) {
+  const parsed = Number(value)
+  if (!value.trim() || !Number.isInteger(parsed) || parsed < 1) return 'Enter whole reps from 1 to 1,000.'
+  if (parsed > 1000) return 'Maximum is 1,000 reps.'
+  return ''
+}
+
 function LastSetSummary({ exercise, suggestedSet }: { exercise: WorkoutExercise; suggestedSet: { weightKg: number; reps: number; id?: string } | null }) {
   if (!suggestedSet) {
     return <p className="mb-3 text-xs font-semibold text-slate-400">No previous set</p>
@@ -477,6 +492,8 @@ function EditSetForm({
   const [weightKg, setWeightKg] = useState(set.weightKg.toString())
   const [reps, setReps] = useState(set.reps.toString())
   const [formError, setFormError] = useState('')
+  const repsRef = useRef<HTMLInputElement>(null)
+  const [fieldError, setFieldError] = useState<'weightKg' | 'reps' | null>(null)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -484,18 +501,22 @@ function EditSetForm({
 
     const parsedWeightKg = Number(weightKg)
     const parsedReps = Number(reps)
+    const weightError = getWeightError(weightKg)
+    const repsError = getRepsError(reps)
 
-    if (!weightKg.trim() || !Number.isFinite(parsedWeightKg) || parsedWeightKg < 0 || parsedWeightKg > 1000) {
-      setFormError('Enter a valid weight')
+    if (weightError) {
+      setFieldError('weightKg')
       requestAnimationFrame(() => focusRef.current?.focus())
       return
     }
 
-    if (!reps.trim() || !Number.isInteger(parsedReps) || parsedReps < 1 || parsedReps > 1000) {
-      setFormError('Enter valid reps')
+    if (repsError) {
+      setFieldError('reps')
+      requestAnimationFrame(() => repsRef.current?.focus())
       return
     }
 
+    setFieldError(null)
     onSave({ kind, notes: notes.trim() || null, weightKg: parsedWeightKg, reps: parsedReps })
   }
 
@@ -512,24 +533,29 @@ function EditSetForm({
           <FluidSelect
             value={kind}
             options={[...setKindOptions]}
-            onValueChange={(nextKind) => setKind(nextKind as SetKind)}
-            ariaLabel="Set kind"
+           onValueChange={(nextKind) => setKind(nextKind as SetKind)}
+           ariaLabel="Set kind"
+            disabled={isSaving}
           />
         </label>
         <label className="block min-w-0">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
           <input
             ref={focusRef}
+            disabled={isSaving}
             type="number"
             inputMode="decimal"
             min="0"
             max="1000"
             step="0.5"
             value={weightKg}
-            onChange={(event) => setWeightKg(event.target.value)}
-            className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+            onChange={(event) => { setWeightKg(event.target.value); setFieldError(null) }}
+            aria-invalid={fieldError === 'weightKg' || undefined}
+            aria-describedby={fieldError === 'weightKg' ? 'edit-weight-error' : undefined}
+            className={`h-11 w-full min-w-0 rounded-[10px] border bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 ${fieldError === 'weightKg' ? 'border-red-400' : 'border-slate-200'}`}
             required
           />
+          {fieldError === 'weightKg' ? <p id="edit-weight-error" role="alert" className="mt-1.5 text-xs font-semibold text-red-600">{getWeightError(weightKg)}</p> : null}
         </label>
         <label className="block min-w-0">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Reps</span>
@@ -540,10 +566,15 @@ function EditSetForm({
             max="1000"
             step="1"
             value={reps}
-            onChange={(event) => setReps(event.target.value)}
-            className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+            ref={repsRef}
+            disabled={isSaving}
+            onChange={(event) => { setReps(event.target.value); setFieldError(null) }}
+            aria-invalid={fieldError === 'reps' || undefined}
+            aria-describedby={fieldError === 'reps' ? 'edit-reps-error' : undefined}
+            className={`h-11 w-full min-w-0 rounded-[10px] border bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 ${fieldError === 'reps' ? 'border-red-400' : 'border-slate-200'}`}
             required
           />
+          {fieldError === 'reps' ? <p id="edit-reps-error" role="alert" className="mt-1.5 text-xs font-semibold text-red-600">{getRepsError(reps)}</p> : null}
         </label>
       </div>
       <label className="mt-4 block">
@@ -552,6 +583,7 @@ function EditSetForm({
         </span>
         <textarea
           value={notes}
+          disabled={isSaving}
           onChange={(event) => setNotes(event.target.value)}
           maxLength={300}
           rows={2}
@@ -575,6 +607,7 @@ function EditSetForm({
         <button
           type="button"
           onClick={onCancel}
+          disabled={isSaving}
           className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
         >
           Cancel
@@ -604,6 +637,7 @@ export function WorkoutPage() {
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
   const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
   const addWeightRef = useRef<HTMLInputElement>(null)
+  const addRepsRef = useRef<HTMLInputElement>(null)
   const editWeightRef = useRef<HTMLInputElement>(null)
   const newDropIdRef = useRef<number | null>(null)
   const completedSummaryRef = useRef<HTMLHeadingElement>(null)
@@ -915,13 +949,14 @@ export function WorkoutPage() {
     const parsedReps = Number(reps)
 
     if (!weightKg.trim() || !Number.isFinite(parsedWeightKg) || parsedWeightKg < 0 || parsedWeightKg > 1000) {
-      setFormError('Enter a valid weight')
+      setFormError(getWeightError(weightKg))
       requestAnimationFrame(() => addWeightRef.current?.focus())
       return
     }
 
     if (!reps.trim() || !Number.isInteger(parsedReps) || parsedReps < 1 || parsedReps > 1000) {
-      setFormError('Enter valid reps')
+      setFormError(getRepsError(reps))
+      requestAnimationFrame(() => addRepsRef.current?.focus())
       return
     }
 
@@ -1293,7 +1328,8 @@ export function WorkoutPage() {
                             min="1"
                             max="1000"
                             step="1"
-                            value={reps}
+                             ref={addRepsRef}
+                             value={reps}
                             onChange={(event) => setReps(event.target.value)}
                             className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                             required
