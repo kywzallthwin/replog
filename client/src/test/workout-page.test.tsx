@@ -338,8 +338,9 @@ describe('WorkoutPage regression coverage', () => {
         weightKg: 85,
         reps: 9,
       })
-      expect(within(form).getByRole('button', { name: 'Saving...' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Finish Workout' })).toBeDisabled()
+       expect(within(form).getByRole('button', { name: 'Saving...' })).toBeDisabled()
+       expect(screen.getByRole('button', { name: 'Finish Workout' })).toBeDisabled()
+       expect(screen.getByRole('button', { name: 'Cancel Workout' })).toBeDisabled()
     })
 
     request.resolve(workoutSet({ weightKg: 85, reps: 9 }))
@@ -444,6 +445,7 @@ describe('WorkoutPage regression coverage', () => {
     expect(swap).toBeDisabled()
     expect(swap).toHaveAttribute('aria-describedby', 'swap-explanation-session-exercise-1')
     expect(screen.getByText('Remove logged sets before swapping this exercise.')).toBeInTheDocument()
+    expect(screen.getByText('Remove logged sets before swapping this exercise.')).not.toHaveClass('sr-only')
     expect(mockedSwapSessionExercise).not.toHaveBeenCalled()
   })
 
@@ -453,7 +455,7 @@ describe('WorkoutPage regression coverage', () => {
     renderWorkout()
     const finish = await screen.findByRole('button', { name: 'Finish Workout' })
     fireEvent.click(finish)
-    expect(await screen.findByText('Unable to finish workout. Please try again.')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to finish workout. Please try again.')
 
     fireEvent.click(finish)
     await waitFor(() => expect(mockedFinishSession.mock.calls.at(-1)?.[0]).toBe('session-1'))
@@ -610,5 +612,30 @@ describe('mobile layout contract', () => {
     const main = screen.getByRole('main')
     const inner = main.querySelector('.max-w-4xl') as HTMLElement
     expect(inner).toHaveClass('w-full', 'min-w-0')
+  })
+
+  it('uses sticky safe-area action rows for add and edit forms', async () => {
+    renderWorkout()
+    const { form } = await openAddSetForm()
+    const addActions = within(form).getByRole('button', { name: 'Save Set' }).parentElement as HTMLElement
+    expect(addActions).toHaveClass('sticky', 'bottom-0', 'pb-[env(safe-area-inset-bottom)]', 'sm:static')
+
+    const card = await getExerciseCard()
+    fireEvent.click(within(card).getByRole('button', { name: 'Edit set' }))
+    const editForm = within(card).getByText('Edit Set').closest('form') as HTMLFormElement
+    const editActions = within(editForm).getByRole('button', { name: 'Save Changes' }).parentElement as HTMLElement
+    expect(editActions).toHaveClass('sticky', 'bottom-0', 'pb-[env(safe-area-inset-bottom)]', 'sm:static')
+  })
+
+  it('associates add-set validation with the focused field', async () => {
+    renderWorkout()
+    const { form } = await openAddSetForm()
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '' } })
+    fireEvent.submit(form)
+
+    const weight = within(form).getByRole('spinbutton', { name: 'Weight kg' })
+    expect(weight).toHaveAttribute('aria-invalid', 'true')
+    expect(weight).toHaveAttribute('aria-describedby', 'add-set-error')
+    expect(within(form).getByRole('alert')).toHaveTextContent('Enter a weight.')
   })
 })

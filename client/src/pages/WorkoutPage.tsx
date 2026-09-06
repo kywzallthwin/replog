@@ -379,7 +379,7 @@ function SetRow({
   isDisabled: boolean
   isDropChild: boolean
   onEdit: () => void
-  onDelete: () => void
+  onDelete: (trigger: HTMLButtonElement) => void
 }) {
   return (
     <div className={`flex min-w-0 items-start gap-2 border-b border-slate-100 py-2 text-sm last:border-b-0 ${isDropChild ? 'ml-5 border-l-2 border-l-slate-200 pl-3' : ''}`}>
@@ -421,7 +421,7 @@ function SetRow({
           </button>
           <button
             type="button"
-            onClick={onDelete}
+            onClick={(event) => onDelete(event.currentTarget)}
             disabled={isDisabled}
             title="Delete set"
             aria-label="Delete set"
@@ -580,7 +580,7 @@ function EditSetForm({
           {formError || 'Unable to save set. Please try again.'}
         </p>
       ) : null}
-      <div className="mt-3 flex gap-2">
+       <div className="sticky bottom-0 z-10 -mx-3 mt-3 flex gap-2 border-t border-slate-100 bg-white px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:border-0 sm:px-0 sm:pt-0 sm:pb-0 sm:shadow-none">
         <button
           type="submit"
           disabled={isSaving}
@@ -614,11 +614,14 @@ export function WorkoutPage() {
   const [reps, setReps] = useState('')
   const [dropDrafts, setDropDrafts] = useState<DropDraft[]>([])
   const [formError, setFormError] = useState('')
+  const [addFieldError, setAddFieldError] = useState<string | null>(null)
   const [exercisePicker, setExercisePicker] = useState<ExercisePickerState | null>(null)
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
   const [cancelConfirmation, setCancelConfirmation] = useState(false)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
+  const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
+  const addExerciseButtonRef = useRef<HTMLButtonElement>(null)
   const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
   const addWeightRef = useRef<HTMLInputElement>(null)
   const addRepsRef = useRef<HTMLInputElement>(null)
@@ -674,6 +677,7 @@ export function WorkoutPage() {
       setWeightKg(variables.weightKg.toString())
       setReps(variables.reps.toString())
       setFormError('')
+      setAddFieldError(null)
     },
   })
   const addSetChainMutation = useMutation({
@@ -853,6 +857,7 @@ export function WorkoutPage() {
   function addDropDraft() {
     addSetChainMutation.reset()
     setFormError('')
+    setAddFieldError(null)
     const id = dropIdRef.current++
     newDropIdRef.current = id
     setDropDrafts((current) => [...current, { id, weightKg: '', reps: '' }])
@@ -861,12 +866,14 @@ export function WorkoutPage() {
   function updateDropDraft(id: number, field: 'weightKg' | 'reps', value: string) {
     setDropDrafts((current) => current.map((drop) => (drop.id === id ? { ...drop, [field]: value } : drop)))
     setFormError('')
+    setAddFieldError(null)
     addSetChainMutation.reset()
   }
 
   function removeDropDraft(id: number) {
     addSetChainMutation.reset()
     setFormError('')
+    setAddFieldError(null)
     setDropDrafts((current) => current.filter((drop) => drop.id !== id))
   }
 
@@ -934,18 +941,21 @@ export function WorkoutPage() {
 
     if (!weightKg.trim() || !Number.isFinite(parsedWeightKg) || parsedWeightKg < 0 || parsedWeightKg > 1000) {
       setFormError(getWeightError(weightKg))
+      setAddFieldError('weight')
       requestAnimationFrame(() => addWeightRef.current?.focus())
       return
     }
 
     if (!reps.trim() || !Number.isInteger(parsedReps) || parsedReps < 1 || parsedReps > 1000) {
       setFormError(getRepsError(reps))
+      setAddFieldError('reps')
       requestAnimationFrame(() => addRepsRef.current?.focus())
       return
     }
 
     if (dropDrafts.length && kind !== 'NORMAL') {
       setFormError('Drops can only be added to a normal set')
+      setAddFieldError(null)
       return
     }
 
@@ -960,6 +970,7 @@ export function WorkoutPage() {
     })
     if (invalidDropIndex >= 0) {
       setFormError('Enter a valid weight for every drop')
+      setAddFieldError(`drop-weight-${dropDrafts[invalidDropIndex].id}`)
       requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-drop-id="${dropDrafts[invalidDropIndex].id}"]`)?.focus())
       return
     }
@@ -970,6 +981,7 @@ export function WorkoutPage() {
     })
     if (invalidDropRepsIndex >= 0) {
       setFormError('Enter valid reps for every drop')
+      setAddFieldError(`drop-reps-${dropDrafts[invalidDropRepsIndex].id}`)
       requestAnimationFrame(() => document.querySelectorAll<HTMLInputElement>(`[data-drop-id="${dropDrafts[invalidDropRepsIndex].id}"]`)[1]?.focus())
       return
     }
@@ -1036,23 +1048,25 @@ export function WorkoutPage() {
     setEditingSet({ exerciseId: exercise.id, set })
   }
 
-  function handleDeleteSet(exercise: WorkoutExercise, set: WorkoutSet) {
+  function handleDeleteSet(exercise: WorkoutExercise, set: WorkoutSet, trigger?: HTMLElement) {
     if (!sessionId || workoutMutationIsPending) {
       return
     }
 
     deleteSetMutation.reset()
     removeSessionExerciseMutation.reset()
+    deleteConfirmationTriggerRef.current = trigger ?? null
     setDeleteConfirmation({ type: 'set', exercise, set })
   }
 
-  function handleRemoveExercise(exercise: WorkoutExercise) {
+  function handleRemoveExercise(exercise: WorkoutExercise, trigger?: HTMLElement) {
     if (!sessionId || workoutMutationIsPending) {
       return
     }
 
     deleteSetMutation.reset()
     removeSessionExerciseMutation.reset()
+    deleteConfirmationTriggerRef.current = trigger ?? null
     setDeleteConfirmation({ type: 'exercise', exercise })
   }
 
@@ -1194,7 +1208,7 @@ export function WorkoutPage() {
                         >
                           Swap
                         </button>
-                        {exercise.sets.length > 0 ? <span id={`swap-explanation-${exercise.id}`} className="sr-only">Remove logged sets before swapping this exercise.</span> : null}
+                         {exercise.sets.length > 0 ? <span id={`swap-explanation-${exercise.id}`} className="w-full text-[11px] font-semibold leading-4 text-slate-400">Remove logged sets before swapping this exercise.</span> : null}
                          <button
                            type="button"
                            onClick={() => openAddSetForm(exercise)}
@@ -1216,7 +1230,7 @@ export function WorkoutPage() {
                         ) : null}
                         <button
                           type="button"
-                          onClick={() => handleRemoveExercise(exercise)}
+                           onClick={(event) => handleRemoveExercise(exercise, event.currentTarget)}
                           data-press="icon"
                           data-press-tone="red"
                           title="Remove exercise"
@@ -1258,7 +1272,7 @@ export function WorkoutPage() {
                             isDisabled={workoutMutationIsPending}
                            isDropChild={Boolean(set.parentSetId)}
                            onEdit={() => openEditSetForm(exercise, set)}
-                           onDelete={() => handleDeleteSet(exercise, set)}
+                            onDelete={(trigger) => handleDeleteSet(exercise, set, trigger)}
                           />
                         )
                       })}
@@ -1301,8 +1315,10 @@ export function WorkoutPage() {
                             min="0"
                             max="1000"
                             step="0.5"
-                            value={weightKg}
-                            onChange={(event) => setWeightKg(event.target.value)}
+                             value={weightKg}
+                             onChange={(event) => { setWeightKg(event.target.value); setAddFieldError(null); setFormError('') }}
+                             aria-invalid={addFieldError === 'weight' || undefined}
+                             aria-describedby={addFieldError === 'weight' ? 'add-set-error' : undefined}
                             className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                             required
                           />
@@ -1317,7 +1333,9 @@ export function WorkoutPage() {
                             step="1"
                              ref={addRepsRef}
                              value={reps}
-                            onChange={(event) => setReps(event.target.value)}
+                             onChange={(event) => { setReps(event.target.value); setAddFieldError(null); setFormError('') }}
+                             aria-invalid={addFieldError === 'reps' || undefined}
+                             aria-describedby={addFieldError === 'reps' ? 'add-set-error' : undefined}
                             className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                             required
                           />
@@ -1354,8 +1372,10 @@ export function WorkoutPage() {
                                     step="0.5"
                                     data-drop-id={drop.id}
                                     data-drop-field="weightKg"
-                                    value={drop.weightKg}
-                                    onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
+                                     value={drop.weightKg}
+                                     onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
+                                     aria-invalid={addFieldError === `drop-weight-${drop.id}` || undefined}
+                                     aria-describedby={addFieldError === `drop-weight-${drop.id}` ? 'add-set-error' : undefined}
                                     aria-label={`Drop ${dropIndex + 1} weight kg`}
                                     placeholder="kg"
                                     className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
@@ -1372,7 +1392,9 @@ export function WorkoutPage() {
                                     data-drop-id={drop.id}
                                     data-drop-field="reps"
                                     value={drop.reps}
-                                    onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
+                                     onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
+                                     aria-invalid={addFieldError === `drop-reps-${drop.id}` || undefined}
+                                     aria-describedby={addFieldError === `drop-reps-${drop.id}` ? 'add-set-error' : undefined}
                                     aria-label={`Drop ${dropIndex + 1} reps`}
                                     placeholder="reps"
                                     className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
@@ -1406,12 +1428,12 @@ export function WorkoutPage() {
                         />
                       </label>
                       {formError || addSetMutation.isError || addSetChainMutation.isError ? (
-                        <p role="alert" className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                         <p id="add-set-error" role="alert" className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                           {formError || 'Unable to add set. Please try again.'}
                         </p>
                       ) : null}
-                      <div className="mt-3 flex gap-2">
-                        <button
+                       <div className="sticky bottom-0 z-10 -mx-3 mt-3 flex gap-2 border-t border-slate-100 bg-white px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:border-0 sm:px-0 sm:pt-0 sm:pb-0 sm:shadow-none">
+                   <button
                           type="submit"
                            disabled={workoutMutationIsPending}
                           className="min-h-11 rounded-[12px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
@@ -1459,6 +1481,7 @@ export function WorkoutPage() {
             {session.endedAt ? null : (
               <div className="mt-5 space-y-3">
                  <button
+                   ref={addExerciseButtonRef}
                    type="button"
                    onClick={(event) => openAddExercisePicker(event.currentTarget)}
                    disabled={workoutMutationIsPending}
@@ -1489,18 +1512,18 @@ export function WorkoutPage() {
                 </button>
                 <button
                   type="button"
-                  ref={cancelTriggerRef}
+                    ref={cancelTriggerRef}
                   onClick={() => {
                     cancelSessionMutation.reset()
                     setCancelConfirmation(true)
                   }}
-                  disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending}
+                   disabled={workoutMutationIsPending}
                   className="min-h-11 w-full rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
                 >
                   {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Workout'}
                 </button>
                 {finishSessionMutation.isError ? (
-                  <p className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                   <p role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                     Unable to finish workout. Please try again.
                   </p>
                 ) : null}
@@ -1544,8 +1567,10 @@ export function WorkoutPage() {
           role="alertdialog"
           labelledBy="workout-delete-dialog-title"
           describedBy="workout-delete-dialog-description"
-          onClose={closeDeleteConfirmation}
-          closeOnEscape={!deleteConfirmationIsPending}
+           onClose={closeDeleteConfirmation}
+           closeOnEscape={!deleteConfirmationIsPending}
+           restoreFocusRef={deleteConfirmationTriggerRef}
+           fallbackFocusRef={addExerciseButtonRef}
           overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
           className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >
