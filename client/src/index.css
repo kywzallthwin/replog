@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+input[type='number'] {
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
 :where(a, button, input, select, textarea):focus-visible {
   outline: 2px solid #0f172a;
   outline-offset: 2px;
