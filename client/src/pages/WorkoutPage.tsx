@@ -144,7 +144,7 @@ function PreviousWorkoutLine({ previousWorkout }: { previousWorkout: PreviousWor
               >
                 {group.sets.map((set, setIndex) => (
                   <span key={set.id} className="inline-flex items-center">
-                    {setIndex > 0 ? <span className="mx-0.5 text-slate-400">×</span> : null}
+                    {setIndex > 0 ? <span className="mx-0.5 text-slate-400" aria-hidden="true">→</span> : null}
                     <span>{formatCompactPreviousSet(set, setIndex === 0)}</span>
                   </span>
                 ))}
@@ -980,7 +980,7 @@ export function WorkoutPage() {
   }
 
   return (
-    <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
+    <main className="min-h-dvh w-full min-w-0 bg-slate-100 px-4 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
       <div className="mx-auto w-full min-w-0 max-w-4xl rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
@@ -991,11 +991,11 @@ export function WorkoutPage() {
               <BrandLogo compact alt="" className="h-5 w-5" />
               {headerLinkLabel}
             </Link>
-            <h1 className="truncate text-[15px] font-bold text-slate-900">
+            <h1 className="min-w-0 break-words text-[15px] font-bold text-slate-900 [overflow-wrap:anywhere]">
               {session?.dayName ?? 'Workout'}
             </h1>
             {session ? (
-              <p className="text-xs text-slate-500">
+              <p className="min-w-0 break-words text-xs text-slate-500 [overflow-wrap:anywhere]">
                 {session.programName ? `${session.programName} · ` : ''}Started {formatStartedAt(session.startedAt)}
               </p>
             ) : null}
@@ -1030,7 +1030,7 @@ export function WorkoutPage() {
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                 {session.endedAt ? 'Completed workout' : 'Active workout'}
               </p>
-              <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(session.badgeColor)}`}>
+              <span className={`mt-2 inline-flex max-w-full whitespace-normal break-words rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] [overflow-wrap:anywhere] ${getBadgeClass(session.badgeColor)}`}>
                 {session.dayName}
               </span>
               <h2 className="mt-2 min-w-0 break-words text-3xl font-extrabold tracking-[-0.04em] text-slate-900 [overflow-wrap:anywhere]">
@@ -1199,8 +1199,8 @@ export function WorkoutPage() {
                               <button
                                 type="button"
                                 onClick={addDropDraft}
-                                disabled={dropDrafts.length >= 10}
-                                className="h-6 rounded-[9px] px-1.5 text-[11px] font-extrabold normal-case tracking-normal text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                                disabled={dropDrafts.length >= 9}
+                                className="min-h-11 rounded-[9px] px-1.5 text-[11px] font-extrabold normal-case tracking-normal text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-300"
                               >
                                 + Drop
                               </button>
@@ -1226,8 +1226,8 @@ export function WorkoutPage() {
                               <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-extrabold tracking-[0.04em] text-blue-700">
                                 DROP
                               </span>
-                              <div className="mt-1.5 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-center gap-1.5">
-                                <div className="relative min-w-0">
+                              <div data-testid="drop-fields" className="mt-1.5 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-center gap-1.5">
+                                <label className="flex min-w-0 items-center overflow-hidden rounded-[8px] border border-slate-200 bg-white focus-within:border-slate-900">
                                   <input
                                     type="number"
                                     inputMode="decimal"
@@ -1238,14 +1238,14 @@ export function WorkoutPage() {
                                     onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
                                     aria-label="Drop weight kg"
                                     placeholder="0"
-                                    className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white pr-7 pl-2.5 text-xs font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                    className="h-11 min-w-0 flex-1 border-0 bg-transparent px-2.5 text-xs font-semibold text-slate-900 outline-none"
                                     required
                                   />
-                                  <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] font-bold text-slate-400">
+                                  <span className="shrink-0 pr-2 text-[10px] font-bold text-slate-400">
                                     kg
                                   </span>
-                                </div>
-                                <div className="relative min-w-0">
+                                </label>
+                                <label className="flex min-w-0 items-center overflow-hidden rounded-[8px] border border-slate-200 bg-white focus-within:border-slate-900">
                                   <input
                                     type="number"
                                     inputMode="numeric"
@@ -1256,13 +1256,13 @@ export function WorkoutPage() {
                                     onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
                                     aria-label="Drop reps"
                                     placeholder="0"
-                                    className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white pr-9 pl-2.5 text-xs font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                    className="h-11 min-w-0 flex-1 border-0 bg-transparent px-2.5 text-xs font-semibold text-slate-900 outline-none"
                                     required
                                   />
-                                  <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] font-bold text-slate-400">
+                                  <span className="shrink-0 pr-2 text-[10px] font-bold text-slate-400">
                                     reps
                                   </span>
-                                </div>
+                                </label>
                                 <button
                                   type="button"
                                   onClick={() => removeDropDraft(drop.id)}

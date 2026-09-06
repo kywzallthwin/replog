@@ -206,7 +206,7 @@ describe('WorkoutPage regression coverage', () => {
     expect(await screen.findByText('Active workout')).toBeInTheDocument()
     const { form } = await openAddSetForm()
     expect(within(form).getByLabelText(/Previous workout sets from/)).toHaveTextContent('wu40×10')
-    expect(within(form).getByLabelText(/Previous workout sets from/)).toHaveTextContent('77.5×8×60×6')
+    expect(within(form).getByLabelText(/Previous workout sets from/)).toHaveTextContent('77.5×8→60×6')
     expect(within(form).getByRole('spinbutton', { name: 'Weight kg' })).toHaveValue(80)
     expect(within(form).getAllByRole('spinbutton')[1]).toHaveValue(8)
   })
@@ -468,7 +468,7 @@ describe('mobile layout contract', () => {
     await screen.findByText('Active workout')
 
     const main = screen.getByRole('main')
-    expect(main).toHaveClass('overflow-x-hidden', 'w-full', 'min-w-0')
+    expect(main).toHaveClass('w-full', 'min-w-0')
 
     const pb = main.className
     expect(pb).toContain('pb-[calc(2rem+env(safe-area-inset-bottom))]')
@@ -499,6 +499,15 @@ describe('mobile layout contract', () => {
     expect(heading).toHaveClass('min-w-0', 'break-words')
   })
 
+  it('wraps long active-workout header and badge names', async () => {
+    renderWorkout(workoutSession({ dayName: longName, programName: longName }))
+    await screen.findByText('Active workout')
+
+    expect(screen.getByRole('heading', { level: 1, name: longName })).toHaveClass('break-words')
+    expect(screen.getAllByText(longName).some((element) => element.className.includes('max-w-full'))).toBe(true)
+    expect(screen.getAllByText(new RegExp(`${longName} · Started`)).every((element) => element.className.includes('break-words'))).toBe(true)
+  })
+
   it('wraps the previous-set history line instead of scrolling', async () => {
     renderWorkout()
     const { form } = await openAddSetForm()
@@ -521,9 +530,45 @@ describe('mobile layout contract', () => {
     const removeBtn = within(form).getByRole('button', { name: 'Remove drop' })
     expect(removeBtn).toHaveClass('h-11', 'w-11', 'place-items-center')
 
-    const dropRow = removeBtn.closest('div.min-w-0') as HTMLElement
-    expect(dropRow).toBeInTheDocument()
+    const dropRow = within(form).getByTestId('drop-fields')
     expect(dropRow).toHaveClass('grid', 'min-w-0', 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]')
+    expect(within(dropRow).getByRole('spinbutton', { name: 'Drop weight kg' })).toBeInTheDocument()
+    expect(within(dropRow).getByRole('spinbutton', { name: 'Drop reps' })).toBeInTheDocument()
+  })
+
+  it('keeps a nine-drop chain inside the wrapping history and editable rows', async () => {
+    const root = workoutSet({ id: 'previous-root', weightKg: 1000, reps: 1000, order: 0 })
+    const drops = Array.from({ length: 9 }, (_, index) => workoutSet({
+      id: `previous-drop-${index}`,
+      kind: 'DROP',
+      parentSetId: root.id,
+      weightKg: 1000 - index,
+      reps: 1000 - index,
+      order: index + 1,
+    }))
+    const previousWorkout = {
+      sessionId: 'previous-session',
+      performedAt: '2026-09-02T12:00:00.000Z',
+      bestNormalSetId: root.id,
+      sets: [root, ...drops],
+    }
+    const { form } = await (async () => {
+      renderWorkout(workoutSession({
+        exercises: [workoutExercise({ previousWorkout })],
+      }))
+      return openAddSetForm()
+    })()
+
+    const history = within(form).getByLabelText(/Previous workout sets from/)
+    expect(history).toHaveTextContent('1000×1000→1000×1000→999×999')
+
+    for (let index = 0; index < 9; index += 1) {
+      fireEvent.click(within(form).getByText('+ Drop'))
+    }
+    expect(within(form).getAllByRole('button', { name: 'Remove drop' })).toHaveLength(9)
+    expect(within(form).getAllByRole('spinbutton', { name: 'Drop weight kg' })).toHaveLength(9)
+    expect(within(form).getAllByRole('spinbutton', { name: 'Drop reps' })).toHaveLength(9)
+    expect(within(form).getAllByRole('button', { name: 'Remove drop' })[0]).toHaveClass('h-11', 'w-11')
   })
 
   it('preserves 44px controls on set-row edit and delete actions', async () => {
