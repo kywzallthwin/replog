@@ -123,16 +123,16 @@ export function ProgressPage() {
         {progress?.selectedExercise ? (
           <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
             <section className="min-w-0">
-              <div className="mb-4 rounded-[24px] border border-green-200 bg-green-50 p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="mb-4 min-w-0 rounded-[24px] border border-green-200 bg-green-50 p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-green-600">Estimated 1RM PB</p>
                 {progress.personalBest ? (
                   <>
-                    <h2 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-900">
+                    <h2 className="mt-2 min-w-0 break-words text-3xl font-extrabold tracking-[-0.04em] text-slate-900 [overflow-wrap:anywhere]">
                       {formatEstimatedWeight(progress.personalBest.estimatedOneRepMaxKg)}
                     </h2>
                     <Link
                       to={`/workout/${progress.personalBest.sessionId}?from=progress`}
-                      className="mt-1 inline-flex min-h-11 items-center text-sm text-slate-500 transition hover:text-slate-900"
+                      className="mt-1 inline-flex min-h-11 max-w-full min-w-0 items-center break-words text-sm text-slate-500 [overflow-wrap:anywhere] transition hover:text-slate-900"
                     >
                       From {formatWeight(progress.personalBest.weightKg)} x {progress.personalBest.reps} reps · {formatFullDate(progress.personalBest.startedAt)}
                     </Link>
@@ -142,29 +142,29 @@ export function ProgressPage() {
                 )}
               </div>
 
-              <div className="grid min-w-0 grid-cols-3 gap-3">
+              <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{progress.stats.sessionCount}</div>
+                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{progress.stats.sessionCount}</div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Sessions</div>
                 </div>
                 <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatProgress(progress.stats.progressKg)}</div>
+                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatProgress(progress.stats.progressKg)}</div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Progress</div>
                 </div>
-                <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatWeight(progress.stats.heaviestWeightKg)}</div>
+                <div className="col-span-2 min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:col-span-1">
+                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatWeight(progress.stats.heaviestWeightKg)}</div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Heaviest Set</div>
                 </div>
               </div>
             </section>
 
             <section className="min-w-0 rounded-[24px] bg-white p-5 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
+              <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <h2 className="text-[15px] font-bold text-slate-900">Session History</h2>
-                  <p className="mt-1 text-xs text-slate-500">{progress.selectedExercise.name}</p>
+                  <p className="mt-1 min-w-0 break-words text-xs text-slate-500 [overflow-wrap:anywhere]">{progress.selectedExercise.name}</p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-500">
+                <span className="max-w-full shrink-0 whitespace-normal break-words rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-500 [overflow-wrap:anywhere]">
                   {progress.selectedExercise.category}
                 </span>
               </div>

@@ -136,4 +136,30 @@ describe('ProgressPage states and values', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Unable to refresh progress')
     expect(screen.getAllByText('101.2 kg').length).toBeGreaterThan(0)
   })
+
+  it('wraps long names and uses a responsive summary grid', async () => {
+    const longExerciseName = 'E'.repeat(80)
+    mockedGetProgress.mockResolvedValue(progressData({
+      exercises: [{ id: 'long-exercise', name: longExerciseName, category: 'CHEST' }],
+      selectedExercise: { id: 'long-exercise', name: longExerciseName, category: 'CHEST' },
+      stats: { sessionCount: 1000, progressKg: 1000, heaviestWeightKg: 1000 },
+    }))
+
+    renderProgress()
+
+    expect((await screen.findAllByText(longExerciseName)).length).toBeGreaterThan(0)
+    const main = screen.getByRole('main')
+    const selectedName = screen.getAllByText(longExerciseName).find((element) => element.className.includes('text-xs'))
+    const statsGrid = screen.getByText('Heaviest Set').closest('div[class*="grid-cols-2"]')
+    const heaviestCard = screen.getByText('Heaviest Set').parentElement
+
+    if (!selectedName || !statsGrid || !heaviestCard) throw new Error('Progress summary layout was not rendered')
+    expect(main).toHaveClass('w-full', 'min-w-0', 'overflow-x-hidden')
+    expect(selectedName).toHaveClass('min-w-0', 'break-words')
+    expect(selectedName?.className).toContain('[overflow-wrap:anywhere]')
+    expect(statsGrid).toHaveClass('grid-cols-2', 'sm:grid-cols-3')
+    expect(heaviestCard).toHaveClass('col-span-2', 'sm:col-span-1')
+    expect(screen.getByText('+1000 kg')).toBeInTheDocument()
+    expect(screen.getByText('1000 kg')).toBeInTheDocument()
+  })
 })
