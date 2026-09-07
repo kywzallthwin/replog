@@ -171,30 +171,60 @@ export function ProgressPage() {
 
               {progress.sessionHistory.length ? (
                 <>
-                  <div className="overflow-x-auto rounded-[14px] border border-slate-100">
-                    <table className="w-full min-w-0 text-left text-sm sm:min-w-[420px]">
+                  <div className="space-y-2 sm:hidden">
+                    {progress.sessionHistory.map((session) => (
+                      <Link
+                        key={session.sessionId}
+                        to={`/workout/${session.sessionId}?from=progress`}
+                        aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
+                        className="block min-w-0 rounded-[14px] border border-slate-100 bg-slate-50 p-3 transition hover:bg-slate-100"
+                      >
+                        <div className="flex min-w-0 items-center justify-between gap-3">
+                          <time dateTime={session.startedAt} className="inline-flex min-h-11 min-w-11 max-w-full items-center break-words font-semibold text-slate-900 [overflow-wrap:anywhere]">
+                            {formatShortDate(session.startedAt)}
+                          </time>
+                          <span aria-hidden="true" className="shrink-0 text-lg text-slate-300">{String.fromCharCode(0x203a)}</span>
+                        </div>
+                        <dl className="mt-2 grid min-w-0 grid-cols-2 gap-2 text-sm">
+                          <div className="min-w-0">
+                            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Top Set</dt>
+                            <dd className="mt-1 min-w-0 break-words font-bold text-slate-900 [overflow-wrap:anywhere]">{formatWeight(session.topSet.weightKg)} x {session.topSet.reps}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Est. 1RM</dt>
+                            <dd className="mt-1 min-w-0 break-words text-slate-700 [overflow-wrap:anywhere]">{formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}</dd>
+                          </div>
+                        </dl>
+                      </Link>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-hidden rounded-[14px] border border-slate-100 sm:block">
+                    <table className="w-full min-w-0 text-left text-sm">
+                      <caption className="sr-only">Session history for {selectedExercise?.name ?? ''}</caption>
                       <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
                         <tr>
-                          <th className="px-4 py-3">Date</th>
-                          <th className="px-4 py-3">Top Set</th>
-                          <th className="px-4 py-3">Est. 1RM</th>
+                          <th scope="col" className="px-4 py-3">Date</th>
+                          <th scope="col" className="px-4 py-3">Top Set</th>
+                          <th scope="col" className="px-4 py-3">Est. 1RM</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {progress.sessionHistory.map((session) => (
                           <tr key={session.sessionId} className="text-slate-700">
-                            <td className="px-4 py-3 font-semibold text-slate-900">
+                            <td className="min-w-0 px-4 py-3 font-semibold text-slate-900">
                               <Link
                                 to={`/workout/${session.sessionId}?from=progress`}
-                                className="flex min-h-11 items-center transition hover:text-slate-500"
+                                aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
+                                className="flex min-h-11 min-w-11 max-w-full items-center break-words transition hover:text-slate-500 [overflow-wrap:anywhere]"
                               >
-                                {formatShortDate(session.startedAt)}
+                                <time dateTime={session.startedAt}>{formatShortDate(session.startedAt)}</time>
                               </Link>
                             </td>
-                            <td className="px-4 py-3 font-bold text-slate-900">
+                            <td className="min-w-0 break-words px-4 py-3 font-bold text-slate-900 [overflow-wrap:anywhere]">
                               {formatWeight(session.topSet.weightKg)} x {session.topSet.reps}
                             </td>
-                            <td className="px-4 py-3">{formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}</td>
+                            <td className="min-w-0 break-words px-4 py-3 [overflow-wrap:anywhere]">{formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}</td>
                           </tr>
                         ))}
                       </tbody>

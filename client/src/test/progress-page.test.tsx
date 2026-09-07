@@ -116,10 +116,7 @@ describe('ProgressPage states and values', () => {
       'href',
       '/workout/session-best?from=progress',
     )
-    expect(screen.getByRole('link', { name: 'Sep 6' })).toHaveAttribute(
-      'href',
-      '/workout/session-1?from=progress',
-    )
+    expect(screen.getAllByRole('link', { name: /Bench Press, Sep 6/ }).some((link) => link.getAttribute('href') === '/workout/session-1?from=progress')).toBe(true)
   })
 
   it('keeps cached values visible when a refresh fails', async () => {
@@ -161,5 +158,30 @@ describe('ProgressPage states and values', () => {
     expect(heaviestCard).toHaveClass('col-span-2', 'sm:col-span-1')
     expect(screen.getByText('+1000 kg')).toBeInTheDocument()
     expect(screen.getByText('1000 kg')).toBeInTheDocument()
+  })
+
+  it('uses mobile session cards instead of horizontal scrolling', async () => {
+    mockedGetProgress.mockResolvedValue(progressData({
+      sessionHistory: [
+        {
+          sessionId: 'session-1',
+          startedAt: '2026-09-06T08:00:00.000Z',
+          dayName: 'Upper A',
+          topSet: { estimatedOneRepMaxKg: 101.2, weightKg: 1000, reps: 1000 },
+        },
+      ],
+    }))
+
+    renderProgress()
+
+    expect((await screen.findAllByText('1000 kg x 1000')).length).toBeGreaterThan(0)
+    const mobileCard = screen.getAllByRole('link', { name: /Bench Press, Sep 6/ })[0]
+    const table = screen.getByRole('table')
+
+    expect(mobileCard).toHaveClass('block', 'min-w-0')
+    expect(table).toHaveClass('w-full', 'min-w-0')
+    expect(table.parentElement).not.toHaveClass('overflow-x-auto')
+    expect(table.querySelector('caption')).toHaveTextContent('Session history for Bench Press')
+    expect(table.querySelector('th')).toHaveAttribute('scope', 'col')
   })
 })
