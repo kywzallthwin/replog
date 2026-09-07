@@ -57,8 +57,16 @@ export function ProgressPage() {
     queryFn: () => getProgress(exerciseId),
     retry: false,
   })
+  const hasCachedProgress = progress !== undefined
+  const isInitialError = isError && !hasCachedProgress
+  const isRefreshError = isError && hasCachedProgress
   const exercises = progress?.exercises ?? []
   const selectedExercise = progress?.selectedExercise
+  const exercisePlaceholder = isPending
+    ? 'Loading exercise data'
+    : isInitialError
+      ? 'Exercise data unavailable'
+      : 'No exercise data'
 
   return (
     <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
@@ -81,7 +89,7 @@ export function ProgressPage() {
               options={exercises.map((exercise) => ({ value: exercise.id, label: exercise.name }))}
               onValueChange={(nextExerciseId) => setSearchParams({ exerciseId: nextExerciseId })}
               ariaLabel="Select exercise"
-              placeholder="No exercise data"
+              placeholder={exercisePlaceholder}
               disabled={!exercises.length}
             />
           </div>
@@ -91,17 +99,23 @@ export function ProgressPage() {
           <PageLoader statusMessage="Loading progress..." />
         ) : null}
 
-        {isError ? (
+        {isInitialError ? (
           <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p role="alert" className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               Unable to load progress. Please refresh and try again.
             </p>
           </section>
         ) : null}
 
+        {isRefreshError ? (
+          <p role="alert" className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            Unable to refresh progress. Showing previously loaded values.
+          </p>
+        ) : null}
+
         {progress && !progress.selectedExercise ? (
           <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="text-sm font-semibold text-slate-900">No finished sets yet.</p>
+            <h2 className="text-sm font-semibold text-slate-900">No finished sets yet.</h2>
             <p className="mt-1 text-sm text-slate-500">Complete a workout with normal working sets to see exercise progress here.</p>
           </section>
         ) : null}
