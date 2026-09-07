@@ -142,4 +142,28 @@ describe('HistoryPage states and values', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unable to refresh workout history'))
     expect(screen.getByRole('link', { name: /Upper A/ })).toBeInTheDocument()
   })
+
+  it('contains unbroken history names and keeps the chevron decorative', async () => {
+    const longDayName = 'D'.repeat(60)
+    const longProgramName = 'P'.repeat(80)
+    mockedGetSessionHistory.mockResolvedValue([historySession({ dayName: longDayName, programName: longProgramName })])
+
+    renderHistory()
+
+    const card = await screen.findByRole('link', { name: new RegExp(longDayName) })
+    const main = screen.getByRole('main')
+    const badge = screen.getByText(longDayName)
+    const metadata = screen.getByText(new RegExp(longProgramName))
+    const date = screen.getByText('Sun, Sep 6')
+
+    expect(main).toHaveClass('w-full', 'min-w-0', 'overflow-x-hidden')
+    expect(main.querySelector('.max-w-5xl')).toHaveClass('w-full', 'min-w-0')
+    expect(card).toHaveClass('min-w-0')
+    expect(badge).toHaveClass('min-w-0', 'max-w-full', 'break-words')
+    expect(badge.className).toContain('[overflow-wrap:anywhere]')
+    expect(metadata).toHaveClass('min-w-0', 'break-words')
+    expect(date).toHaveClass('min-w-0', 'break-words')
+    expect(card.querySelector('[aria-hidden="true"]')).toBeInTheDocument()
+    expect(metadata).toHaveTextContent(longProgramName)
+  })
 })
