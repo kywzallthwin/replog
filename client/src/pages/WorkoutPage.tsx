@@ -655,7 +655,11 @@ export function WorkoutPage() {
     retry: false,
   })
   const source = searchParams.get('from')
-  const headerLink = source === 'history' ? '/history' : source === 'progress' ? '/progress' : '/dashboard'
+  const progressExerciseId = source === 'progress' ? searchParams.get('exerciseId') : null
+  const progressLink = progressExerciseId
+    ? `/progress?exerciseId=${encodeURIComponent(progressExerciseId)}`
+    : '/progress'
+  const headerLink = source === 'history' ? '/history' : source === 'progress' ? progressLink : '/dashboard'
   const headerLinkLabel = source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
   const restTimerSessionStatus: RestTimerSessionStatus = isPending || !session
     ? 'loading'

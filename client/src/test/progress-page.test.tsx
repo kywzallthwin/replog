@@ -114,9 +114,9 @@ describe('ProgressPage states and values', () => {
     expect(screen.getByRole('group', { name: /93.7 kg to 98.4 kg to 101.2 kg; up/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /From 90 kg x 5 reps/ })).toHaveAttribute(
       'href',
-      '/workout/session-best?from=progress',
+      '/workout/session-best?from=progress&exerciseId=bench',
     )
-    expect(screen.getAllByRole('link', { name: /Bench Press, Sep 6/ }).some((link) => link.getAttribute('href') === '/workout/session-1?from=progress')).toBe(true)
+    expect(screen.getAllByRole('link', { name: /Bench Press, Sep 6/ }).some((link) => link.getAttribute('href') === '/workout/session-1?from=progress&exerciseId=bench')).toBe(true)
   })
 
   it('keeps cached values visible when a refresh fails', async () => {

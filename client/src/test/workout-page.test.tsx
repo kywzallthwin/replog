@@ -150,7 +150,7 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function renderWorkout(session: WorkoutSession = workoutSession()) {
+function renderWorkout(session: WorkoutSession = workoutSession(), initialEntry = '/workout/session-1') {
   mockedGetSession.mockResolvedValue(session)
   const queryClient = createTestQueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -158,10 +158,12 @@ function renderWorkout(session: WorkoutSession = workoutSession()) {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/workout/session-1']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/workout/:sessionId" element={<WorkoutPage />} />
           <Route path="/dashboard" element={<h1>Dashboard destination</h1>} />
+          <Route path="/history" element={<h1>History destination</h1>} />
+          <Route path="/progress" element={<h1>Progress destination</h1>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -230,6 +232,17 @@ describe('WorkoutPage regression coverage', () => {
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
+  })
+
+  it('preserves the source route when returning from a completed workout', async () => {
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+
+    renderWorkout(completed, '/workout/session-1?from=progress&exerciseId=bench')
+
+    expect(await screen.findByText('Completed workout')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Progress' })).toHaveAttribute('href', '/progress?exerciseId=bench')
+    expect(screen.getAllByRole('link', { name: 'History' }).every((link) => link.getAttribute('href') === '/history')).toBe(true)
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard')
   })
 
   it('submits the single-set payload and reports a rejected add', async () => {

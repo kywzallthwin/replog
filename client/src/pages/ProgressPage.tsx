@@ -135,7 +135,7 @@ export function ProgressPage() {
                       {formatEstimatedWeight(progress.personalBest.estimatedOneRepMaxKg)}
                     </h2>
                     <Link
-                      to={`/workout/${progress.personalBest.sessionId}?from=progress`}
+                      to={`/workout/${progress.personalBest.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
                       className="mt-1 inline-flex min-h-11 max-w-full min-w-0 items-center break-words text-sm text-slate-500 [overflow-wrap:anywhere] transition hover:text-slate-900"
                     >
                       From {formatWeight(progress.personalBest.weightKg)} x {progress.personalBest.reps} reps · {formatFullDate(progress.personalBest.startedAt)}
@@ -179,7 +179,7 @@ export function ProgressPage() {
                     {progress.sessionHistory.map((session) => (
                       <Link
                         key={session.sessionId}
-                        to={`/workout/${session.sessionId}?from=progress`}
+                        to={`/workout/${session.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
                         aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
                         className="block min-w-0 rounded-[14px] border border-slate-100 bg-slate-50 p-3 transition hover:bg-slate-100"
                       >
@@ -218,7 +218,7 @@ export function ProgressPage() {
                           <tr key={session.sessionId} className="text-slate-700">
                             <td className="min-w-0 px-4 py-3 font-semibold text-slate-900">
                               <Link
-                                to={`/workout/${session.sessionId}?from=progress`}
+                                to={`/workout/${session.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
                                 aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
                                 className="flex min-h-11 min-w-11 max-w-full items-center break-words transition hover:text-slate-500 [overflow-wrap:anywhere]"
                               >
