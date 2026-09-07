@@ -41,6 +41,10 @@ function formatProgress(progressKg: number) {
   return `${progressKg > 0 ? '+' : '-'}${formattedValue} kg`
 }
 
+function formatTrendValue(weightKg: number) {
+  return Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)
+}
+
 function getTrendLabel(progressKg: number, sessionCount: number) {
   if (sessionCount < 2 || progressKg === 0) {
     return 'steady'
@@ -124,7 +128,7 @@ export function ProgressPage() {
           <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
             <section className="min-w-0">
               <div className="mb-4 min-w-0 rounded-[24px] border border-green-200 bg-green-50 p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-green-600">Estimated 1RM PB</p>
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-green-700">Estimated 1RM PB</p>
                 {progress.personalBest ? (
                   <>
                     <h2 className="mt-2 min-w-0 break-words text-3xl font-extrabold tracking-[-0.04em] text-slate-900 [overflow-wrap:anywhere]">
@@ -145,15 +149,15 @@ export function ProgressPage() {
               <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
                   <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{progress.stats.sessionCount}</div>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Sessions</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Sessions</div>
                 </div>
                 <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
                   <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatProgress(progress.stats.progressKg)}</div>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Progress</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Progress</div>
                 </div>
                 <div className="col-span-2 min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:col-span-1">
                   <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatWeight(progress.stats.heaviestWeightKg)}</div>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Heaviest Set</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Heaviest Set</div>
                 </div>
               </div>
             </section>
@@ -202,7 +206,7 @@ export function ProgressPage() {
                   <div className="hidden overflow-hidden rounded-[14px] border border-slate-100 sm:block">
                     <table className="w-full min-w-0 text-left text-sm">
                       <caption className="sr-only">Session history for {selectedExercise?.name ?? ''}</caption>
-                      <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
+                      <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.08em] text-slate-600">
                         <tr>
                           <th scope="col" className="px-4 py-3">Date</th>
                           <th scope="col" className="px-4 py-3">Top Set</th>
@@ -231,10 +235,21 @@ export function ProgressPage() {
                     </table>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-2 rounded-[14px] bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  <div
+                    role="group"
+                    aria-label={`Estimated 1RM trend: ${progress.trendEstimatedOneRepMaxKg.map((weightKg) => `${formatTrendValue(weightKg)} kg`).join(' to ')}; ${getTrendLabel(progress.stats.progressKg, progress.stats.sessionCount)}`}
+                    className="mt-4 flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] bg-slate-50 px-4 py-3 text-sm text-slate-600"
+                  >
                     <span className="font-semibold text-slate-700">Estimated 1RM trend:</span>
-                    <span className="break-words">{progress.trendEstimatedOneRepMaxKg.map((weightKg) => Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)).join(' -> ')} kg</span>
-                    <span className={progress.stats.progressKg > 0 ? 'font-bold text-green-600' : progress.stats.progressKg < 0 ? 'font-bold text-red-500' : 'font-bold text-slate-500'}>
+                    <ol aria-label="Estimated 1RM values in chronological order" className="flex min-w-0 flex-wrap items-center gap-1">
+                      {progress.trendEstimatedOneRepMaxKg.map((weightKg, index) => (
+                        <li key={`${weightKg}-${index}`} className="flex min-w-0 items-center gap-1">
+                          <span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatTrendValue(weightKg)} kg</span>
+                          {index < progress.trendEstimatedOneRepMaxKg.length - 1 ? <span aria-hidden="true">-&gt;</span> : null}
+                        </li>
+                      ))}
+                    </ol>
+                    <span className={progress.stats.progressKg > 0 ? 'font-bold text-green-700' : progress.stats.progressKg < 0 ? 'font-bold text-red-700' : 'font-bold text-slate-600'}>
                       {getTrendLabel(progress.stats.progressKg, progress.stats.sessionCount)}
                     </span>
                   </div>

@@ -111,7 +111,7 @@ describe('ProgressPage states and values', () => {
     expect((await screen.findAllByText('101.2 kg')).length).toBeGreaterThan(0)
     expect(screen.getByText('+7.5 kg')).toBeInTheDocument()
     expect(screen.getByText('90 kg')).toBeInTheDocument()
-    expect(screen.getByText('93.7 -> 98.4 -> 101.2 kg')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /93.7 kg to 98.4 kg to 101.2 kg; up/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /From 90 kg x 5 reps/ })).toHaveAttribute(
       'href',
       '/workout/session-best?from=progress',
@@ -183,5 +183,20 @@ describe('ProgressPage states and values', () => {
     expect(table.parentElement).not.toHaveClass('overflow-x-auto')
     expect(table.querySelector('caption')).toHaveTextContent('Session history for Bench Press')
     expect(table.querySelector('th')).toHaveAttribute('scope', 'col')
+  })
+
+  it('keeps trend values accessible and separators decorative', async () => {
+    mockedGetProgress.mockResolvedValue(progressData())
+
+    renderProgress()
+
+    const trend = await screen.findByRole('group', { name: /Estimated 1RM trend/ })
+    expect(trend).toHaveTextContent('93.7 kg')
+    expect(trend).toHaveTextContent('98.4 kg')
+    expect(trend).toHaveTextContent('101.2 kg')
+    expect(trend).toHaveTextContent('up')
+    expect(trend.querySelectorAll('[aria-hidden="true"]')).toHaveLength(2)
+    expect(screen.getByText('Sessions')).toHaveClass('text-slate-600')
+    expect(screen.getByText('up')).toHaveClass('text-green-700')
   })
 })
