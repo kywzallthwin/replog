@@ -57,6 +57,9 @@ export function HistoryPage() {
     queryFn: getSessionHistory,
     retry: false,
   })
+  const hasCachedSessions = sessions !== undefined
+  const isInitialError = isError && !hasCachedSessions
+  const isRefreshError = isError && hasCachedSessions
   const groupedSessions = sessions ? groupSessionsByMonth(sessions) : []
 
   return (
@@ -76,17 +79,23 @@ export function HistoryPage() {
           <PageLoader statusMessage="Loading history..." />
         ) : null}
 
-        {isError ? (
+        {isInitialError ? (
           <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p role="alert" className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               Unable to load workout history. Please refresh and try again.
             </p>
           </section>
         ) : null}
 
+        {isRefreshError ? (
+          <p role="alert" className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            Unable to refresh workout history. Showing previously loaded workouts.
+          </p>
+        ) : null}
+
         {sessions && sessions.length === 0 ? (
           <section className="rounded-[28px] bg-white p-6 text-center shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="text-lg font-bold text-slate-900">No finished workouts yet</p>
+            <h2 className="text-lg font-bold text-slate-900">No finished workouts yet</h2>
             <p className="mt-2 text-sm text-slate-500">
               Finish a workout and it will appear here with duration, exercises, and set totals.
             </p>
