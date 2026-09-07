@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkoutPage } from '../pages/WorkoutPage'
@@ -150,8 +150,12 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function renderWorkout(session: WorkoutSession = workoutSession(), initialEntry = '/workout/session-1') {
-  mockedGetSession.mockResolvedValue(session)
+function renderWorkout(
+  session: WorkoutSession = workoutSession(),
+  initialEntry = '/workout/session-1',
+  sessionResult: Promise<WorkoutSession> = Promise.resolve(session),
+) {
+  mockedGetSession.mockReturnValue(sessionResult)
   const queryClient = createTestQueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -243,6 +247,33 @@ describe('WorkoutPage regression coverage', () => {
     expect(screen.getByRole('link', { name: 'Progress' })).toHaveAttribute('href', '/progress?exerciseId=bench')
     expect(screen.getAllByRole('link', { name: 'History' }).every((link) => link.getAttribute('href') === '/history')).toBe(true)
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard')
+  })
+
+  it('keeps source navigation available while a workout is loading', async () => {
+    const pending = deferred<WorkoutSession>()
+    renderWorkout(workoutSession(), '/workout/session-1?from=history', pending.promise)
+
+    expect(await screen.findByRole('status', { name: 'Loading workout...' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute('href', '/history')
+
+    await act(async () => pending.resolve(workoutSession()))
+    expect(await screen.findByText('Active workout')).toBeInTheDocument()
+  })
+
+  it('announces a workout loading error and keeps the source link', async () => {
+    renderWorkout(workoutSession(), '/workout/session-1?from=history', Promise.reject(new Error('offline')))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load this workout session.')
+    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute('href', '/history')
+  })
+
+  it('keeps an empty completed workout read-only with its zero summary', async () => {
+    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 240, exercises: [] }))
+
+    expect(await screen.findByText('Completed workout')).toBeInTheDocument()
+    expect(screen.getByText('No exercises logged')).toBeInTheDocument()
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
   })
 
   it('submits the single-set payload and reports a rejected add', async () => {
@@ -503,7 +534,7 @@ describe('mobile layout contract', () => {
     await screen.findByText('Active workout')
 
     const main = screen.getByRole('main')
-    expect(main).toHaveClass('w-full', 'min-w-0')
+    expect(main).toHaveClass('w-full', 'min-w-0', 'overflow-x-hidden')
 
     const pb = main.className
     expect(pb).toContain('pb-[calc(2rem+env(safe-area-inset-bottom))]')

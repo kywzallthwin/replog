@@ -1105,7 +1105,7 @@ export function WorkoutPage() {
   }
 
   return (
-    <main className="min-h-dvh w-full min-w-0 bg-slate-100 px-4 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
+    <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
       <div className="mx-auto w-full min-w-0 max-w-4xl rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
@@ -1143,7 +1143,7 @@ export function WorkoutPage() {
 
         {isError ? (
           <section className="p-6">
-            <p className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p role="alert" className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               Unable to load this workout session.
             </p>
           </section>
