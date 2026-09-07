@@ -91,7 +91,10 @@ export function requireExpectedOrigin(req: Request, res: Response, next: NextFun
   const hasAllowedOrigin = origin !== undefined && isAllowedOrigin(origin)
   const hasAllowedFetchMetadata = fetchSite !== undefined && allowedFetchSites.has(fetchSite)
 
-  if ((origin !== undefined && !hasAllowedOrigin) || (fetchSite !== undefined && !hasAllowedFetchMetadata)) {
+  if (
+    (origin !== undefined && !hasAllowedOrigin) ||
+    (fetchSite !== undefined && !hasAllowedFetchMetadata && !hasAllowedOrigin)
+  ) {
     res.status(403).json({ error: 'Request origin is not allowed' })
     return
   }

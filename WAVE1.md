@@ -6,6 +6,7 @@ Completed-ticket detail is preserved in Git history.
 ## Tickets
 - [W1-09](tickets/W1-09.md): proposed
 - [W1-10](tickets/W1-10.md): proposed
+- [W1-12](tickets/W1-12.md): done
 
 Allowed states: `proposed`, `ready`, `in progress`, `review`, `blocked`, `done`.
 

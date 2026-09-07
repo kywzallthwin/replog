@@ -7,7 +7,11 @@ process.env.NODE_ENV = 'test'
 
 const { app } = await import('../src/index.js')
 const { env, parseEnvironment } = await import('../src/env.js')
-const { getAuthCookieOptions } = await import('../src/modules/auth/auth.tokens.js')
+const {
+  getAuthCookieOptions,
+  getGoogleStateCookieOptions,
+} = await import('../src/modules/auth/auth.tokens.js')
+const { getPasswordResetUrl } = await import('../src/modules/auth/auth.routes.js')
 const { prisma } = await import('../src/prisma.js')
 
 after(async () => {
@@ -49,24 +53,67 @@ test('production environment validation and auth cookies fail closed safely', ()
     () => parseEnvironment({ ...baseEnvironment, NODE_ENV: 'production' }),
     /Invalid server environment/,
   )
+  assert.throws(
+    () => parseEnvironment({
+      ...baseEnvironment,
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/replog?sslmode=require',
+      DATABASE_URL_UNPOOLED: 'postgresql://postgres:postgres@localhost:5432/replog?sslmode=require',
+      CLIENT_URL: 'https://replog.example',
+      JWT_SECRET: 'short-production-secret',
+    }),
+    /Invalid server environment/,
+  )
 
   const productionEnvironment = parseEnvironment({
     ...baseEnvironment,
     NODE_ENV: 'production',
     DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/replog?sslmode=require',
     DATABASE_URL_UNPOOLED: 'postgresql://postgres:postgres@localhost:5432/replog?sslmode=require',
-    CLIENT_URL: 'https://replog.example',
+    CLIENT_URL: 'https://replog.example/',
     GOOGLE_CALLBACK_URL: 'https://replog.example/api/auth/google/callback',
   })
   assert.equal(productionEnvironment.NODE_ENV, 'production')
   assert.equal(productionEnvironment.DATABASE_URL_UNPOOLED?.includes('sslmode=require'), true)
+  assert.equal(productionEnvironment.CLIENT_URL, 'https://replog.example')
 
   assert.equal(getAuthCookieOptions(false).secure, false)
   assert.equal(getAuthCookieOptions(true).secure, true)
   assert.equal(getAuthCookieOptions(true).httpOnly, true)
-  assert.equal(getAuthCookieOptions(true).sameSite, 'lax')
+  assert.equal(getAuthCookieOptions(true).sameSite, 'none')
   assert.equal(getAuthCookieOptions(true).path, '/')
+  assert.equal(getGoogleStateCookieOptions(true).sameSite, 'none')
+  assert.equal(getGoogleStateCookieOptions(true).secure, true)
+  assert.equal(getGoogleStateCookieOptions(true).httpOnly, true)
+  assert.equal(getGoogleStateCookieOptions(true).path, '/api/auth/google')
   assert.equal(env.NODE_ENV, 'test')
+})
+
+test('credentialed CORS allows only the canonical frontend and safe development origins', async () => {
+  const allowedOriginResponse = await request(app)
+    .options('/api/auth/login')
+    .set('Origin', env.CLIENT_URL)
+    .set('Access-Control-Request-Method', 'POST')
+    .set('Access-Control-Request-Headers', 'content-type')
+
+  assert.equal(allowedOriginResponse.status, 204, allowedOriginResponse.text)
+  assert.equal(allowedOriginResponse.headers['access-control-allow-origin'], env.CLIENT_URL)
+  assert.equal(allowedOriginResponse.headers['access-control-allow-credentials'], 'true')
+
+  const developmentOriginResponse = await request(app)
+    .get('/health')
+    .set('Origin', 'http://localhost:5173')
+
+  assert.equal(developmentOriginResponse.status, 200, developmentOriginResponse.text)
+  assert.equal(developmentOriginResponse.headers['access-control-allow-origin'], 'http://localhost:5173')
+
+  const rejectedOriginResponse = await request(app)
+    .options('/api/auth/login')
+    .set('Origin', 'https://attacker.example')
+    .set('Access-Control-Request-Method', 'POST')
+
+  assert.equal(rejectedOriginResponse.headers['access-control-allow-origin'], undefined)
+  assert.equal(rejectedOriginResponse.headers['access-control-allow-credentials'], undefined)
 })
 
 test('security headers, API cache policy, and parser errors are safe JSON responses', async () => {
@@ -116,6 +163,8 @@ test('unsafe requests with auth cookies require an allowed origin or Fetch Metad
       .set('X-Forwarded-For', '198.51.100.82')
       .send({ email, username: 'Origin Tester', password: 'password123' })
     assert.equal(registerResponse.status, 201, registerResponse.text)
+    const authCookieHeader = registerResponse.headers['set-cookie']
+    assert.match(Array.isArray(authCookieHeader) ? authCookieHeader.join('\n') : authCookieHeader ?? '', /replog_token=.*Path=\/.*HttpOnly; SameSite=Lax/)
 
     const invalidOriginResponse = await agent
       .post('/api/auth/logout')
@@ -133,15 +182,33 @@ test('unsafe requests with auth cookies require an allowed origin or Fetch Metad
       .set('Origin', clientOrigin)
     assert.equal(allowedOriginResponse.status, 204, allowedOriginResponse.text)
 
+    const crossSiteAllowedOriginResponse = await agent
+      .post('/api/auth/login')
+      .set('Origin', clientOrigin)
+      .set('Sec-Fetch-Site', 'cross-site')
+      .send({ email, password: 'password123' })
+    assert.equal(crossSiteAllowedOriginResponse.status, 200, crossSiteAllowedOriginResponse.text)
+
     const loginResponse = await agent.post('/api/auth/login').send({ email, password: 'password123' })
     assert.equal(loginResponse.status, 200, loginResponse.text)
     const allowedFetchMetadataResponse = await agent
       .post('/api/auth/logout')
       .set('Sec-Fetch-Site', 'same-origin')
     assert.equal(allowedFetchMetadataResponse.status, 204, allowedFetchMetadataResponse.text)
+
+    const clearCookieHeader = allowedFetchMetadataResponse.headers['set-cookie']
+    assert.match(Array.isArray(clearCookieHeader) ? clearCookieHeader.join('\n') : clearCookieHeader ?? '', /replog_token=.*Path=\/.*Expires=.*HttpOnly; SameSite=Lax/)
   } finally {
     await prisma.user.deleteMany({ where: { email } })
   }
+})
+
+test('Google and password-reset redirects use the canonical frontend origin', async () => {
+  const googleResponse = await request(app).get('/api/auth/google')
+  assert.equal(googleResponse.status, 302, googleResponse.text)
+  assert.equal(googleResponse.headers.location, `${env.CLIENT_URL}/login?google_error=not_configured`)
+
+  assert.equal(getPasswordResetUrl('reset-token'), `${env.CLIENT_URL}/reset-password?token=reset-token`)
 })
 
 test('auth endpoints rate limit registration, login, OAuth, and password recovery', async () => {
