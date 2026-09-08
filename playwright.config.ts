@@ -11,11 +11,15 @@ export default defineConfig({
   use: {
     ...devices['Desktop Chrome'],
     baseURL: 'http://127.0.0.1:5173',
-    viewport: { width: 375, height: 812 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
+  projects: [
+    { name: 'mobile-chromium', testMatch: /critical-mobile\.spec\.ts/, use: { viewport: { width: 375, height: 812 } } },
+    { name: 'tablet-chromium', testMatch: /responsive-layout\.spec\.ts/, use: { viewport: { width: 768, height: 1024 } } },
+    { name: 'desktop-chromium', testMatch: /responsive-layout\.spec\.ts/, use: { viewport: { width: 1080, height: 800 } } },
+  ],
 })
