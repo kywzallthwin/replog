@@ -8,4 +8,4 @@ Completed-ticket detail is preserved in Git history.
 
 Allowed states: `proposed`, `ready`, `in progress`, `review`, `blocked`, `done`.
 
-Wave 1 mobile gate is complete; Wave 2 is unblocked.
+Wave 1 mobile gate is complete. Headed manual review passed at `375 x 812`, `768 x 1024`, and `1080 x 800` with no findings; Wave 2 is unblocked.
