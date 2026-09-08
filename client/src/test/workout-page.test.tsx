@@ -12,6 +12,7 @@ import {
   finishSession,
   getSession,
   removeSessionExercise,
+  sessionQueryKey,
   swapSessionExercise,
   updateSet,
   type WorkoutExercise,
@@ -172,6 +173,8 @@ function renderWorkout(
       </MemoryRouter>
     </QueryClientProvider>,
   )
+
+  return queryClient
 }
 
 async function getExerciseCard(name = 'Bench Press') {
@@ -244,9 +247,26 @@ describe('WorkoutPage regression coverage', () => {
     renderWorkout(completed, '/workout/session-1?from=progress&exerciseId=bench')
 
     expect(await screen.findByText('Completed workout')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Progress' })).toHaveAttribute('href', '/progress?exerciseId=bench')
-    expect(screen.getAllByRole('link', { name: 'History' }).every((link) => link.getAttribute('href') === '/history')).toBe(true)
+    expect(screen.getAllByRole('link', { name: 'Progress' }).some((link) => link.getAttribute('href') === '/progress?exerciseId=bench')).toBe(true)
+    expect(screen.getAllByRole('link', { name: 'Progress' }).every((link) => link.getAttribute('href') === '/progress?exerciseId=bench')).toBe(true)
+    expect(screen.queryByRole('link', { name: 'History' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard')
+  })
+
+  it('keeps cached workout content visible when a refresh fails', async () => {
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+    const queryClient = renderWorkout(completed)
+
+    expect(await screen.findByText('Completed workout')).toBeInTheDocument()
+    mockedGetSession.mockRejectedValueOnce(new Error('offline'))
+
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: sessionQueryKey('session-1') })
+    })
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unable to refresh this workout'))
+    expect(screen.getByText('Read only')).toBeInTheDocument()
+    expect(screen.queryByText('Unable to load this workout session.')).not.toBeInTheDocument()
   })
 
   it('keeps source navigation available while a workout is loading', async () => {

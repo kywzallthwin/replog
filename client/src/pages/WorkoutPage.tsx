@@ -227,7 +227,17 @@ function getWorkoutSummary(session: WorkoutSession) {
   }
 }
 
-function CompletedWorkoutSummary({ session, headingRef }: { session: WorkoutSession; headingRef: RefObject<HTMLHeadingElement | null> }) {
+function CompletedWorkoutSummary({
+  session,
+  headingRef,
+  returnLink,
+  returnLabel,
+}: {
+  session: WorkoutSession
+  headingRef: RefObject<HTMLHeadingElement | null>
+  returnLink: string
+  returnLabel: string
+}) {
   const summary = getWorkoutSummary(session)
   const duration = formatWorkoutDuration(Math.max(0, session.durationSec ?? 0))
 
@@ -284,10 +294,10 @@ function CompletedWorkoutSummary({ session, headingRef }: { session: WorkoutSess
           Dashboard
         </Link>
         <Link
-          to="/history"
+          to={returnLink}
           className="flex-1 rounded-[12px] border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-600 transition hover:bg-slate-50"
         >
-          History
+          {returnLabel}
         </Link>
       </div>
     </section>
@@ -661,6 +671,11 @@ export function WorkoutPage() {
     : '/progress'
   const headerLink = source === 'history' ? '/history' : source === 'progress' ? progressLink : '/dashboard'
   const headerLinkLabel = source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
+  const summaryReturnLink = source === 'progress' ? progressLink : '/history'
+  const summaryReturnLabel = source === 'progress' ? 'Progress' : 'History'
+  const hasCachedSession = session !== undefined
+  const isInitialError = isError && !hasCachedSession
+  const isRefreshError = isError && hasCachedSession
   const restTimerSessionStatus: RestTimerSessionStatus = isPending || !session
     ? 'loading'
     : session.endedAt
@@ -1141,12 +1156,18 @@ export function WorkoutPage() {
           </section>
         ) : null}
 
-        {isError ? (
+        {isInitialError ? (
           <section className="p-6">
             <p role="alert" className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               Unable to load this workout session.
             </p>
           </section>
+        ) : null}
+
+        {isRefreshError ? (
+          <p role="alert" className="mx-4 mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700 sm:mx-6">
+            Unable to refresh this workout. Showing previously loaded values.
+          </p>
         ) : null}
 
         {session ? (
@@ -1176,7 +1197,14 @@ export function WorkoutPage() {
               />
             ) : null}
 
-            {session.endedAt ? <CompletedWorkoutSummary session={session} headingRef={completedSummaryRef} /> : null}
+            {session.endedAt ? (
+              <CompletedWorkoutSummary
+                session={session}
+                headingRef={completedSummaryRef}
+                returnLink={summaryReturnLink}
+                returnLabel={summaryReturnLabel}
+              />
+            ) : null}
 
             <div className="mt-5 space-y-3">
               {session.exercises.map((exercise, index) => {
