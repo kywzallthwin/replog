@@ -7,15 +7,15 @@ test('critical mobile journey: auth, navigation, programs, workout, and history'
 
   await page.goto('/')
   await expect(page).toHaveURL(/\/login$/)
-  await expect(page.getByRole('link', { name: 'Register' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Register' }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: 'Forgot password?' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Register' }).click()
+  await page.getByRole('link', { name: 'Register' }).first().click()
   await expect(page).toHaveURL(/\/register$/)
   await page.getByLabel('Username').fill(`e2euser${suffix.replace(/\D/g, '').slice(-10)}`)
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
-  await page.getByLabel('Confirm Password').fill(password)
+  await page.getByRole('textbox', { name: 'Confirm Password' }).fill(password)
   await page.getByRole('button', { name: /Create Account/ }).click()
   await expect(page).toHaveURL(/\/dashboard$/)
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
@@ -61,7 +61,7 @@ test('critical mobile journey: auth, navigation, programs, workout, and history'
   await exercise.getByRole('button', { name: 'Save Set' }).click()
   await expect(exercise.getByText('1 sets logged')).toBeVisible()
   await page.getByRole('button', { name: 'Finish Workout' }).click()
-  await expect(page.getByText('Completed workout')).toBeVisible()
+  await expect(page.getByText('Completed workout', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Finish Workout' })).toHaveCount(0)
 
   await page.getByRole('link', { name: 'History' }).click()
@@ -70,7 +70,7 @@ test('critical mobile journey: auth, navigation, programs, workout, and history'
   await expect(historyEntry).toBeVisible()
   await historyEntry.click()
   await expect(page).toHaveURL(/\/workout\/.*from=history/)
-  await expect(page.getByText('Completed workout')).toBeVisible()
+  await expect(page.getByText('Completed workout', { exact: true })).toBeVisible()
   await expect(page.getByText('40 kg')).toBeVisible()
 
   await page.goto('/dashboard')
