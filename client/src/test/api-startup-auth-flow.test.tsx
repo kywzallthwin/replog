@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
+import axios from 'axios'
 import { StrictMode } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import { fireEvent } from '@testing-library/react'
@@ -19,6 +20,12 @@ vi.mock('../lib/auth', async () => {
 
 const mockedReadiness = vi.mocked(waitForApiReadiness)
 const mockedGetCurrentUser = vi.mocked(getCurrentUser)
+
+function unauthorizedError() {
+  const error = new axios.AxiosError('Unauthorized')
+  error.response = { status: 401 } as typeof error.response
+  return error
+}
 
 const user = {
   id: 'user-1',
@@ -121,7 +128,7 @@ describe('startup and authentication flow', () => {
 
   it('preserves the protected unauthenticated redirect after readiness', async () => {
     mockedReadiness.mockResolvedValue(undefined)
-    mockedGetCurrentUser.mockRejectedValue(new Error('not authenticated'))
+    mockedGetCurrentUser.mockRejectedValue(unauthorizedError())
     renderProtected()
 
     expect(await screen.findByText('Login page')).toBeInTheDocument()
@@ -130,7 +137,7 @@ describe('startup and authentication flow', () => {
 
   it('preserves guest behavior after readiness', async () => {
     mockedReadiness.mockResolvedValue(undefined)
-    mockedGetCurrentUser.mockRejectedValue(new Error('not authenticated'))
+    mockedGetCurrentUser.mockRejectedValue(unauthorizedError())
     renderGuest()
 
     expect(await screen.findByText('Login page')).toBeInTheDocument()

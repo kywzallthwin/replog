@@ -71,7 +71,7 @@ export function securityHeaders(_req: Request, res: Response, next: NextFunction
 }
 
 export function noStoreApiResponses(req: Request, res: Response, next: NextFunction) {
-  if (isApiPath(req.path)) {
+  if (isApiPath(req.path) || req.path === '/ready' || req.path === '/health') {
     res.setHeader('Cache-Control', 'no-store')
     res.setHeader('Pragma', 'no-cache')
     res.setHeader('Expires', '0')

@@ -126,6 +126,13 @@ test('security headers, API cache policy, and parser errors are safe JSON respon
   assert.equal(healthResponse.headers['x-frame-options'], 'DENY')
   assert.equal(healthResponse.headers['referrer-policy'], 'no-referrer')
   assert.equal(healthResponse.headers['permissions-policy'], 'camera=(), geolocation=(), microphone=()')
+  assert.equal(healthResponse.headers['cache-control'], 'no-store')
+
+  const readyResponse = await request(app).get('/ready')
+  assert.equal(readyResponse.status, 200, readyResponse.text)
+  assert.equal(readyResponse.headers['cache-control'], 'no-store')
+  assert.equal(readyResponse.headers.pragma, 'no-cache')
+  assert.equal(readyResponse.headers.expires, '0')
 
   const notFoundResponse = await request(app).get('/api/not-a-route')
   assert.equal(notFoundResponse.status, 404, notFoundResponse.text)

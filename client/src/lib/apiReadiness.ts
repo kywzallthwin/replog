@@ -1,6 +1,7 @@
 export const DEFAULT_READINESS_ATTEMPTS = 12
 export const DEFAULT_READINESS_DELAY_MS = 5000
 export const DEFAULT_READINESS_TIMEOUT_MS = 10000
+export const DEFAULT_READINESS_MAX_WAIT_MS = 90000
 
 type FetchLike = typeof fetch
 
@@ -9,12 +10,14 @@ export type ApiReadinessOptions = {
   attempts?: number
   delayMs?: number
   timeoutMs?: number
+  maxWaitMs?: number
+  now?: () => number
   signal?: AbortSignal
   fetchImpl?: FetchLike
   sleep?: (delayMs: number, signal?: AbortSignal) => Promise<void>
 }
 
-export function resolveApiHealthUrl(apiBaseUrl: string) {
+export function resolveApiReadinessUrl(apiBaseUrl: string) {
   const normalizedUrl = apiBaseUrl.trim().replace(/\/+$/, '')
   return normalizedUrl.replace(/\/api$/i, '') + '/ready'
 }
@@ -63,7 +66,7 @@ async function checkApiHealth(
   signal?.addEventListener('abort', abortRequest, { once: true })
 
   try {
-    const response = await fetchImpl(url, { signal: requestController.signal })
+    const response = await fetchImpl(url, { signal: requestController.signal, cache: 'no-store' })
     if (!response.ok) {
       throw new Error(`API health check returned ${response.status}`)
     }
@@ -88,11 +91,14 @@ export async function waitForApiReadiness({
   attempts = DEFAULT_READINESS_ATTEMPTS,
   delayMs = DEFAULT_READINESS_DELAY_MS,
   timeoutMs = DEFAULT_READINESS_TIMEOUT_MS,
+  maxWaitMs = DEFAULT_READINESS_MAX_WAIT_MS,
+  now = Date.now,
   signal,
   fetchImpl = fetch,
   sleep: sleepImpl = sleep,
 }: ApiReadinessOptions) {
   const maxAttempts = Math.max(1, Math.floor(attempts))
+  const deadline = now() + maxWaitMs
   let lastError: unknown
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -100,8 +106,13 @@ export async function waitForApiReadiness({
       throw abortError()
     }
 
+    const remainingMs = deadline - now()
+    if (remainingMs <= 0) {
+      throw new Error('API readiness check timed out')
+    }
+
     try {
-      await checkApiHealth(resolveApiHealthUrl(apiBaseUrl), timeoutMs, signal, fetchImpl)
+      await checkApiHealth(resolveApiReadinessUrl(apiBaseUrl), Math.min(timeoutMs, remainingMs), signal, fetchImpl)
       return
     } catch (error) {
       if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
@@ -111,7 +122,11 @@ export async function waitForApiReadiness({
     }
 
     if (attempt < maxAttempts) {
-      await sleepImpl(delayMs, signal)
+      const delay = Math.min(delayMs, Math.max(0, deadline - now()))
+      if (delay <= 0) {
+        throw lastError ?? new Error('API readiness check timed out')
+      }
+      await sleepImpl(delay, signal)
     }
   }
 
