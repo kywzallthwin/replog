@@ -5,8 +5,8 @@ const readyResponse = () => ({ ok: true, status: 200, json: async () => ({ ok: t
 
 describe('API readiness', () => {
   it.each([
-    ['/api', '/health'],
-    [' https://api.example.com/api/// ', 'https://api.example.com/health'],
+    ['/api', '/ready'],
+    [' https://api.example.com/api/// ', 'https://api.example.com/ready'],
   ])('resolves %s to %s', (baseUrl, expected) => {
     expect(resolveApiHealthUrl(baseUrl)).toBe(expected)
   })
@@ -16,7 +16,7 @@ describe('API readiness', () => {
 
     await waitForApiReadiness({ apiBaseUrl: '/api', fetchImpl, delayMs: 0 })
 
-    expect(fetchImpl).toHaveBeenCalledWith('/health', expect.anything())
+    expect(fetchImpl).toHaveBeenCalledWith('/ready', expect.anything())
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 

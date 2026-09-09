@@ -1,4 +1,4 @@
-export const DEFAULT_READINESS_ATTEMPTS = 6
+export const DEFAULT_READINESS_ATTEMPTS = 12
 export const DEFAULT_READINESS_DELAY_MS = 5000
 export const DEFAULT_READINESS_TIMEOUT_MS = 10000
 
@@ -16,7 +16,7 @@ export type ApiReadinessOptions = {
 
 export function resolveApiHealthUrl(apiBaseUrl: string) {
   const normalizedUrl = apiBaseUrl.trim().replace(/\/+$/, '')
-  return normalizedUrl.replace(/\/api$/i, '') + '/health'
+  return normalizedUrl.replace(/\/api$/i, '') + '/ready'
 }
 
 function abortError() {
@@ -33,9 +33,14 @@ function sleep(delayMs: number, signal?: AbortSignal) {
   }
 
   return new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(resolve, delayMs)
+    const finish = () => {
+      signal?.removeEventListener('abort', abortSleep)
+      resolve()
+    }
+    const timeout = setTimeout(finish, delayMs)
     const abortSleep = () => {
       clearTimeout(timeout)
+      signal?.removeEventListener('abort', abortSleep)
       reject(abortError())
     }
     signal?.addEventListener('abort', abortSleep, { once: true })
