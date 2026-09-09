@@ -23,6 +23,10 @@ function abortError() {
   return new DOMException('The readiness check was aborted', 'AbortError')
 }
 
+function timeoutError() {
+  return new Error('API health check timed out')
+}
+
 function sleep(delayMs: number, signal?: AbortSignal) {
   if (signal?.aborted) {
     return Promise.reject(abortError())
@@ -30,10 +34,11 @@ function sleep(delayMs: number, signal?: AbortSignal) {
 
   return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(resolve, delayMs)
-    signal?.addEventListener('abort', () => {
+    const abortSleep = () => {
       clearTimeout(timeout)
       reject(abortError())
-    }, { once: true })
+    }
+    signal?.addEventListener('abort', abortSleep, { once: true })
   })
 }
 
@@ -44,7 +49,11 @@ async function checkApiHealth(
   fetchImpl: FetchLike,
 ) {
   const requestController = new AbortController()
-  const timeout = setTimeout(() => requestController.abort(), timeoutMs)
+  let didTimeout = false
+  const timeout = setTimeout(() => {
+    didTimeout = true
+    requestController.abort()
+  }, timeoutMs)
   const abortRequest = () => requestController.abort()
   signal?.addEventListener('abort', abortRequest, { once: true })
 
@@ -58,6 +67,11 @@ async function checkApiHealth(
     if (!body || typeof body !== 'object' || !('ok' in body) || body.ok !== true) {
       throw new Error('API health check returned an invalid response')
     }
+  } catch (error) {
+    if (didTimeout) {
+      throw timeoutError()
+    }
+    throw error
   } finally {
     clearTimeout(timeout)
     signal?.removeEventListener('abort', abortRequest)

@@ -58,4 +58,17 @@ describe('API readiness', () => {
     await expect(waitForApiReadiness({ apiBaseUrl: '/api', attempts: 1, fetchImpl })).rejects.toThrow()
     await expect(waitForApiReadiness({ apiBaseUrl: '/api', attempts: 1, fetchImpl })).resolves.toBeUndefined()
   })
+
+  it('retries an internal request timeout', async () => {
+    vi.useFakeTimers()
+    const fetchImpl = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+    }))
+    const promise = waitForApiReadiness({ apiBaseUrl: '/api', attempts: 2, timeoutMs: 10, delayMs: 0, fetchImpl })
+    const rejection = expect(promise).rejects.toThrow('timed out')
+    await vi.runAllTimersAsync()
+    await rejection
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    vi.useRealTimers()
+  })
 })

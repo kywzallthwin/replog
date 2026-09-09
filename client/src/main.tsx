@@ -5,11 +5,14 @@ import { RouterProvider } from 'react-router-dom'
 import './index.css'
 import { queryClient } from './lib/queryClient'
 import { router } from './router'
+import { ApiStartupGate } from './components/startup/ApiStartupGate'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ApiStartupGate>
+        <RouterProvider router={router} />
+      </ApiStartupGate>
     </QueryClientProvider>
   </StrictMode>,
 )
