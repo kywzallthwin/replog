@@ -1,29 +1,36 @@
 import axios from 'axios'
 
-const configuredApiUrl = import.meta.env.VITE_API_URL?.trim()
-
 function addApiPath(url: string) {
-  const normalizedUrl = url.replace(/\/+$/, '')
-  return normalizedUrl.endsWith('/api') ? normalizedUrl : `${normalizedUrl}/api`
+  const normalizedUrl = url.trim().replace(/\/+$/, '')
+  const apiUrl = normalizedUrl.replace(/(?:\/api)+$/i, '/api')
+  return apiUrl.endsWith('/api') ? apiUrl : `${apiUrl}/api`
 }
 
-function getRuntimeApiUrl() {
-  if (configuredApiUrl) {
-    return import.meta.env.PROD ? '/api' : addApiPath(configuredApiUrl)
+export function resolveApiBaseUrl(
+  configuredApiUrl: string | undefined,
+  isProduction: boolean,
+  browserApiOrigin?: string,
+) {
+  if (configuredApiUrl?.trim()) {
+    return addApiPath(configuredApiUrl)
   }
 
-  if (typeof window !== 'undefined') {
-    if (import.meta.env.PROD) {
-      return '/api'
-    }
-
-    return addApiPath(`${window.location.protocol}//${window.location.hostname}:4000`)
+  if (isProduction) {
+    return '/api'
   }
 
-  return import.meta.env.PROD ? '/api' : 'http://localhost:4000/api'
+  return browserApiOrigin ? addApiPath(browserApiOrigin) : 'http://localhost:4000/api'
 }
 
-export const apiBaseUrl = getRuntimeApiUrl()
+const browserApiOrigin = typeof window !== 'undefined'
+  ? `${window.location.protocol}//${window.location.hostname}:4000`
+  : undefined
+
+export const apiBaseUrl = resolveApiBaseUrl(
+  import.meta.env.VITE_API_URL,
+  import.meta.env.PROD,
+  browserApiOrigin,
+)
 
 export const api = axios.create({
   baseURL: apiBaseUrl,
