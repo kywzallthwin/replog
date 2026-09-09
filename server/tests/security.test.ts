@@ -50,6 +50,17 @@ test('production environment validation and auth cookies fail closed safely', ()
     /Invalid server environment/,
   )
   assert.throws(
+    () => parseEnvironment({
+      ...baseEnvironment,
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/replog?sslmode=require',
+      DATABASE_URL_UNPOOLED: 'postgresql://postgres:postgres@localhost:5432/replog?sslmode=require',
+      CLIENT_URL: 'https://replog.example',
+      JWT_SECRET: 'replace-with-at-least-32-characters',
+    }),
+    /Invalid server environment/,
+  )
+  assert.throws(
     () => parseEnvironment({ ...baseEnvironment, NODE_ENV: 'production' }),
     /Invalid server environment/,
   )
@@ -80,9 +91,9 @@ test('production environment validation and auth cookies fail closed safely', ()
   assert.equal(getAuthCookieOptions(false).secure, false)
   assert.equal(getAuthCookieOptions(true).secure, true)
   assert.equal(getAuthCookieOptions(true).httpOnly, true)
-  assert.equal(getAuthCookieOptions(true).sameSite, 'none')
+  assert.equal(getAuthCookieOptions(true).sameSite, 'lax')
   assert.equal(getAuthCookieOptions(true).path, '/')
-  assert.equal(getGoogleStateCookieOptions(true).sameSite, 'none')
+  assert.equal(getGoogleStateCookieOptions(true).sameSite, 'lax')
   assert.equal(getGoogleStateCookieOptions(true).secure, true)
   assert.equal(getGoogleStateCookieOptions(true).httpOnly, true)
   assert.equal(getGoogleStateCookieOptions(true).path, '/api/auth/google')

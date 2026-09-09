@@ -92,7 +92,7 @@ export async function waitForApiReadiness({
   delayMs = DEFAULT_READINESS_DELAY_MS,
   timeoutMs = DEFAULT_READINESS_TIMEOUT_MS,
   maxWaitMs = DEFAULT_READINESS_MAX_WAIT_MS,
-  now = Date.now,
+  now = () => performance.now(),
   signal,
   fetchImpl = fetch,
   sleep: sleepImpl = sleep,

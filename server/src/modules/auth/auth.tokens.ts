@@ -8,7 +8,7 @@ const authCookieMaxAgeMs = 1000 * 60 * 60 * 24 * 7
 export function getAuthCookieOptions(isProduction = env.NODE_ENV === 'production'): CookieOptions {
   return {
     httpOnly: true,
-    sameSite: isProduction ? 'none' : 'lax',
+    sameSite: 'lax',
     secure: isProduction,
     path: '/',
   }
@@ -17,7 +17,7 @@ export function getAuthCookieOptions(isProduction = env.NODE_ENV === 'production
 export function getGoogleStateCookieOptions(isProduction = env.NODE_ENV === 'production'): CookieOptions {
   return {
     httpOnly: true,
-    sameSite: isProduction ? 'none' : 'lax',
+    sameSite: 'lax',
     secure: isProduction,
     path: '/api/auth/google',
   }

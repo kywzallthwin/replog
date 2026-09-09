@@ -106,7 +106,7 @@ const envSchema = z.object({
       })
     }
 
-    if (value.JWT_SECRET.length < 32 || value.JWT_SECRET === 'replace-with-at-least-16-characters') {
+    if (value.JWT_SECRET.length < 32 || value.JWT_SECRET.startsWith('replace-with-at-least-')) {
       context.addIssue({
         code: 'custom',
         path: ['JWT_SECRET'],

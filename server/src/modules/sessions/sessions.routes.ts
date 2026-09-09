@@ -882,6 +882,20 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/sets/:setId', req
     return
   }
 
+  if (parsedBody.data.kind) {
+    const childCount = await prisma.setLog.count({ where: { parentSetId: existingSet.id } })
+    const hasParent = existingSet.parentSetId !== null
+    const hasChildren = childCount > 0
+    const invalidChainKind = (hasParent && parsedBody.data.kind !== 'DROP') ||
+      ((hasChildren && parsedBody.data.kind !== 'NORMAL')) ||
+      (!hasParent && !hasChildren && parsedBody.data.kind === 'DROP')
+
+    if (invalidChainKind) {
+      res.status(400).json({ error: 'Set kind would create an invalid drop chain' })
+      return
+    }
+  }
+
   const updateData: {
     kind?: 'WARMUP' | 'NORMAL' | 'DROP'
     notes?: string | null

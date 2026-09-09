@@ -105,9 +105,10 @@ git diff --check
 ## Environment variables
 
 `VITE_API_URL` is optional for local development and supported for a separately
-hosted production API. When omitted, the client uses
+hosted production API. When omitted in development, the client uses
 the browser's current hostname on port `4000`, so both `localhost:5173` and
-your PC's LAN IP work without changing environment files. When set, it should be
+your PC's LAN IP work without changing environment files. When omitted in
+production, it uses same-origin `/api`. When set, it should be
 the API server origin; the client appends `/api` and normalizes the suffix. It is
 public build-time configuration and is embedded in the client bundle, so it must
 never contain secrets.
@@ -124,7 +125,7 @@ GitHub Actions runs on pushes and pull requests. It starts PostgreSQL 17, create
 
 Production serving is configured for a same-site frontend/API topology. The API is under `/api`, Express serves `client/dist` in the single-origin deployment, and unknown client routes fall back to the Vite `index.html` while unknown `/api` routes remain JSON 404s. Arbitrary cross-site deployments are not a supported cookie-authentication topology.
 
-The server trusts exactly one reverse-proxy hop, matching Render's TLS-terminating edge. Express binds to `0.0.0.0` and uses Render's injected `PORT`. Production auth and OAuth state cookies are HTTP-only, `SameSite=None`, and `Secure`; this requires the frontend/API deployment to use the supported same-site topology and browser cookie policy. API responses are not cacheable, use a restrictive referrer policy and security headers, and unsafe requests carrying an auth cookie must include the configured `Origin` or same-origin Fetch Metadata. Registration, login, OAuth initiation, and password recovery endpoints are rate limited.
+The server trusts exactly one reverse-proxy hop, matching Render's TLS-terminating edge. Express binds to `0.0.0.0` and uses Render's injected `PORT`. Production auth and OAuth state cookies are HTTP-only, `SameSite=Lax`, and `Secure`; this supports the documented same-site topology with browser-level CSRF protection in depth. API responses are not cacheable, use a restrictive referrer policy and security headers, and unsafe requests carrying an auth cookie must include the configured `Origin` or same-origin Fetch Metadata. Registration, login, OAuth initiation, and password recovery endpoints are rate limited.
 
 ## Render + Neon deployment
 
