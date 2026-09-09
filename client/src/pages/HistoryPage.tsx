@@ -57,11 +57,14 @@ export function HistoryPage() {
     queryFn: getSessionHistory,
     retry: false,
   })
+  const hasCachedSessions = sessions !== undefined
+  const isInitialError = isError && !hasCachedSessions
+  const isRefreshError = isError && hasCachedSessions
   const groupedSessions = sessions ? groupSessionsByMonth(sessions) : []
 
   return (
-    <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
-      <div className="mx-auto max-w-5xl">
+    <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
+      <div className="mx-auto w-full min-w-0 max-w-5xl">
         <header className="mb-8 flex items-center justify-between gap-4">
           <div>
             <BrandLogo className="h-6 w-auto" />
@@ -76,17 +79,23 @@ export function HistoryPage() {
           <PageLoader statusMessage="Loading history..." />
         ) : null}
 
-        {isError ? (
+        {isInitialError ? (
           <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p role="alert" className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               Unable to load workout history. Please refresh and try again.
             </p>
           </section>
         ) : null}
 
+        {isRefreshError ? (
+          <p role="alert" className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            Unable to refresh workout history. Showing previously loaded workouts.
+          </p>
+        ) : null}
+
         {sessions && sessions.length === 0 ? (
           <section className="rounded-[28px] bg-white p-6 text-center shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="text-lg font-bold text-slate-900">No finished workouts yet</p>
+            <h2 className="text-lg font-bold text-slate-900">No finished workouts yet</h2>
             <p className="mt-2 text-sm text-slate-500">
               Finish a workout and it will appear here with duration, exercises, and set totals.
             </p>
@@ -111,18 +120,18 @@ export function HistoryPage() {
                     <Link
                       key={session.id}
                       to={`/workout/${session.id}?from=history`}
-                      className="rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
+                      className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
                     >
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(session.badgeColor)}`}>
+                      <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
+                        <span className={`min-w-0 max-w-full whitespace-normal break-words rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] [overflow-wrap:anywhere] ${getBadgeClass(session.badgeColor)}`}>
                           {session.dayName}
                         </span>
-                        <span className="text-lg text-slate-300">{String.fromCharCode(0x203a)}</span>
+                        <span aria-hidden="true" className="shrink-0 text-lg text-slate-300">{String.fromCharCode(0x203a)}</span>
                       </div>
-                      <p className="text-base font-bold text-slate-900">
+                      <time dateTime={session.startedAt} className="block min-w-0 break-words text-base font-bold text-slate-900 [overflow-wrap:anywhere]">
                         {formatSessionDate(session.startedAt)}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-500">
+                      </time>
+                      <p className="mt-2 min-w-0 break-words text-sm text-slate-500 [overflow-wrap:anywhere]">
                         {session.programName ? `${session.programName} · ` : ''}{session.exerciseCount} exercises · {session.setCount} sets · {formatDuration(session.durationSec)}
                       </p>
                     </Link>

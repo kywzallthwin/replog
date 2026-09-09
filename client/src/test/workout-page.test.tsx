@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkoutPage } from '../pages/WorkoutPage'
@@ -12,6 +12,7 @@ import {
   finishSession,
   getSession,
   removeSessionExercise,
+  sessionQueryKey,
   swapSessionExercise,
   updateSet,
   type WorkoutExercise,
@@ -150,22 +151,30 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function renderWorkout(session: WorkoutSession = workoutSession()) {
-  mockedGetSession.mockResolvedValue(session)
+function renderWorkout(
+  session: WorkoutSession = workoutSession(),
+  initialEntry = '/workout/session-1',
+  sessionResult: Promise<WorkoutSession> = Promise.resolve(session),
+) {
+  mockedGetSession.mockReturnValue(sessionResult)
   const queryClient = createTestQueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/workout/session-1']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/workout/:sessionId" element={<WorkoutPage />} />
           <Route path="/dashboard" element={<h1>Dashboard destination</h1>} />
+          <Route path="/history" element={<h1>History destination</h1>} />
+          <Route path="/progress" element={<h1>Progress destination</h1>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
+
+  return queryClient
 }
 
 async function getExerciseCard(name = 'Bench Press') {
@@ -229,6 +238,61 @@ describe('WorkoutPage regression coverage', () => {
     expect(screen.getByText('640 kg')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit set' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
+  })
+
+  it('preserves the source route when returning from a completed workout', async () => {
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+
+    renderWorkout(completed, '/workout/session-1?from=progress&exerciseId=bench')
+
+    expect(await screen.findByText('Completed workout')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Progress' }).some((link) => link.getAttribute('href') === '/progress?exerciseId=bench')).toBe(true)
+    expect(screen.getAllByRole('link', { name: 'Progress' }).every((link) => link.getAttribute('href') === '/progress?exerciseId=bench')).toBe(true)
+    expect(screen.queryByRole('link', { name: 'History' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard')
+  })
+
+  it('keeps cached workout content visible when a refresh fails', async () => {
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+    const queryClient = renderWorkout(completed)
+
+    expect(await screen.findByText('Completed workout')).toBeInTheDocument()
+    mockedGetSession.mockRejectedValueOnce(new Error('offline'))
+
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: sessionQueryKey('session-1') })
+    })
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unable to refresh this workout'))
+    expect(screen.getByText('Read only')).toBeInTheDocument()
+    expect(screen.queryByText('Unable to load this workout session.')).not.toBeInTheDocument()
+  })
+
+  it('keeps source navigation available while a workout is loading', async () => {
+    const pending = deferred<WorkoutSession>()
+    renderWorkout(workoutSession(), '/workout/session-1?from=history', pending.promise)
+
+    expect(await screen.findByRole('status', { name: 'Loading workout...' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute('href', '/history')
+
+    await act(async () => pending.resolve(workoutSession()))
+    expect(await screen.findByText('Active workout')).toBeInTheDocument()
+  })
+
+  it('announces a workout loading error and keeps the source link', async () => {
+    renderWorkout(workoutSession(), '/workout/session-1?from=history', Promise.reject(new Error('offline')))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load this workout session.')
+    expect(screen.getByRole('link', { name: 'History' })).toHaveAttribute('href', '/history')
+  })
+
+  it('keeps an empty completed workout read-only with its zero summary', async () => {
+    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 240, exercises: [] }))
+
+    expect(await screen.findByText('Completed workout')).toBeInTheDocument()
+    expect(screen.getByText('No exercises logged')).toBeInTheDocument()
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
   })
 
@@ -490,7 +554,7 @@ describe('mobile layout contract', () => {
     await screen.findByText('Active workout')
 
     const main = screen.getByRole('main')
-    expect(main).toHaveClass('w-full', 'min-w-0')
+    expect(main).toHaveClass('w-full', 'min-w-0', 'overflow-x-hidden')
 
     const pb = main.className
     expect(pb).toContain('pb-[calc(2rem+env(safe-area-inset-bottom))]')
