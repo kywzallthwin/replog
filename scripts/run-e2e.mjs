@@ -31,26 +31,48 @@ function databaseName(value) {
   return decodeURIComponent(new URL(value).pathname.slice(1))
 }
 
+function isDesignatedTestDatabase(value) {
+  return /(?:^|[-_])(test|e2e)(?:[-_]|$)/i.test(databaseName(value))
+}
+
 function commandFor(packageName, binaryName) {
   const packagePath = require.resolve(`${packageName}/package.json`)
   const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'))
   return resolve(dirname(packagePath), packageJson.bin[binaryName || packageName])
 }
 
-function waitFor(url, label, runId, timeout = 60_000) {
+function waitFor(url, label, runId, children, timeout = 60_000) {
   const started = Date.now()
   return new Promise((resolvePromise, reject) => {
+    const cleanups = []
+    const fail = (error) => {
+      cleanups.forEach((cleanup) => cleanup())
+      reject(error)
+    }
+    children.forEach((child) => {
+      const onError = (error) => fail(new Error(`${label} process failed to start: ${error.message}`))
+      const onExit = (code, signal) => fail(new Error(`${label} process exited before readiness (code ${code ?? 'null'}, signal ${signal ?? 'none'})`))
+      child.once('error', onError)
+      child.once('exit', onExit)
+      cleanups.push(() => {
+        child.off('error', onError)
+        child.off('exit', onExit)
+      })
+    })
     const poll = async () => {
       try {
         const response = await fetch(url)
-        const body = await response.json().catch(() => null)
-        if (response.ok && (!runId || body?.runId === runId)) {
+        const text = await response.text()
+        let body = null
+        try { body = JSON.parse(text) } catch {}
+        if (response.ok && (!runId || body?.runId === runId || text.includes(`data-e2e-run-id="${runId}"`))) {
+          cleanups.forEach((cleanup) => cleanup())
           resolvePromise()
           return
         }
       } catch {}
       if (Date.now() - started >= timeout) {
-        reject(new Error(`Timed out waiting for ${label} at ${url}`))
+        fail(new Error(`Timed out waiting for ${label} at ${url}`))
         return
       }
       setTimeout(poll, 250)
@@ -59,12 +81,16 @@ function waitFor(url, label, runId, timeout = 60_000) {
   })
 }
 
-function reservePort() {
+function reservePort(excludedPorts = new Set()) {
   return new Promise((resolvePromise, reject) => {
     const listener = net.createServer()
     listener.once('error', reject)
     listener.listen(0, '127.0.0.1', () => {
       const address = listener.address()
+      if (!address || typeof address === 'string' || excludedPorts.has(address.port)) {
+        listener.close(() => reservePort(excludedPorts).then(resolvePromise, reject))
+        return
+      }
       listener.close(() => resolvePromise(address.port))
     })
   })
@@ -112,14 +138,19 @@ const testDatabaseUrl = environment.TEST_DATABASE_URL
 const testDatabase = databaseIdentity(testDatabaseUrl, 'TEST_DATABASE_URL')
 const testUnpooledUrl = environment.TEST_DATABASE_URL_UNPOOLED ?? testDatabaseUrl
 const testUnpooled = databaseIdentity(testUnpooledUrl, 'TEST_DATABASE_URL_UNPOOLED')
-if (!/(test|e2e)/i.test(databaseName(testDatabaseUrl))) {
+if (!isDesignatedTestDatabase(testDatabaseUrl)) {
   throw new Error('TEST_DATABASE_URL database name must include test or e2e')
 }
-if (testDatabase === developmentDatabase || testUnpooled === developmentDatabase || (developmentUnpooled && testDatabase === developmentUnpooled)) {
-  throw new Error('DATABASE_URL and TEST_DATABASE_URL must point to different PostgreSQL databases')
-}
-if (!/(test|e2e)/i.test(databaseName(testUnpooledUrl))) {
+if (!isDesignatedTestDatabase(testUnpooledUrl)) {
   throw new Error('TEST_DATABASE_URL_UNPOOLED database name must include test or e2e')
+}
+if (
+  testDatabase === developmentDatabase
+  || testDatabase === developmentUnpooled
+  || testUnpooled === developmentDatabase
+  || testUnpooled === developmentUnpooled
+) {
+  throw new Error('DATABASE_URL and TEST_DATABASE_URL must point to different PostgreSQL databases')
 }
 
 const schemaUrl = new URL(testDatabaseUrl)
@@ -130,7 +161,7 @@ unpooledSchemaUrl.searchParams.set('schema', temporarySchema)
 const runtimeUnpooledUrl = unpooledSchemaUrl.toString()
 const runId = `e2e-${Date.now()}-${process.pid}`
 const apiPort = await reservePort()
-const clientPort = await reservePort()
+const clientPort = await reservePort(new Set([apiPort]))
 const testEnvironment = {
   ...environment,
   NODE_ENV: 'test',
@@ -151,10 +182,40 @@ const playwright = commandFor('@playwright/test', 'playwright')
 const tsx = require.resolve('tsx/cli')
 const children = []
 let status = 1
+let cleanupPromise
+let interrupted = false
 
 function run(command, args, options = {}) {
   return spawnSync(process.execPath, [command, ...args], { cwd: root, env: testEnvironment, stdio: 'inherit', ...options }).status ?? 1
 }
+
+async function cleanup() {
+  if (cleanupPromise) return cleanupPromise
+  cleanupPromise = (async () => {
+    children.reverse().forEach(stopProcess)
+    await Promise.all(children.map((child) => waitForExit(child)))
+    const result = spawnSync(process.execPath, [prisma, 'db', 'execute', '--stdin'], {
+      cwd: serverRoot,
+      env: testEnvironment,
+      input: `DROP SCHEMA IF EXISTS "${temporarySchema}" CASCADE;`,
+      stdio: ['pipe', 'inherit', 'inherit'],
+    })
+    if (status === 0 && result.status !== 0) status = result.status ?? 1
+  })()
+  return cleanupPromise
+}
+
+function handleSignal(signal) {
+  interrupted = true
+  status = 1
+  console.error(`Received ${signal}; stopping E2E run`)
+  void cleanup().finally(() => {
+    process.exitCode = 1
+  })
+}
+
+process.once('SIGINT', () => handleSignal('SIGINT'))
+process.once('SIGTERM', () => handleSignal('SIGTERM'))
 
 try {
   status = run(prisma, ['migrate', 'deploy'], { cwd: serverRoot })
@@ -162,16 +223,15 @@ try {
   const api = spawn(process.execPath, [tsx, 'src/index.ts'], { cwd: serverRoot, env: testEnvironment, stdio: 'inherit', detached: process.platform !== 'win32' })
   const client = spawn(process.platform === 'win32' ? 'cmd.exe' : 'npm', process.platform === 'win32' ? ['/d', '/s', '/c', `npm run dev -- --host 127.0.0.1 --port ${clientPort} --strictPort`] : ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(clientPort), '--strictPort'], { cwd: join(root, 'client'), env: testEnvironment, stdio: 'inherit', detached: process.platform !== 'win32' })
   children.push(api, client)
-  await waitFor(`http://127.0.0.1:${apiPort}/ready`, 'API', runId)
-  await waitFor(`http://127.0.0.1:${clientPort}`, 'client')
+  await waitFor(`http://127.0.0.1:${apiPort}/ready`, 'API', runId, children)
+  await waitFor(`http://127.0.0.1:${clientPort}`, 'client', runId, children)
   status = run(playwright, ['test', ...(process.argv.includes('--headed') ? ['--headed'] : [])])
 } catch (error) {
   console.error(error instanceof Error ? error.message : error)
   status = 1
 } finally {
-  children.reverse().forEach(stopProcess)
-  await Promise.all(children.map((child) => waitForExit(child)))
-  const cleanup = spawnSync(process.execPath, [prisma, 'db', 'execute', '--stdin'], { cwd: serverRoot, env: testEnvironment, input: `DROP SCHEMA IF EXISTS "${temporarySchema}" CASCADE;`, stdio: ['pipe', 'inherit', 'inherit'] })
-  if (status === 0 && cleanup.status !== 0) status = cleanup.status ?? 1
+  await cleanup()
+  process.removeAllListeners('SIGINT')
+  process.removeAllListeners('SIGTERM')
 }
-process.exitCode = status
+process.exitCode = interrupted ? 1 : status

@@ -68,7 +68,7 @@ export function createApp({
   app.get('/ready', async (_req, res) => {
     try {
       await prisma.$queryRaw`SELECT 1`
-      res.json({ ok: true, runId: process.env.E2E_RUN_ID ?? null })
+      res.json(process.env.E2E_RUN_ID ? { ok: true, runId: process.env.E2E_RUN_ID } : { ok: true })
     } catch {
       res.status(503).json({ ok: false })
     }

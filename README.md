@@ -110,13 +110,13 @@ Install the Playwright Chromium browser once:
 npm run test:e2e:install
 ```
 
-Run the critical mobile journey:
+Run the complete browser acceptance suite:
 
 ```bash
 npm run test:e2e
 ```
 
-The runner requires `TEST_DATABASE_URL`, rejects a database that matches `DATABASE_URL`, creates a temporary schema, starts isolated local services, and drops the schema when the run finishes. The browser project uses a `375 x 812` viewport and retains screenshots, video, and traces for failures. Use `npm run test:e2e:headed` for a visible browser.
+The runner requires `TEST_DATABASE_URL`, rejects unsafe database identities, creates a temporary schema, starts isolated local services, and drops the schema when the run finishes. The suite runs the critical journey at `375 x 812` plus responsive smoke checks at `768 x 1024` and `1080 x 800`, retaining screenshots, video, and traces for failures. Use `npm run test:e2e:headed` for a visible browser.
 
 ## Environment variables
 
