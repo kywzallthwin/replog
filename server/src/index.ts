@@ -68,7 +68,7 @@ export function createApp({
   app.get('/ready', async (_req, res) => {
     try {
       await prisma.$queryRaw`SELECT 1`
-      res.json({ ok: true })
+      res.json(process.env.E2E_RUN_ID ? { ok: true, runId: process.env.E2E_RUN_ID } : { ok: true })
     } catch {
       res.status(503).json({ ok: false })
     }
@@ -191,7 +191,7 @@ function handleShutdown(signal: 'SIGINT' | 'SIGTERM') {
   })
 }
 
-if (env.NODE_ENV !== 'test') {
+if (env.NODE_ENV !== 'test' || process.env.E2E_RUN_ID) {
   server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log(`Server listening on port ${env.PORT}`)
   })

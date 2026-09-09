@@ -14,6 +14,9 @@
     "prisma:generate": "npm run generate -w server",
     "prisma:validate": "npm run validate:prisma -w server",
     "smoke:health": "npm run smoke:health -w server",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "test:e2e:headed": "node scripts/run-e2e.mjs --headed",
+    "test:e2e:install": "playwright install chromium",
     "check": "npm run prisma:generate && npm run prisma:validate && npm run lint && npm run typecheck && npm test && npm run build && npm run smoke:health && git diff --check",
     "dev": "concurrently -k -n client,server -c blue,green \"npm run dev -w client\" \"npm run dev -w server\""
   },
@@ -37,6 +40,7 @@
     "npm": "11.9.x"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "concurrently": "^10.0.3"
   }
 }
