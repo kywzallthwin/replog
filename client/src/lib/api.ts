@@ -40,11 +40,20 @@ const browserApiOrigin = typeof window !== 'undefined'
   ? `${window.location.protocol}//${window.location.hostname}:4000`
   : undefined
 
-export const apiBaseUrl = resolveApiBaseUrl(
-  import.meta.env.VITE_API_URL,
-  import.meta.env.PROD,
-  browserApiOrigin,
-)
+export let apiConfigurationError: Error | null = null
+export let apiBaseUrl = '/api'
+
+try {
+  apiBaseUrl = resolveApiBaseUrl(
+    import.meta.env.VITE_API_URL,
+    import.meta.env.PROD,
+    browserApiOrigin,
+  )
+} catch (error) {
+  apiConfigurationError = error instanceof Error
+    ? error
+    : new Error('The API configuration is invalid')
+}
 
 export const api = axios.create({
   baseURL: apiBaseUrl,
