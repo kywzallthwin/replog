@@ -138,7 +138,7 @@ test('users can create, switch, copy, and safely edit multiple programs', async 
     const setDetailsResponse = await agent.get(`/api/sessions/${sessionId}`)
     assert.equal(setDetailsResponse.status, 200, setDetailsResponse.text)
     assert.equal(setDetailsResponse.body.session.exercises[0].sets[0].notes, 'Full depth throughout.')
-    assert.equal(setDetailsResponse.body.session.exercises[0].sets.length, 5)
+    assert.equal(setDetailsResponse.body.session.exercises[0].sets.length, 6)
 
     const invalidSetNoteResponse = await agent
       .patch(`/api/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)

@@ -32,6 +32,27 @@ describe('API readiness', () => {
     vi.useRealTimers()
   })
 
+  it('continues quick failures until the total deadline', async () => {
+    let elapsed = 0
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('still starting'))
+    const sleep = vi.fn(async (delayMs: number) => {
+      elapsed += delayMs
+    })
+
+    await expect(waitForApiReadiness({
+      apiBaseUrl: '/api',
+      attempts: 2,
+      delayMs: 20,
+      timeoutMs: 10,
+      maxWaitMs: 90,
+      now: () => elapsed,
+      fetchImpl,
+      sleep,
+    })).rejects.toThrow('still starting')
+
+    expect(fetchImpl).toHaveBeenCalledTimes(5)
+  })
+
   it('propagates caller cancellation', async () => {
     const controller = new AbortController()
     const fetchImpl = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {

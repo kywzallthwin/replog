@@ -13,7 +13,7 @@ import { progressRouter } from './modules/progress/progress.routes.js'
 import { sessionsRouter } from './modules/sessions/sessions.routes.js'
 import { usersRouter } from './modules/users/users.routes.js'
 import { prisma } from './prisma.js'
-import { isDatabaseReady } from './readiness.js'
+import { isDatabaseReady, READINESS_TIMEOUT_MS } from './readiness.js'
 import {
   isAllowedOrigin,
   isApiPath,
@@ -67,7 +67,10 @@ export function createApp({
   })
 
   app.get('/ready', async (_req, res) => {
-    if (await isDatabaseReady(() => prisma.$queryRaw`SELECT 1`)) {
+    if (await isDatabaseReady(() => prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = '${READINESS_TIMEOUT_MS}ms'`)
+      await tx.$queryRaw`SELECT 1`
+    }))) {
       res.json({ ok: true })
       return
     }

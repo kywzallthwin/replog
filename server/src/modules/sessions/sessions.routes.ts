@@ -783,7 +783,6 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets/batch', requi
   try {
     setLogs = await prisma.$transaction(async (tx) => {
       if (parentSetId) {
-        await tx.$queryRaw`SELECT id FROM "SetLog" WHERE id = ${parentSetId} FOR UPDATE`
         const parentSet = await tx.setLog.findFirst({
           where: {
             id: parentSetId,
@@ -824,7 +823,7 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets/batch', requi
       }
 
       return createdSets
-    })
+    }, { isolationLevel: 'Serializable' })
   } catch (error) {
     if (error instanceof InvalidDropChainError) {
       res.status(error.status).json({ error: error.message })
@@ -910,7 +909,6 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/sets/:setId', req
   let setLog
   try {
     setLog = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "SetLog" WHERE id = ${setId} FOR UPDATE`
       const existingSet = await tx.setLog.findFirst({
         where: {
           id: setId,
@@ -939,7 +937,7 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/sets/:setId', req
         where: { id: setId },
         data: updateData,
       })
-    })
+    }, { isolationLevel: 'Serializable' })
   } catch (error) {
     if (error instanceof InvalidDropChainError) {
       res.status(error.status).json({ error: error.message })
