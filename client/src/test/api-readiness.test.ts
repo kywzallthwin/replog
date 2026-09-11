@@ -19,6 +19,26 @@ describe('API readiness', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
+  it('continues retrying rapid failures until the deadline', async () => {
+    let clock = 0
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('not ready'))
+    const sleep = vi.fn(async (delayMs: number) => {
+      clock += delayMs
+    })
+
+    await expect(waitForApiReadiness({
+      apiBaseUrl: '/api',
+      attempts: 1,
+      delayMs: 10,
+      maxWaitMs: 50,
+      fetchImpl,
+      sleep,
+      now: () => clock,
+    })).rejects.toThrow('not ready')
+
+    expect(fetchImpl).toHaveBeenCalledTimes(5)
+  })
+
   it('bounds hanging attempts by the total deadline', async () => {
     vi.useFakeTimers()
     const fetchImpl = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
