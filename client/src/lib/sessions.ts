@@ -46,6 +46,7 @@ export type WorkoutSession = {
   startedAt: string
   endedAt: string | null
   durationSec: number | null
+  notes: string | null
   exercises: WorkoutExercise[]
 }
 
@@ -225,6 +226,12 @@ export async function deleteSet(input: DeleteSetInput) {
 
 export async function finishSession(sessionId: string) {
   const response = await api.patch<SessionResponse>(`/sessions/${sessionId}/finish`)
+
+  return response.data.session
+}
+
+export async function updateSessionNotes(input: { sessionId: string; notes: string | null }) {
+  const response = await api.patch<SessionResponse>(`/sessions/${input.sessionId}/notes`, { notes: input.notes })
 
   return response.data.session
 }

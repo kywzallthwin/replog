@@ -7,6 +7,7 @@ import {
   addSetChainSchema,
   sessionExerciseSchema,
   startSessionSchema,
+  updateSessionNotesSchema,
   updateSetSchema,
 } from './sessions.schemas.js'
 
@@ -61,7 +62,8 @@ function toSessionPayload(session: {
   badgeColorSnapshot: string
   startedAt: Date
   endedAt: Date | null
-  durationSec: number | null
+   durationSec: number | null
+   notes: string | null
   sessionExercises: Array<{
     id: string
     exerciseId: string
@@ -82,6 +84,7 @@ previousWorkoutReferences = new Map<string, PreviousWorkoutReference>()) {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     durationSec: session.durationSec,
+    notes: session.notes,
     exercises: session.sessionExercises.map((sessionExercise) => ({
       id: sessionExercise.id,
       exerciseId: sessionExercise.exerciseId,
@@ -375,6 +378,68 @@ sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
       previousPerformanceReferences.lastTimeReferences,
       previousPerformanceReferences.previousWorkoutReferences,
     ),
+  })
+})
+
+sessionsRouter.patch('/:sessionId/notes', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId) {
+    res.status(400).json({ error: 'Invalid session id' })
+    return
+  }
+
+  const parsedBody = updateSessionNotesSchema.safeParse(req.body)
+  if (!parsedBody.success) {
+    res.status(400).json({ error: 'Invalid workout notes' })
+    return
+  }
+
+  const updated = await prisma.session.updateMany({
+    where: { id: sessionId, userId, endedAt: null },
+    data: { notes: parsedBody.data.notes || null },
+  })
+
+  if (updated.count === 0) {
+    const session = await prisma.session.findFirst({ where: { id: sessionId, userId }, select: { id: true, endedAt: true } })
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' })
+      return
+    }
+
+    res.status(409).json({ error: 'Completed workouts cannot be edited' })
+    return
+  }
+
+  const session = await prisma.session.findFirst({
+    where: { id: sessionId, userId },
+    include: {
+      sessionExercises: {
+        orderBy: { order: 'asc' },
+        include: { setLogs: { orderBy: { order: 'asc' } } },
+      },
+    },
+  })
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' })
+    return
+  }
+
+  const previousPerformanceReferences = await getPreviousPerformanceReferences(
+    userId,
+    session.startedAt,
+    session.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
+  )
+
+  res.json({
+    session: toSessionPayload(session, previousPerformanceReferences.lastTimeReferences, previousPerformanceReferences.previousWorkoutReferences),
   })
 })
 

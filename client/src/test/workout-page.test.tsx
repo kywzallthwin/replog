@@ -14,6 +14,7 @@ import {
   removeSessionExercise,
   swapSessionExercise,
   updateSet,
+  updateSessionNotes,
   type WorkoutExercise,
   type WorkoutSession,
   type WorkoutSet,
@@ -37,6 +38,7 @@ vi.mock('../lib/sessions', async (importOriginal) => {
     removeSessionExercise: vi.fn(),
     finishSession: vi.fn(),
     cancelSession: vi.fn(),
+    updateSessionNotes: vi.fn(),
   }
 })
 
@@ -60,6 +62,7 @@ const mockedSwapSessionExercise = vi.mocked(swapSessionExercise)
 const mockedRemoveSessionExercise = vi.mocked(removeSessionExercise)
 const mockedFinishSession = vi.mocked(finishSession)
 const mockedCancelSession = vi.mocked(cancelSession)
+const mockedUpdateSessionNotes = vi.mocked(updateSessionNotes)
 const mockedGetExercises = vi.mocked(getExercises)
 const mockedGetActiveProgram = vi.mocked(getActiveProgram)
 
@@ -109,6 +112,7 @@ function workoutSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession
     startedAt: '2026-09-06T08:00:00.000Z',
     endedAt: null,
     durationSec: null,
+    notes: null,
     exercises: [workoutExercise()],
     ...overrides,
   }
@@ -197,6 +201,7 @@ beforeEach(() => {
   mockedRemoveSessionExercise.mockResolvedValue(undefined)
   mockedFinishSession.mockResolvedValue(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
   mockedCancelSession.mockResolvedValue(undefined)
+  mockedUpdateSessionNotes.mockResolvedValue(workoutSession({ notes: 'Felt strong today.' }))
 })
 
 describe('WorkoutPage regression coverage', () => {
@@ -230,6 +235,26 @@ describe('WorkoutPage regression coverage', () => {
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
+  })
+
+  it('saves trimmed workout notes and shows them after saving', async () => {
+    renderWorkout()
+
+    const notes = await screen.findByLabelText(/Workout notes/)
+    fireEvent.change(notes, { target: { value: '  Felt strong today.  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
+
+    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenCalledWith(
+      { sessionId: 'session-1', notes: 'Felt strong today.' },
+      expect.anything(),
+    ))
+  })
+
+  it('renders completed workout notes without an editor', async () => {
+    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600, notes: 'Keep the same pace.' }))
+
+    expect(await screen.findByText('Keep the same pace.')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Workout notes/)).not.toBeInTheDocument()
   })
 
   it('submits the single-set payload and reports a rejected add', async () => {
