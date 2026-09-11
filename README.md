@@ -102,6 +102,22 @@ git diff --check
 
 `npm test` discovers every `server/tests/**/*.test.ts` file, migrates a unique temporary schema in the separate test database, runs tests serially, and removes the schema afterward. `npm run smoke:health` starts the compiled server and checks `/health`; it is a liveness check. `GET /ready` performs a database-backed readiness check and returns `503` when the database is unavailable.
 
+### Browser acceptance
+
+Install the Playwright Chromium browser once:
+
+```bash
+npm run test:e2e:install
+```
+
+Run the complete browser acceptance suite:
+
+```bash
+npm run test:e2e
+```
+
+The runner requires `TEST_DATABASE_URL`, rejects unsafe database identities, creates a temporary schema, starts isolated local services, and drops the schema when the run finishes. The suite runs the critical journey at `375 x 812` plus responsive smoke checks at `768 x 1024` and `1080 x 800`, retaining screenshots, video, and traces for failures. Use `npm run test:e2e:headed` for a visible browser.
+
 ## Environment variables
 
 `VITE_API_URL` is optional for local development. Production cookie

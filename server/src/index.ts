@@ -71,7 +71,7 @@ export function createApp({
       await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = '${READINESS_TIMEOUT_MS}ms'`)
       await tx.$queryRaw`SELECT 1`
     }))) {
-      res.json({ ok: true })
+      res.json(process.env.E2E_RUN_ID ? { ok: true, runId: process.env.E2E_RUN_ID } : { ok: true })
       return
     }
 
@@ -195,7 +195,7 @@ function handleShutdown(signal: 'SIGINT' | 'SIGTERM') {
   })
 }
 
-if (env.NODE_ENV !== 'test') {
+if (env.NODE_ENV !== 'test' || process.env.E2E_RUN_ID) {
   server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log(`Server listening on port ${env.PORT}`)
   })

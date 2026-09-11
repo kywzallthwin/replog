@@ -4,8 +4,7 @@ This file is the ticket index. Read only the active ticket named in `STATUS.md`.
 Completed-ticket detail is preserved in Git history.
 
 ## Tickets
-- [W1-09](tickets/W1-09.md): proposed
-- [W1-10](tickets/W1-10.md): proposed
+- [W1-10](tickets/W1-10.md): done
 - [W1-17](tickets/W1-17.md): done
 - [W1-18](tickets/W1-18.md): done
 
