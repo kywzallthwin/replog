@@ -13,6 +13,7 @@ import { progressRouter } from './modules/progress/progress.routes.js'
 import { sessionsRouter } from './modules/sessions/sessions.routes.js'
 import { usersRouter } from './modules/users/users.routes.js'
 import { prisma } from './prisma.js'
+import { isDatabaseReady } from './readiness.js'
 import {
   isAllowedOrigin,
   isApiPath,
@@ -66,12 +67,12 @@ export function createApp({
   })
 
   app.get('/ready', async (_req, res) => {
-    try {
-      await prisma.$queryRaw`SELECT 1`
+    if (await isDatabaseReady(() => prisma.$queryRaw`SELECT 1`)) {
       res.json({ ok: true })
-    } catch {
-      res.status(503).json({ ok: false })
+      return
     }
+
+    res.status(503).json({ ok: false })
   })
 
   app.use('/api/auth', authRouter)
