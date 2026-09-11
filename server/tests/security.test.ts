@@ -221,6 +221,31 @@ test('unsafe requests with auth cookies require an allowed origin or Fetch Metad
   }
 })
 
+test('auth database failures remain retryable server errors', async () => {
+  const email = `security-auth-db-${Date.now()}@example.com`
+  const agent = request.agent(app)
+  const originalFindUnique = prisma.user.findUnique
+
+  try {
+    const registerResponse = await agent
+      .post('/api/auth/register')
+      .set('X-Forwarded-For', '198.51.100.85')
+      .send({ email, username: 'Auth Database Tester', password: 'password123' })
+    assert.equal(registerResponse.status, 201, registerResponse.text)
+
+    prisma.user.findUnique = (async () => {
+      throw new Error('database unavailable')
+    }) as unknown as typeof prisma.user.findUnique
+
+    const response = await agent.get('/api/auth/me')
+    assert.equal(response.status, 500, response.text)
+    assert.deepEqual(response.body, { error: 'Internal server error' })
+  } finally {
+    prisma.user.findUnique = originalFindUnique
+    await prisma.user.deleteMany({ where: { email } })
+  }
+})
+
 test('Google and password-reset redirects use the canonical frontend origin', async () => {
   const googleResponse = await request(app).get('/api/auth/google')
   assert.equal(googleResponse.status, 302, googleResponse.text)

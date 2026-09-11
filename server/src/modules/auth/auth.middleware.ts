@@ -18,27 +18,29 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return
   }
 
+  let payload: ReturnType<typeof verifyAuthToken>
   try {
-    const payload = verifyAuthToken(token)
-
-    if (!payload) {
-      res.status(401).json({ error: 'Authentication required' })
-      return
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { authVersion: true },
-    })
-
-    if (!user || user.authVersion !== payload.authVersion) {
-      res.status(401).json({ error: 'Authentication required' })
-      return
-    }
-
-    req.userId = payload.userId
-    next()
+    payload = verifyAuthToken(token)
   } catch {
     res.status(401).json({ error: 'Authentication required' })
+    return
   }
+
+  if (!payload) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { authVersion: true },
+  })
+
+  if (!user || user.authVersion !== payload.authVersion) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  req.userId = payload.userId
+  next()
 }
