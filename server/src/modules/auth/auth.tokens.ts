@@ -14,6 +14,15 @@ export function getAuthCookieOptions(isProduction = env.NODE_ENV === 'production
   }
 }
 
+export function getGoogleStateCookieOptions(isProduction = env.NODE_ENV === 'production'): CookieOptions {
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isProduction,
+    path: '/api/auth/google',
+  }
+}
+
 type AuthTokenPayload = {
   userId: string
   authVersion: number

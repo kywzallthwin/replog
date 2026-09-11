@@ -239,7 +239,9 @@ function CompletedWorkoutSummary({
   returnLabel: string
 }) {
   const summary = getWorkoutSummary(session)
-  const duration = formatWorkoutDuration(Math.max(0, session.durationSec ?? 0))
+  const duration = session.durationSec === null
+    ? 'Duration unavailable'
+    : formatWorkoutDuration(Math.max(0, session.durationSec))
 
   return (
     <section className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:p-5">

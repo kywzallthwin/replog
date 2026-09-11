@@ -15,7 +15,11 @@ import {
   registerSchema,
   resetPasswordSchema,
 } from './auth.schemas.js'
-import { clearAuthCookie, setAuthCookie } from './auth.tokens.js'
+import {
+  clearAuthCookie,
+  getGoogleStateCookieOptions,
+  setAuthCookie,
+} from './auth.tokens.js'
 
 const passwordHashRounds = 12
 const passwordResetLifetimeMs = 1000 * 60 * 60
@@ -84,12 +88,13 @@ function redirectFromGoogle(res: Response, error?: string) {
 }
 
 function clearGoogleStateCookie(res: Response) {
-  res.clearCookie(googleStateCookieName, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: env.NODE_ENV === 'production',
-    path: '/api/auth/google',
-  })
+  res.clearCookie(googleStateCookieName, getGoogleStateCookieOptions())
+}
+
+export function getPasswordResetUrl(token: string) {
+  const resetUrl = new URL('/reset-password', env.CLIENT_URL)
+  resetUrl.searchParams.set('token', token)
+  return resetUrl.toString()
 }
 
 function getGoogleUsername(name: string | undefined, email: string) {
@@ -109,11 +114,8 @@ authRouter.get('/google', googleOAuthLimiter, (_req, res) => {
 
   const state = randomBytes(32).toString('hex')
   res.cookie(googleStateCookieName, state, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: env.NODE_ENV === 'production',
+    ...getGoogleStateCookieOptions(),
     maxAge: googleStateLifetimeMs,
-    path: '/api/auth/google',
   })
 
   res.redirect(
@@ -308,10 +310,7 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       },
     })
 
-    const resetUrl = new URL('/reset-password', env.CLIENT_URL)
-    resetUrl.searchParams.set('token', token)
-
-    void sendPasswordResetEmail(user.email, resetUrl.toString()).catch((error) => {
+    void sendPasswordResetEmail(user.email, getPasswordResetUrl(token)).catch((error) => {
       console.error(error instanceof Error ? error.message : 'Password reset email delivery failed')
       void prisma.user
         .updateMany({

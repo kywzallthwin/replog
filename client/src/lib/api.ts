@@ -1,29 +1,59 @@
 import axios from 'axios'
 
-const configuredApiUrl = import.meta.env.VITE_API_URL?.trim()
-
-function addApiPath(url: string) {
-  const normalizedUrl = url.replace(/\/+$/, '')
-  return normalizedUrl.endsWith('/api') ? normalizedUrl : `${normalizedUrl}/api`
-}
-
-function getRuntimeApiUrl() {
-  if (configuredApiUrl) {
-    return import.meta.env.PROD ? '/api' : addApiPath(configuredApiUrl)
+function normalizeConfiguredApiUrl(configuredApiUrl: string, isProduction: boolean) {
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(configuredApiUrl)
+  } catch {
+    throw new Error('VITE_API_URL must be an absolute HTTP(S) URL')
   }
 
-  if (typeof window !== 'undefined') {
-    if (import.meta.env.PROD) {
-      return '/api'
-    }
-
-    return addApiPath(`${window.location.protocol}//${window.location.hostname}:4000`)
+  if (!['http:', 'https:'].includes(parsedUrl.protocol) || !parsedUrl.hostname || parsedUrl.username || parsedUrl.password || parsedUrl.search || parsedUrl.hash) {
+    throw new Error('VITE_API_URL must be an HTTP(S) URL without credentials, query, or fragment')
+  }
+  if (isProduction && parsedUrl.protocol !== 'https:') {
+    throw new Error('VITE_API_URL must use HTTPS in production')
   }
 
-  return import.meta.env.PROD ? '/api' : 'http://localhost:4000/api'
+  const pathname = parsedUrl.pathname.replace(/\/+$/, '').replace(/(?:\/api)+$/i, '') || ''
+  parsedUrl.pathname = `${pathname}/api`
+  return parsedUrl.toString().replace(/\/$/, '')
 }
 
-export const apiBaseUrl = getRuntimeApiUrl()
+export function resolveApiBaseUrl(
+  configuredApiUrl: string | undefined,
+  isProduction: boolean,
+  browserApiOrigin?: string,
+) {
+  if (configuredApiUrl?.trim()) {
+    return normalizeConfiguredApiUrl(configuredApiUrl.trim(), isProduction)
+  }
+
+  if (isProduction) {
+    return '/api'
+  }
+
+  return browserApiOrigin ? normalizeConfiguredApiUrl(browserApiOrigin, false) : 'http://localhost:4000/api'
+}
+
+const browserApiOrigin = typeof window !== 'undefined'
+  ? `${window.location.protocol}//${window.location.hostname}:4000`
+  : undefined
+
+export let apiConfigurationError: Error | null = null
+export let apiBaseUrl = '/api'
+
+try {
+  apiBaseUrl = resolveApiBaseUrl(
+    import.meta.env.VITE_API_URL,
+    import.meta.env.PROD,
+    browserApiOrigin,
+  )
+} catch (error) {
+  apiConfigurationError = error instanceof Error
+    ? error
+    : new Error('The API configuration is invalid')
+}
 
 export const api = axios.create({
   baseURL: apiBaseUrl,

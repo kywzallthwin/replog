@@ -48,12 +48,16 @@ function isHttpOrigin(value: string) {
   }
 }
 
+function normalizeOrigin(value: string) {
+  return new URL(value).origin
+}
+
 const envSchema = z.object({
   DATABASE_URL: z.string().refine(isPostgresUrl, 'DATABASE_URL must be a PostgreSQL connection URL'),
   DATABASE_URL_UNPOOLED: z.string().refine(isPostgresUrl, 'DATABASE_URL_UNPOOLED must be a PostgreSQL connection URL').optional(),
   JWT_SECRET: z.string().min(16),
   NODE_ENV: z.enum(nodeEnvironments).default('development'),
-  CLIENT_URL: z.string().refine(isHttpOrigin, 'CLIENT_URL must be an HTTP(S) origin'),
+  CLIENT_URL: z.string().refine(isHttpOrigin, 'CLIENT_URL must be an HTTP(S) origin').transform(normalizeOrigin),
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_CALLBACK_URL: z.string().refine(isHttpUrl, 'GOOGLE_CALLBACK_URL must be an HTTP(S) URL').optional(),
@@ -99,6 +103,14 @@ const envSchema = z.object({
         code: 'custom',
         path: ['CLIENT_URL'],
         message: 'CLIENT_URL must use HTTPS in production',
+      })
+    }
+
+    if (value.JWT_SECRET.length < 32 || value.JWT_SECRET.startsWith('replace-with-at-least-')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['JWT_SECRET'],
+        message: 'JWT_SECRET must be a unique secret of at least 32 characters in production',
       })
     }
 

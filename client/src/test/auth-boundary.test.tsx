@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
+import axios from 'axios'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -61,7 +62,9 @@ describe('authentication navigation boundary', () => {
   })
 
   it('redirects unauthenticated visitors to login without calling a live service', async () => {
-    mockedGetCurrentUser.mockRejectedValue(new Error('not authenticated'))
+    const error = new axios.AxiosError('Unauthorized')
+    error.response = { status: 401 } as typeof error.response
+    mockedGetCurrentUser.mockRejectedValue(error)
 
     renderBoundary()
 

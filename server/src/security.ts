@@ -71,7 +71,7 @@ export function securityHeaders(_req: Request, res: Response, next: NextFunction
 }
 
 export function noStoreApiResponses(req: Request, res: Response, next: NextFunction) {
-  if (isApiPath(req.path)) {
+  if (isApiPath(req.path) || req.path === '/ready' || req.path === '/health') {
     res.setHeader('Cache-Control', 'no-store')
     res.setHeader('Pragma', 'no-cache')
     res.setHeader('Expires', '0')
@@ -91,7 +91,10 @@ export function requireExpectedOrigin(req: Request, res: Response, next: NextFun
   const hasAllowedOrigin = origin !== undefined && isAllowedOrigin(origin)
   const hasAllowedFetchMetadata = fetchSite !== undefined && allowedFetchSites.has(fetchSite)
 
-  if ((origin !== undefined && !hasAllowedOrigin) || (fetchSite !== undefined && !hasAllowedFetchMetadata)) {
+  if (
+    (origin !== undefined && !hasAllowedOrigin) ||
+    (fetchSite !== undefined && !hasAllowedFetchMetadata && !hasAllowedOrigin)
+  ) {
     res.status(403).json({ error: 'Request origin is not allowed' })
     return
   }

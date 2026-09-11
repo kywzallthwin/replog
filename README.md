@@ -120,12 +120,17 @@ The runner requires `TEST_DATABASE_URL`, rejects unsafe database identities, cre
 
 ## Environment variables
 
-`VITE_API_URL` is optional for local development. When omitted, the client uses
+`VITE_API_URL` is optional for local development. Production cookie
+authentication is supported when the frontend and API are same-origin, or are
+separate subdomains of the same site. When omitted in development, the client uses
 the browser's current hostname on port `4000`, so both `localhost:5173` and
-your PC's LAN IP work without changing environment files. When set, it should be
-the API server origin; the client appends `/api`. Production builds always use
-the same-origin relative `/api` path, so `VITE_API_URL` should not be set for the
-Render build. It is public build-time configuration and is embedded in the client bundle.
+your PC's LAN IP work without changing environment files. When omitted in
+production, it uses same-origin `/api`. When set for a same-site deployment, it
+should be the API server origin; the client appends `/api` and normalizes the
+suffix. Arbitrary cross-site frontend and API hosting is not supported because
+authentication uses `SameSite=Lax` cookies. It is
+public build-time configuration and is embedded in the client bundle, so it must
+never contain secrets.
 
 The server requires `DATABASE_URL`, `JWT_SECRET`, and `CLIENT_URL`. `DATABASE_URL` is the runtime PostgreSQL connection and `DATABASE_URL_UNPOOLED` is the direct PostgreSQL connection used by Prisma CLI migrations and seeding. `DATABASE_URL_UNPOOLED` falls back to `DATABASE_URL` for local development, but both URLs are required and must use TLS in production. `TEST_DATABASE_URL` is required by `npm test` and must point to a different database from `DATABASE_URL`. Development and test examples are in `server/.env.example`. `NODE_ENV` accepts `development`, `test`, `ci`, or `production` and defaults to `development`. `PORT` defaults to `4000`; `EMAIL_FROM` also has a local default.
 
@@ -137,9 +142,9 @@ Password-reset email delivery is optional for local development and requires `RE
 
 GitHub Actions runs on pushes and pull requests. It starts PostgreSQL 17, creates separate CI and test databases, generates and validates Prisma Client, migrates an empty PostgreSQL database, runs linting, typechecking, isolated tests, the client/server build, a compiled `/health` smoke check, and `git diff --check`.
 
-Production serving is configured for a single Render origin. The API is under `/api`, Express serves `client/dist`, and unknown client routes fall back to the Vite `index.html` while unknown `/api` routes remain JSON 404s.
+Production serving is configured for a same-site frontend/API topology. The API is under `/api`, Express serves `client/dist` in the single-origin deployment, and unknown client routes fall back to the Vite `index.html` while unknown `/api` routes remain JSON 404s. A separately hosted frontend may use a same-site API subdomain, but arbitrary cross-site deployments are not a supported cookie-authentication topology.
 
-The server trusts exactly one reverse-proxy hop, matching Render's TLS-terminating edge. Express binds to `0.0.0.0` and uses Render's injected `PORT`. Production auth and OAuth state cookies are HTTP-only, `SameSite=Lax`, and `Secure`. API responses are not cacheable, use a restrictive referrer policy and security headers, and unsafe requests carrying an auth cookie must include the configured `Origin` or same-origin Fetch Metadata. Registration, login, OAuth initiation, and password recovery endpoints are rate limited.
+The server trusts exactly one reverse-proxy hop, matching Render's TLS-terminating edge. Express binds to `0.0.0.0` and uses Render's injected `PORT`. Production auth and OAuth state cookies are HTTP-only, `SameSite=Lax`, and `Secure`; this supports the documented same-site topology with browser-level CSRF protection in depth. API responses are not cacheable, use a restrictive referrer policy and security headers, and unsafe requests carrying an auth cookie must include the configured `Origin` or same-origin Fetch Metadata. Registration, login, OAuth initiation, and password recovery endpoints are rate limited.
 
 ## Render + Neon deployment
 
@@ -175,15 +180,15 @@ Set these application variables:
 
 - `DATABASE_URL` to the Neon pooled connection URL.
 - `DATABASE_URL_UNPOOLED` to the Neon direct connection URL.
-- `JWT_SECRET` to a strong random secret of at least 16 characters.
+- `JWT_SECRET` to a unique strong random secret of at least 32 characters.
 - `CLIENT_URL` to the exact public HTTPS application origin. The Blueprint derives it from Render's `RENDER_EXTERNAL_URL`; set it manually if creating the service from the dashboard.
 - `NODE_ENV` to `production`.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL` if Google sign-in is enabled.
 - `RESEND_API_KEY` and `EMAIL_FROM` if password-reset email is enabled.
 
-Render generates `JWT_SECRET` from the Blueprint. Keep it unchanged after users begin signing in. Set the Google OAuth authorized redirect URI to `https://your-domain.example/api/auth/google/callback`. Do not set `VITE_API_URL` for the single-origin production build, and do not commit any of these values or environment files.
+Render generates `JWT_SECRET` from the Blueprint. Keep it unchanged after users begin signing in. Set the Google OAuth authorized redirect URI to `https://your-domain.example/api/auth/google/callback`. Set `VITE_API_URL` only when the frontend is hosted separately from the API on the same site, and use the API's same-site origin. Do not use it for arbitrary cross-site hosting, and do not commit any of these values or environment files.
 
-`/health` is a dependency-free liveness check used by Render. `/ready` is the database-backed readiness endpoint and returns `503` when Neon is unavailable. After deployment, verify both endpoints, register and log in, refresh the browser, save a set, finish a workout, and confirm the completed duration appears in history. Render's filesystem is ephemeral, but workout data is stored in Neon and the client-side rest timer is stored in browser `localStorage`.
+`/health` is a dependency-free liveness check used by Render. `/ready` is the database-backed readiness endpoint used by the client startup gate and returns `503` when Neon is unavailable. After deployment, verify both endpoints, register and log in, refresh the browser, save a set, finish a workout, and confirm the completed duration appears in history. Render's filesystem is ephemeral, but workout data is stored in Neon and the client-side rest timer is stored in browser `localStorage`.
 
 ## Project status
 

@@ -5,7 +5,9 @@ Completed-ticket detail is preserved in Git history.
 
 ## Tickets
 - [W1-10](tickets/W1-10.md): done
+- [W1-17](tickets/W1-17.md): done
+- [W1-18](tickets/W1-18.md): done
 
 Allowed states: `proposed`, `ready`, `in progress`, `review`, `blocked`, `done`.
 
-Wave 1 mobile gate is complete. Headed manual review passed at `375 x 812`, `768 x 1024`, and `1080 x 800` with no findings; Wave 2 is unblocked.
+Wave 1 mobile gate and cold-start work are complete; Wave 2 is unblocked.
