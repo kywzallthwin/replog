@@ -31,6 +31,7 @@ reordering, whole-day reordering, custom exercise editing/deletion, completed
 workout deletion, kg/lb preferences, the SVG progress chart, and `/guide`.
 
 Depends on: Wave 1 mobile and frontend quality gate.
+Detailed tickets: `WAVE2.md` and the linked files in `tickets/`.
 
 ### Wave 3: Public Authentication Hardening
 

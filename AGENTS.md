@@ -2,7 +2,7 @@
 
 ## Authority
 - `STATUS.md` is the live handoff and active-ticket pointer.
-- `WAVE1.md` is the current wave index; unfinished ticket requirements are in `tickets/`.
+- `WAVE2.md` is the current wave index; unfinished ticket requirements are in `tickets/`.
 - `ROADMAP.md` is the high-level delivery plan and product-decision record.
 - `Replog-mockup/Replog-mockup.html` and `Replog-Build-Plan.pdf` are UI/build references.
 - `package.json` is the workspace and command source.
