@@ -22,7 +22,8 @@
   },
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "edge"
   ],
   "keywords": [
     "workout",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "concurrently": "^10.0.3"
+    "concurrently": "^10.0.3",
+    "wrangler": "^4.31.0"
   }
 }

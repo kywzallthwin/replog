@@ -4,6 +4,7 @@ node_modules
 !.env.example
 dist
 coverage
+edge/dist
 *.log
 test-results
 playwright-report
