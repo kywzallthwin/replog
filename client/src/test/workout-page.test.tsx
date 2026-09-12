@@ -257,6 +257,39 @@ describe('WorkoutPage regression coverage', () => {
     expect(screen.queryByLabelText(/Workout notes/)).not.toBeInTheDocument()
   })
 
+  it('preserves an existing note when saving without editing and can clear it', async () => {
+    renderWorkout(workoutSession({ notes: 'Knee felt unstable.' }))
+
+    const notes = await screen.findByLabelText(/Workout notes/)
+    expect(notes).toHaveValue('Knee felt unstable.')
+    expect(screen.getByText('19/1000')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
+
+    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenCalledWith(
+      { sessionId: 'session-1', notes: 'Knee felt unstable.' },
+      expect.anything(),
+    ))
+
+    fireEvent.change(notes, { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
+    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenLastCalledWith(
+      { sessionId: 'session-1', notes: null },
+      expect.anything(),
+    ))
+  })
+
+  it('preserves the note draft when saving fails', async () => {
+    mockedUpdateSessionNotes.mockRejectedValueOnce(new Error('offline'))
+    renderWorkout()
+
+    const notes = await screen.findByLabelText(/Workout notes/)
+    fireEvent.change(notes, { target: { value: 'Keep this draft.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your draft is still here.')
+    expect(notes).toHaveValue('Keep this draft.')
+  })
+
   it('submits the single-set payload and reports a rejected add', async () => {
     mockedAddSet.mockRejectedValueOnce(new Error('offline'))
     renderWorkout()

@@ -202,3 +202,66 @@ test('last-time references use the latest owned earlier workout and the Progress
     await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, otherEmail] } } })
   }
 })
+
+test('owners can save, replace, clear, and only update notes on active sessions', async () => {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const ownerEmail = `notes-owner-${suffix}@example.com`
+  const otherEmail = `notes-other-${suffix}@example.com`
+  const ownerAgent = request.agent(app)
+  const otherAgent = request.agent(app)
+
+  try {
+    const ownerRegisterResponse = await ownerAgent.post('/api/auth/register').send({
+      email: ownerEmail,
+      username: 'Notes Owner',
+      password: 'password123',
+    })
+    assert.equal(ownerRegisterResponse.status, 201, ownerRegisterResponse.text)
+
+    const otherRegisterResponse = await otherAgent.post('/api/auth/register').send({
+      email: otherEmail,
+      username: 'Notes Other',
+      password: 'password123',
+    })
+    assert.equal(otherRegisterResponse.status, 201, otherRegisterResponse.text)
+
+    const session = await prisma.session.create({
+      data: {
+        userId: ownerRegisterResponse.body.user.id,
+        dayNameSnapshot: 'NOTES DAY',
+        badgeColorSnapshot: 'neutral',
+      },
+    })
+
+    const unauthenticatedResponse = await request(app).patch(`/api/sessions/${session.id}/notes`).send({ notes: 'No access' })
+    assert.equal(unauthenticatedResponse.status, 401, unauthenticatedResponse.text)
+
+    const otherResponse = await otherAgent.patch(`/api/sessions/${session.id}/notes`).send({ notes: 'No access' })
+    assert.equal(otherResponse.status, 404, otherResponse.text)
+
+    const saveResponse = await ownerAgent.patch(`/api/sessions/${session.id}/notes`).send({ notes: '  Strong finish.  ' })
+    assert.equal(saveResponse.status, 200, saveResponse.text)
+    assert.equal(saveResponse.body.session.notes, 'Strong finish.')
+
+    const detailResponse = await ownerAgent.get(`/api/sessions/${session.id}`)
+    assert.equal(detailResponse.status, 200, detailResponse.text)
+    assert.equal(detailResponse.body.session.notes, 'Strong finish.')
+
+    const replaceResponse = await ownerAgent.patch(`/api/sessions/${session.id}/notes`).send({ notes: 'Updated note.' })
+    assert.equal(replaceResponse.status, 200, replaceResponse.text)
+    assert.equal(replaceResponse.body.session.notes, 'Updated note.')
+
+    const clearResponse = await ownerAgent.patch(`/api/sessions/${session.id}/notes`).send({ notes: '   ' })
+    assert.equal(clearResponse.status, 200, clearResponse.text)
+    assert.equal(clearResponse.body.session.notes, null)
+
+    const invalidResponse = await ownerAgent.patch(`/api/sessions/${session.id}/notes`).send({ notes: 'x'.repeat(1001) })
+    assert.equal(invalidResponse.status, 400, invalidResponse.text)
+
+    await prisma.session.update({ where: { id: session.id }, data: { endedAt: new Date(), durationSec: 1 } })
+    const completedResponse = await ownerAgent.patch(`/api/sessions/${session.id}/notes`).send({ notes: 'Too late' })
+    assert.equal(completedResponse.status, 409, completedResponse.text)
+  } finally {
+    await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, otherEmail] } } })
+  }
+})

@@ -63,7 +63,7 @@ function toSessionPayload(session: {
   startedAt: Date
   endedAt: Date | null
    durationSec: number | null
-   notes: string | null
+   notes?: string | null
   sessionExercises: Array<{
     id: string
     exerciseId: string
@@ -84,7 +84,7 @@ previousWorkoutReferences = new Map<string, PreviousWorkoutReference>()) {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     durationSec: session.durationSec,
-    notes: session.notes,
+    notes: session.notes ?? null,
     exercises: session.sessionExercises.map((sessionExercise) => ({
       id: sessionExercise.id,
       exerciseId: sessionExercise.exerciseId,

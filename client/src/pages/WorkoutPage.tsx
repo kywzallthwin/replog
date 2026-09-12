@@ -1126,7 +1126,8 @@ export function WorkoutPage() {
   function handleSaveSessionNotes(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!sessionId || workoutMutationIsPending) return
-    updateSessionNotesMutation.mutate({ sessionId, notes: sessionNotes.trim() || null })
+    const notes = sessionNotesDirty ? sessionNotes : session?.notes ?? ''
+    updateSessionNotesMutation.mutate({ sessionId, notes: notes.trim() || null })
   }
 
   return (
@@ -1198,12 +1199,13 @@ export function WorkoutPage() {
                      value={sessionNotesDirty ? sessionNotes : session.notes ?? ''}
                      maxLength={1000}
                      onChange={(event) => { setSessionNotes(event.target.value); setSessionNotesDirty(true) }}
+                     disabled={workoutMutationIsPending}
                      rows={3}
                      className="mt-2 min-h-24 w-full min-w-0 resize-y rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-900 outline-none focus:border-slate-900"
                      placeholder="How did the workout feel?"
                    />
                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                     <span className="text-xs text-slate-400">{sessionNotes.length}/1000</span>
+                     <span className="text-xs text-slate-400">{(sessionNotesDirty ? sessionNotes : session.notes ?? '').length}/1000</span>
                      <button type="submit" disabled={workoutMutationIsPending} className="min-h-11 rounded-[12px] bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                        {updateSessionNotesMutation.isPending ? 'Saving...' : 'Save notes'}
                      </button>
