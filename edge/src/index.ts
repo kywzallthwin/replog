@@ -6,10 +6,15 @@ export interface Env {
 }
 
 const HOP_BY_HOP = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade'])
-const SPOOFABLE = new Set(['host', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'cf-connecting-ip', 'x-edge-proxy-secret', 'x-request-id'])
+const SPOOFABLE = new Set(['host', 'forwarded', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port', 'x-real-ip', 'true-client-ip', 'cf-connecting-ip', 'cf-connecting-ip', 'x-edge-proxy-secret', 'x-request-id'])
 
 export function isProxyPath(pathname: string): boolean {
+  if (pathname.includes('%')) return false
   return pathname === '/api' || pathname.startsWith('/api/') || pathname === '/ready'
+}
+
+function readinessFailure(status = 503): Response {
+  return json(status, { ok: false, code: 'API_STARTING' }, { 'Retry-After': '5' })
 }
 
 export function parseOrigin(value: string | undefined): URL | null {
@@ -75,6 +80,7 @@ function upstreamRequest(request: Request, origin: URL, env: Env): Request {
 }
 
 async function proxy(request: Request, env: Env): Promise<Response> {
+  const pathname = new URL(request.url).pathname
   if (!allowedOrigin(request, env)) return json(503, { error: 'This preview cannot access the API', code: 'PREVIEW_API_DISABLED', retryable: false })
   const origin = parseOrigin(env.API_UPSTREAM_ORIGIN)
   if (!origin || !env.EDGE_PROXY_SECRET) return unavailable(503)
@@ -83,14 +89,16 @@ async function proxy(request: Request, env: Env): Promise<Response> {
   try {
     const upstream = await fetch(upstreamRequest(request, origin, env), { signal: timeout.signal, redirect: 'manual' })
     const contentType = upstream.headers.get('content-type')?.toLowerCase() ?? ''
-    if (contentType.includes('text/html')) return json(503, { error: 'The RepLog service is temporarily unavailable', code: 'UPSTREAM_UNAVAILABLE', retryable: true })
-    if (new URL(request.url).pathname === '/ready') {
+    if (contentType.includes('text/html')) return pathname === '/ready' ? readinessFailure() : unavailable(503)
+    if (pathname === '/ready') {
+      if (!upstream.ok) return readinessFailure()
       let payload: unknown
-      try { payload = await upstream.clone().json() } catch { return json(503, { ok: false, code: 'API_STARTING' }, { 'Retry-After': '5' }) }
-      if (!payload || typeof payload !== 'object' || (payload as { ok?: unknown }).ok !== true) return json(503, { ok: false, code: 'API_STARTING' }, { 'Retry-After': '5' })
+      try { payload = await upstream.clone().json() } catch { return readinessFailure() }
+      if (JSON.stringify(payload) !== '{"ok":true}') return readinessFailure()
     }
     return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: copyResponseHeaders(upstream.headers) })
   } catch (error) {
+    if (pathname === '/ready') return readinessFailure(error instanceof Error && error.name === 'AbortError' ? 504 : 503)
     if (error instanceof Error && error.name === 'AbortError') return unavailable(504)
     return unavailable(502)
   } finally { clearTimeout(timer) }
@@ -99,6 +107,7 @@ async function proxy(request: Request, env: Env): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
+    if ((url.pathname.startsWith('/api') || url.pathname === '/ready') && !isProxyPath(url.pathname)) return new Response('Not Found', { status: 404 })
     if (isProxyPath(url.pathname)) return proxy(request, env)
     return env.ASSETS.fetch(request)
   },
