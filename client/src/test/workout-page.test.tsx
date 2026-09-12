@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkoutPage } from '../pages/WorkoutPage'
 import {
@@ -172,6 +172,11 @@ function renderWorkout(session: WorkoutSession = workoutSession()) {
   )
 }
 
+function SessionNavigation() {
+  const navigate = useNavigate()
+  return <button onClick={() => navigate('/workout/session-2')}>Open second session</button>
+}
+
 async function getExerciseCard(name = 'Bench Press') {
   const heading = await screen.findByRole('heading', { name })
   const card = heading.closest('article')
@@ -288,6 +293,32 @@ describe('WorkoutPage regression coverage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Your draft is still here.')
     expect(notes).toHaveValue('Keep this draft.')
+  })
+
+  it('resets the note draft when navigating to another workout session', async () => {
+    const firstSession = workoutSession({ id: 'session-1', notes: null })
+    const secondSession = workoutSession({ id: 'session-2', notes: 'Second session note.' })
+    mockedGetSession.mockImplementation(async (sessionId) => sessionId === 'session-2' ? secondSession : firstSession)
+    const queryClient = createTestQueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/workout/session-1']}>
+          <Routes>
+            <Route path="/workout/:sessionId" element={<><SessionNavigation /><WorkoutPage /></>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    const notes = await screen.findByLabelText(/Workout notes/)
+    fireEvent.change(notes, { target: { value: 'Draft from first session.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Open second session' }))
+
+    expect(await screen.findByDisplayValue('Second session note.')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('Draft from first session.')).not.toBeInTheDocument()
   })
 
   it('submits the single-set payload and reports a rejected add', async () => {

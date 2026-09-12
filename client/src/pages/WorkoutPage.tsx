@@ -620,8 +620,12 @@ export function WorkoutPage() {
   const [editingSet, setEditingSet] = useState<{ exerciseId: string; set: WorkoutSet } | null>(null)
   const [kind, setKind] = useState<SetKind>('NORMAL')
   const [setFeedbackNote, setSetFeedbackNote] = useState('')
-  const [sessionNotes, setSessionNotes] = useState('')
-  const [sessionNotesDirty, setSessionNotesDirty] = useState(false)
+  const [sessionNotesDraft, setSessionNotesDraft] = useState<{ sessionId: string | undefined; value: string; dirty: boolean }>({
+    sessionId: undefined,
+    value: '',
+    dirty: false,
+  })
+  const [notesMutationSessionId, setNotesMutationSessionId] = useState<string | undefined>()
   const [weightKg, setWeightKg] = useState('')
   const [reps, setReps] = useState('')
   const [dropDrafts, setDropDrafts] = useState<DropDraft[]>([])
@@ -760,12 +764,14 @@ export function WorkoutPage() {
   })
   const updateSessionNotesMutation = useMutation({
     mutationFn: updateSessionNotes,
+    onMutate: ({ sessionId: mutationSessionId }) => {
+      setNotesMutationSessionId(mutationSessionId)
+    },
     onSuccess: (updatedSession) => {
       if (sessionId) {
         queryClient.setQueryData(sessionQueryKey(sessionId), updatedSession)
       }
-      setSessionNotes(updatedSession.notes ?? '')
-      setSessionNotesDirty(false)
+      setSessionNotesDraft({ sessionId: updatedSession.id, value: updatedSession.notes ?? '', dirty: false })
     },
   })
   const deleteSetMutation = useMutation({
@@ -1126,7 +1132,9 @@ export function WorkoutPage() {
   function handleSaveSessionNotes(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!sessionId || workoutMutationIsPending) return
-    const notes = sessionNotesDirty ? sessionNotes : session?.notes ?? ''
+    const notes = sessionNotesDraft.sessionId === sessionId && sessionNotesDraft.dirty
+      ? sessionNotesDraft.value
+      : session?.notes ?? ''
     updateSessionNotesMutation.mutate({ sessionId, notes: notes.trim() || null })
   }
 
@@ -1196,21 +1204,21 @@ export function WorkoutPage() {
                    <label htmlFor="workout-notes" className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Workout notes <span className="font-medium normal-case tracking-normal text-slate-400">(optional)</span></label>
                    <textarea
                      id="workout-notes"
-                     value={sessionNotesDirty ? sessionNotes : session.notes ?? ''}
-                     maxLength={1000}
-                     onChange={(event) => { setSessionNotes(event.target.value); setSessionNotesDirty(true) }}
+                      value={sessionNotesDraft.sessionId === sessionId && sessionNotesDraft.dirty ? sessionNotesDraft.value : session.notes ?? ''}
+                      maxLength={1000}
+                      onChange={(event) => setSessionNotesDraft({ sessionId, value: event.target.value, dirty: true })}
                      disabled={workoutMutationIsPending}
                      rows={3}
                      className="mt-2 min-h-24 w-full min-w-0 resize-y rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-900 outline-none focus:border-slate-900"
                      placeholder="How did the workout feel?"
                    />
                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                     <span className="text-xs text-slate-400">{(sessionNotesDirty ? sessionNotes : session.notes ?? '').length}/1000</span>
+                      <span className="text-xs text-slate-400">{(sessionNotesDraft.sessionId === sessionId && sessionNotesDraft.dirty ? sessionNotesDraft.value : session.notes ?? '').length}/1000</span>
                      <button type="submit" disabled={workoutMutationIsPending} className="min-h-11 rounded-[12px] bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                        {updateSessionNotesMutation.isPending ? 'Saving...' : 'Save notes'}
                      </button>
                    </div>
-                   {updateSessionNotesMutation.isError ? <p role="alert" className="mt-2 text-sm font-semibold text-red-700">Unable to save workout notes. Your draft is still here.</p> : null}
+                    {updateSessionNotesMutation.isError && notesMutationSessionId === sessionId ? <p role="alert" className="mt-2 text-sm font-semibold text-red-700">Unable to save workout notes. Your draft is still here.</p> : null}
                  </form>
                ) : null}
              </div>
