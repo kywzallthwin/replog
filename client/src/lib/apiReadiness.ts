@@ -97,11 +97,11 @@ export async function waitForApiReadiness({
   fetchImpl = fetch,
   sleep: sleepImpl = sleep,
 }: ApiReadinessOptions) {
-  const maxAttempts = Math.max(1, Math.floor(attempts))
+  const minimumAttempts = Math.max(1, Math.floor(attempts))
   const deadline = now() + maxWaitMs
   let lastError: unknown
 
-  for (let attempt = 1; attempt <= maxAttempts || deadline - now() > 0; attempt += 1) {
+  for (let attempt = 1; attempt <= minimumAttempts || now() < deadline; attempt += 1) {
     if (signal?.aborted) {
       throw abortError()
     }
@@ -121,7 +121,7 @@ export async function waitForApiReadiness({
       lastError = error
     }
 
-    if (deadline - now() > 0) {
+    if (now() < deadline) {
       const delay = Math.min(delayMs, Math.max(0, deadline - now()))
       if (delay <= 0) {
         throw lastError ?? new Error('API readiness check timed out')

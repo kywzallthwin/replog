@@ -13,6 +13,7 @@ import { progressRouter } from './modules/progress/progress.routes.js'
 import { sessionsRouter } from './modules/sessions/sessions.routes.js'
 import { usersRouter } from './modules/users/users.routes.js'
 import { prisma } from './prisma.js'
+import { isDatabaseReady, READINESS_TIMEOUT_MS } from './readiness.js'
 import {
   isAllowedOrigin,
   isApiPath,
@@ -66,12 +67,15 @@ export function createApp({
   })
 
   app.get('/ready', async (_req, res) => {
-    try {
-      await prisma.$queryRaw`SELECT 1`
-      res.json({ ok: true })
-    } catch {
-      res.status(503).json({ ok: false })
+    if (await isDatabaseReady(() => prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = '${READINESS_TIMEOUT_MS}ms'`)
+      await tx.$queryRaw`SELECT 1`
+    }))) {
+      res.json(process.env.E2E_RUN_ID ? { ok: true, runId: process.env.E2E_RUN_ID } : { ok: true })
+      return
     }
+
+    res.status(503).json({ ok: false })
   })
 
   app.use('/api/auth', authRouter)
@@ -191,7 +195,7 @@ function handleShutdown(signal: 'SIGINT' | 'SIGTERM') {
   })
 }
 
-if (env.NODE_ENV !== 'test') {
+if (env.NODE_ENV !== 'test' || process.env.E2E_RUN_ID) {
   server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log(`Server listening on port ${env.PORT}`)
   })

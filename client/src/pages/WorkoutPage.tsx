@@ -228,7 +228,17 @@ function getWorkoutSummary(session: WorkoutSession) {
   }
 }
 
-function CompletedWorkoutSummary({ session, headingRef }: { session: WorkoutSession; headingRef: RefObject<HTMLHeadingElement | null> }) {
+function CompletedWorkoutSummary({
+  session,
+  headingRef,
+  returnLink,
+  returnLabel,
+}: {
+  session: WorkoutSession
+  headingRef: RefObject<HTMLHeadingElement | null>
+  returnLink: string
+  returnLabel: string
+}) {
   const summary = getWorkoutSummary(session)
   const duration = session.durationSec === null
     ? 'Duration unavailable'
@@ -294,10 +304,10 @@ function CompletedWorkoutSummary({ session, headingRef }: { session: WorkoutSess
           Dashboard
         </Link>
         <Link
-          to="/history"
+          to={returnLink}
           className="flex-1 rounded-[12px] border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-600 transition hover:bg-slate-50"
         >
-          History
+          {returnLabel}
         </Link>
       </div>
     </section>
@@ -671,8 +681,17 @@ export function WorkoutPage() {
     retry: false,
   })
   const source = searchParams.get('from')
-  const headerLink = source === 'history' ? '/history' : source === 'progress' ? '/progress' : '/dashboard'
+  const progressExerciseId = source === 'progress' ? searchParams.get('exerciseId') : null
+  const progressLink = progressExerciseId
+    ? `/progress?exerciseId=${encodeURIComponent(progressExerciseId)}`
+    : '/progress'
+  const headerLink = source === 'history' ? '/history' : source === 'progress' ? progressLink : '/dashboard'
   const headerLinkLabel = source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
+  const summaryReturnLink = source === 'progress' ? progressLink : '/history'
+  const summaryReturnLabel = source === 'progress' ? 'Progress' : 'History'
+  const hasCachedSession = session !== undefined
+  const isInitialError = isError && !hasCachedSession
+  const isRefreshError = isError && hasCachedSession
   const restTimerSessionStatus: RestTimerSessionStatus = isPending || !session
     ? 'loading'
     : session.endedAt
@@ -1139,7 +1158,7 @@ export function WorkoutPage() {
   }
 
   return (
-    <main className="min-h-dvh w-full min-w-0 bg-slate-100 px-4 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
+    <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
       <div className="mx-auto w-full min-w-0 max-w-4xl rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
@@ -1175,12 +1194,18 @@ export function WorkoutPage() {
           </section>
         ) : null}
 
-        {isError ? (
+        {isInitialError ? (
           <section className="p-6">
-            <p className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p role="alert" className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               Unable to load this workout session.
             </p>
           </section>
+        ) : null}
+
+        {isRefreshError ? (
+          <p role="alert" className="mx-4 mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700 sm:mx-6">
+            Unable to refresh this workout. Showing previously loaded values.
+          </p>
         ) : null}
 
         {session ? (
@@ -1232,7 +1257,14 @@ export function WorkoutPage() {
               />
             ) : null}
 
-            {session.endedAt ? <CompletedWorkoutSummary session={session} headingRef={completedSummaryRef} /> : null}
+            {session.endedAt ? (
+              <CompletedWorkoutSummary
+                session={session}
+                headingRef={completedSummaryRef}
+                returnLink={summaryReturnLink}
+                returnLabel={summaryReturnLabel}
+              />
+            ) : null}
 
             <div className="mt-5 space-y-3">
               {session.exercises.map((exercise, index) => {

@@ -41,6 +41,10 @@ function formatProgress(progressKg: number) {
   return `${progressKg > 0 ? '+' : '-'}${formattedValue} kg`
 }
 
+function formatTrendValue(weightKg: number) {
+  return Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)
+}
+
 function getTrendLabel(progressKg: number, sessionCount: number) {
   if (sessionCount < 2 || progressKg === 0) {
     return 'steady'
@@ -57,8 +61,16 @@ export function ProgressPage() {
     queryFn: () => getProgress(exerciseId),
     retry: false,
   })
+  const hasCachedProgress = progress !== undefined
+  const isInitialError = isError && !hasCachedProgress
+  const isRefreshError = isError && hasCachedProgress
   const exercises = progress?.exercises ?? []
   const selectedExercise = progress?.selectedExercise
+  const exercisePlaceholder = isPending
+    ? 'Loading exercise data'
+    : isInitialError
+      ? 'Exercise data unavailable'
+      : 'No exercise data'
 
   return (
     <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
@@ -81,7 +93,7 @@ export function ProgressPage() {
               options={exercises.map((exercise) => ({ value: exercise.id, label: exercise.name }))}
               onValueChange={(nextExerciseId) => setSearchParams({ exerciseId: nextExerciseId })}
               ariaLabel="Select exercise"
-              placeholder="No exercise data"
+              placeholder={exercisePlaceholder}
               disabled={!exercises.length}
             />
           </div>
@@ -91,17 +103,23 @@ export function ProgressPage() {
           <PageLoader statusMessage="Loading progress..." />
         ) : null}
 
-        {isError ? (
+        {isInitialError ? (
           <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <p role="alert" className="rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               Unable to load progress. Please refresh and try again.
             </p>
           </section>
         ) : null}
 
+        {isRefreshError ? (
+          <p role="alert" className="mb-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            Unable to refresh progress. Showing previously loaded values.
+          </p>
+        ) : null}
+
         {progress && !progress.selectedExercise ? (
           <section className="rounded-[28px] bg-white p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-            <p className="text-sm font-semibold text-slate-900">No finished sets yet.</p>
+            <h2 className="text-sm font-semibold text-slate-900">No finished sets yet.</h2>
             <p className="mt-1 text-sm text-slate-500">Complete a workout with normal working sets to see exercise progress here.</p>
           </section>
         ) : null}
@@ -109,16 +127,16 @@ export function ProgressPage() {
         {progress?.selectedExercise ? (
           <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
             <section className="min-w-0">
-              <div className="mb-4 rounded-[24px] border border-green-200 bg-green-50 p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-green-600">Estimated 1RM PB</p>
+              <div className="mb-4 min-w-0 rounded-[24px] border border-green-200 bg-green-50 p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-green-700">Estimated 1RM PB</p>
                 {progress.personalBest ? (
                   <>
-                    <h2 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-900">
+                    <h2 className="mt-2 min-w-0 break-words text-3xl font-extrabold tracking-[-0.04em] text-slate-900 [overflow-wrap:anywhere]">
                       {formatEstimatedWeight(progress.personalBest.estimatedOneRepMaxKg)}
                     </h2>
                     <Link
-                      to={`/workout/${progress.personalBest.sessionId}?from=progress`}
-                      className="mt-1 inline-flex min-h-11 items-center text-sm text-slate-500 transition hover:text-slate-900"
+                      to={`/workout/${progress.personalBest.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
+                      className="mt-1 inline-flex min-h-11 max-w-full min-w-0 items-center break-words text-sm text-slate-500 [overflow-wrap:anywhere] transition hover:text-slate-900"
                     >
                       From {formatWeight(progress.personalBest.weightKg)} x {progress.personalBest.reps} reps · {formatFullDate(progress.personalBest.startedAt)}
                     </Link>
@@ -128,69 +146,110 @@ export function ProgressPage() {
                 )}
               </div>
 
-              <div className="grid min-w-0 grid-cols-3 gap-3">
+              <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{progress.stats.sessionCount}</div>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Sessions</div>
+                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{progress.stats.sessionCount}</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Sessions</div>
                 </div>
                 <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatProgress(progress.stats.progressKg)}</div>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Progress</div>
+                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatProgress(progress.stats.progressKg)}</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Progress</div>
                 </div>
-                <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatWeight(progress.stats.heaviestWeightKg)}</div>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Heaviest Set</div>
+                <div className="col-span-2 min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:col-span-1">
+                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatWeight(progress.stats.heaviestWeightKg)}</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Heaviest Set</div>
                 </div>
               </div>
             </section>
 
             <section className="min-w-0 rounded-[24px] bg-white p-5 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
+              <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <h2 className="text-[15px] font-bold text-slate-900">Session History</h2>
-                  <p className="mt-1 text-xs text-slate-500">{progress.selectedExercise.name}</p>
+                  <p className="mt-1 min-w-0 break-words text-xs text-slate-500 [overflow-wrap:anywhere]">{progress.selectedExercise.name}</p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-500">
+                <span className="max-w-full shrink-0 whitespace-normal break-words rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-500 [overflow-wrap:anywhere]">
                   {progress.selectedExercise.category}
                 </span>
               </div>
 
               {progress.sessionHistory.length ? (
                 <>
-                  <div className="overflow-x-auto rounded-[14px] border border-slate-100">
-                    <table className="w-full min-w-0 text-left text-sm sm:min-w-[420px]">
-                      <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.08em] text-slate-400">
+                  <div className="space-y-2 sm:hidden">
+                    {progress.sessionHistory.map((session) => (
+                      <Link
+                        key={session.sessionId}
+                        to={`/workout/${session.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
+                        aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
+                        className="block min-w-0 rounded-[14px] border border-slate-100 bg-slate-50 p-3 transition hover:bg-slate-100"
+                      >
+                        <div className="flex min-w-0 items-center justify-between gap-3">
+                          <time dateTime={session.startedAt} className="inline-flex min-h-11 min-w-11 max-w-full items-center break-words font-semibold text-slate-900 [overflow-wrap:anywhere]">
+                            {formatShortDate(session.startedAt)}
+                          </time>
+                          <span aria-hidden="true" className="shrink-0 text-lg text-slate-300">{String.fromCharCode(0x203a)}</span>
+                        </div>
+                        <dl className="mt-2 grid min-w-0 grid-cols-2 gap-2 text-sm">
+                          <div className="min-w-0">
+                            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Top Set</dt>
+                            <dd className="mt-1 min-w-0 break-words font-bold text-slate-900 [overflow-wrap:anywhere]">{formatWeight(session.topSet.weightKg)} x {session.topSet.reps}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Est. 1RM</dt>
+                            <dd className="mt-1 min-w-0 break-words text-slate-700 [overflow-wrap:anywhere]">{formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}</dd>
+                          </div>
+                        </dl>
+                      </Link>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-hidden rounded-[14px] border border-slate-100 sm:block">
+                    <table className="w-full min-w-0 text-left text-sm">
+                      <caption className="sr-only">Session history for {selectedExercise?.name ?? ''}</caption>
+                      <thead className="bg-slate-50 text-xs font-bold uppercase tracking-[0.08em] text-slate-600">
                         <tr>
-                          <th className="px-4 py-3">Date</th>
-                          <th className="px-4 py-3">Top Set</th>
-                          <th className="px-4 py-3">Est. 1RM</th>
+                          <th scope="col" className="px-4 py-3">Date</th>
+                          <th scope="col" className="px-4 py-3">Top Set</th>
+                          <th scope="col" className="px-4 py-3">Est. 1RM</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {progress.sessionHistory.map((session) => (
                           <tr key={session.sessionId} className="text-slate-700">
-                            <td className="px-4 py-3 font-semibold text-slate-900">
+                            <td className="min-w-0 px-4 py-3 font-semibold text-slate-900">
                               <Link
-                                to={`/workout/${session.sessionId}?from=progress`}
-                                className="flex min-h-11 items-center transition hover:text-slate-500"
+                                to={`/workout/${session.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
+                                aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
+                                className="flex min-h-11 min-w-11 max-w-full items-center break-words transition hover:text-slate-500 [overflow-wrap:anywhere]"
                               >
-                                {formatShortDate(session.startedAt)}
+                                <time dateTime={session.startedAt}>{formatShortDate(session.startedAt)}</time>
                               </Link>
                             </td>
-                            <td className="px-4 py-3 font-bold text-slate-900">
+                            <td className="min-w-0 break-words px-4 py-3 font-bold text-slate-900 [overflow-wrap:anywhere]">
                               {formatWeight(session.topSet.weightKg)} x {session.topSet.reps}
                             </td>
-                            <td className="px-4 py-3">{formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}</td>
+                            <td className="min-w-0 break-words px-4 py-3 [overflow-wrap:anywhere]">{formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-2 rounded-[14px] bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  <div
+                    role="group"
+                    aria-label={`Estimated 1RM trend: ${progress.trendEstimatedOneRepMaxKg.map((weightKg) => `${formatTrendValue(weightKg)} kg`).join(' to ')}; ${getTrendLabel(progress.stats.progressKg, progress.stats.sessionCount)}`}
+                    className="mt-4 flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] bg-slate-50 px-4 py-3 text-sm text-slate-600"
+                  >
                     <span className="font-semibold text-slate-700">Estimated 1RM trend:</span>
-                    <span className="break-words">{progress.trendEstimatedOneRepMaxKg.map((weightKg) => Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)).join(' -> ')} kg</span>
-                    <span className={progress.stats.progressKg > 0 ? 'font-bold text-green-600' : progress.stats.progressKg < 0 ? 'font-bold text-red-500' : 'font-bold text-slate-500'}>
+                    <ol aria-label="Estimated 1RM values in chronological order" className="flex min-w-0 flex-wrap items-center gap-1">
+                      {progress.trendEstimatedOneRepMaxKg.map((weightKg, index) => (
+                        <li key={`${weightKg}-${index}`} className="flex min-w-0 items-center gap-1">
+                          <span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatTrendValue(weightKg)} kg</span>
+                          {index < progress.trendEstimatedOneRepMaxKg.length - 1 ? <span aria-hidden="true">-&gt;</span> : null}
+                        </li>
+                      ))}
+                    </ol>
+                    <span className={progress.stats.progressKg > 0 ? 'font-bold text-green-700' : progress.stats.progressKg < 0 ? 'font-bold text-red-700' : 'font-bold text-slate-600'}>
                       {getTrendLabel(progress.stats.progressKg, progress.stats.sessionCount)}
                     </span>
                   </div>

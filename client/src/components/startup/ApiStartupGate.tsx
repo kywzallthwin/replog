@@ -1,17 +1,20 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { apiBaseUrl } from '../../lib/api'
+import { apiBaseUrl, apiConfigurationError } from '../../lib/api'
 import { waitForApiReadiness } from '../../lib/apiReadiness'
 import { BrandedLoader } from '../ui/BrandedLoader'
 
 type ApiStartupGateProps = {
   children: ReactNode
+  configurationError?: Error | null
 }
 
-export function ApiStartupGate({ children }: ApiStartupGateProps) {
+export function ApiStartupGate({ children, configurationError = apiConfigurationError }: ApiStartupGateProps) {
   const [retryCount, setRetryCount] = useState(0)
   const [state, setState] = useState<'checking' | 'ready' | 'failed'>('checking')
 
   useEffect(() => {
+    if (configurationError) return
+
     const controller = new AbortController()
     let active = true
 
@@ -30,7 +33,18 @@ export function ApiStartupGate({ children }: ApiStartupGateProps) {
       active = false
       controller.abort()
     }
-  }, [retryCount])
+  }, [configurationError, retryCount])
+
+  if (configurationError) {
+    return (
+      <main className="grid min-h-dvh place-content-center bg-slate-100 px-6 text-center">
+        <div className="mx-auto max-w-sm rounded-2xl bg-white p-6 shadow-sm">
+          <h1 className="text-lg font-semibold text-slate-900">RepLog could not start</h1>
+          <p className="mt-2 text-sm text-slate-600">The API URL is not configured correctly. Please contact the site administrator.</p>
+        </div>
+      </main>
+    )
+  }
 
   if (state === 'checking') {
     return (

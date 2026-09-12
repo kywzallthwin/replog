@@ -26,4 +26,11 @@ describe('ApiStartupGate', () => {
     expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
     expect(screen.queryByText('Application')).not.toBeInTheDocument()
   })
+
+  it('shows a configuration error without checking readiness', () => {
+    render(<ApiStartupGate configurationError={new Error('invalid URL')}><p>Application</p></ApiStartupGate>)
+    expect(screen.getByRole('heading', { name: 'RepLog could not start' })).toBeInTheDocument()
+    expect(screen.getByText(/API URL is not configured correctly/)).toBeInTheDocument()
+    expect(mockedReadiness).not.toHaveBeenCalled()
+  })
 })

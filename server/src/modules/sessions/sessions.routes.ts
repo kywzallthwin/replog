@@ -17,6 +17,15 @@ function isUniqueConstraintError(error: unknown) {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002'
 }
 
+class InvalidDropChainError extends Error {
+  status: 400 | 404
+
+  constructor(message: string, status: 400 | 404) {
+    super(message)
+    this.status = status
+  }
+}
+
 type SessionSetPayload = {
   id: string
   kind: string
@@ -835,50 +844,58 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets/batch', requi
     return
   }
 
-  if (parentSetId) {
-    const parentSet = await prisma.setLog.findFirst({
-      where: {
-        id: parentSetId,
-        sessionExerciseId,
-        kind: 'NORMAL',
-        parentSetId: null,
-      },
-    })
+  let setLogs
+  try {
+    setLogs = await prisma.$transaction(async (tx) => {
+      if (parentSetId) {
+        const parentSet = await tx.setLog.findFirst({
+          where: {
+            id: parentSetId,
+            sessionExerciseId,
+            kind: 'NORMAL',
+            parentSetId: null,
+          },
+        })
 
-    if (!parentSet) {
-      res.status(404).json({ error: 'Parent normal set not found' })
+        if (!parentSet) {
+          throw new InvalidDropChainError('Parent normal set not found', 404)
+        }
+      }
+
+      const latestSet = await tx.setLog.findFirst({
+        where: { sessionExerciseId },
+        orderBy: { order: 'desc' },
+      })
+      let nextOrder = (latestSet?.order ?? 0) + 1
+      let rootSetId = parentSetId ?? null
+      const createdSets = []
+
+      for (const set of sets) {
+        const setLog = await tx.setLog.create({
+          data: {
+            sessionExerciseId,
+            parentSetId: rootSetId,
+            kind: set.kind,
+            notes: set.notes || null,
+            weightKg: set.weightKg,
+            reps: set.reps,
+            order: nextOrder,
+          },
+        })
+        createdSets.push(setLog)
+        rootSetId ??= setLog.id
+        nextOrder += 1
+      }
+
+      return createdSets
+    }, { isolationLevel: 'Serializable' })
+  } catch (error) {
+    if (error instanceof InvalidDropChainError) {
+      res.status(error.status).json({ error: error.message })
       return
     }
+    throw error
   }
-
-  const setLogs = await prisma.$transaction(async (tx) => {
-    const latestSet = await tx.setLog.findFirst({
-      where: { sessionExerciseId },
-      orderBy: { order: 'desc' },
-    })
-    let nextOrder = (latestSet?.order ?? 0) + 1
-    let rootSetId = parentSetId ?? null
-    const createdSets = []
-
-    for (const set of sets) {
-      const setLog = await tx.setLog.create({
-        data: {
-          sessionExerciseId,
-          parentSetId: rootSetId,
-          kind: set.kind,
-          notes: set.notes || null,
-          weightKg: set.weightKg,
-          reps: set.reps,
-          order: nextOrder,
-        },
-      })
-      createdSets.push(setLog)
-      rootSetId ??= setLog.id
-      nextOrder += 1
-    }
-
-    return createdSets
-  })
 
   res.status(201).json({
     sets: setLogs.map((setLog) => ({
@@ -935,32 +952,6 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/sets/:setId', req
     return
   }
 
-  const existingSet = await prisma.setLog.findFirst({
-    where: {
-      id: setId,
-      sessionExerciseId,
-    },
-  })
-
-  if (!existingSet) {
-    res.status(404).json({ error: 'Set not found' })
-    return
-  }
-
-  if (parsedBody.data.kind) {
-    const childCount = await prisma.setLog.count({ where: { parentSetId: existingSet.id } })
-    const hasParent = existingSet.parentSetId !== null
-    const hasChildren = childCount > 0
-    const invalidChainKind = (hasParent && parsedBody.data.kind !== 'DROP') ||
-      ((hasChildren && parsedBody.data.kind !== 'NORMAL')) ||
-      (!hasParent && !hasChildren && parsedBody.data.kind === 'DROP')
-
-    if (invalidChainKind) {
-      res.status(400).json({ error: 'Set kind would create an invalid drop chain' })
-      return
-    }
-  }
-
   const updateData: {
     kind?: 'WARMUP' | 'NORMAL' | 'DROP'
     notes?: string | null
@@ -980,10 +971,45 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/sets/:setId', req
     updateData.reps = parsedBody.data.reps
   }
 
-  const setLog = await prisma.setLog.update({
-    where: { id: setId },
-    data: updateData,
-  })
+  let setLog
+  try {
+    setLog = await prisma.$transaction(async (tx) => {
+      const existingSet = await tx.setLog.findFirst({
+        where: {
+          id: setId,
+          sessionExerciseId,
+        },
+      })
+
+      if (!existingSet) {
+        throw new InvalidDropChainError('Set not found', 404)
+      }
+
+      if (parsedBody.data.kind) {
+        const childCount = await tx.setLog.count({ where: { parentSetId: existingSet.id } })
+        const hasParent = existingSet.parentSetId !== null
+        const hasChildren = childCount > 0
+        const invalidChainKind = (hasParent && parsedBody.data.kind !== 'DROP') ||
+          (hasChildren && parsedBody.data.kind !== 'NORMAL') ||
+          (!hasParent && !hasChildren && parsedBody.data.kind === 'DROP')
+
+        if (invalidChainKind) {
+          throw new InvalidDropChainError('Set kind would create an invalid drop chain', 400)
+        }
+      }
+
+      return tx.setLog.update({
+        where: { id: setId },
+        data: updateData,
+      })
+    }, { isolationLevel: 'Serializable' })
+  } catch (error) {
+    if (error instanceof InvalidDropChainError) {
+      res.status(error.status).json({ error: error.message })
+      return
+    }
+    throw error
+  }
 
   res.json({
     set: {

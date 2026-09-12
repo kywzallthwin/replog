@@ -109,6 +109,26 @@ test('users can create, switch, copy, and safely edit multiple programs', async 
     assert.equal(dropResponse.status, 201, dropResponse.text)
     assert.equal(dropResponse.body.sets[0].parentSetId, addSetResponse.body.set.id)
 
+    const invalidRootKindResponse = await agent
+      .patch(`/api/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)
+      .send({ kind: 'DROP' })
+    assert.equal(invalidRootKindResponse.status, 400, invalidRootKindResponse.text)
+
+    const invalidDropKindResponse = await agent
+      .patch(`/api/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${dropResponse.body.sets[0].id}`)
+      .send({ kind: 'NORMAL' })
+    assert.equal(invalidDropKindResponse.status, 400, invalidDropKindResponse.text)
+
+    const standaloneSetResponse = await agent
+      .post(`/api/sessions/${sessionId}/exercises/${sessionExercise.id}/sets`)
+      .send({ kind: 'NORMAL', weightKg: 10, reps: 10 })
+    assert.equal(standaloneSetResponse.status, 201, standaloneSetResponse.text)
+
+    const invalidStandaloneDropResponse = await agent
+      .patch(`/api/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${standaloneSetResponse.body.set.id}`)
+      .send({ kind: 'DROP' })
+    assert.equal(invalidStandaloneDropResponse.status, 400, invalidStandaloneDropResponse.text)
+
     const updateSetResponse = await agent
       .patch(`/api/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)
       .send({ notes: 'Full depth throughout.' })
@@ -118,7 +138,7 @@ test('users can create, switch, copy, and safely edit multiple programs', async 
     const setDetailsResponse = await agent.get(`/api/sessions/${sessionId}`)
     assert.equal(setDetailsResponse.status, 200, setDetailsResponse.text)
     assert.equal(setDetailsResponse.body.session.exercises[0].sets[0].notes, 'Full depth throughout.')
-    assert.equal(setDetailsResponse.body.session.exercises[0].sets.length, 5)
+    assert.equal(setDetailsResponse.body.session.exercises[0].sets.length, 6)
 
     const invalidSetNoteResponse = await agent
       .patch(`/api/sessions/${sessionId}/exercises/${sessionExercise.id}/sets/${addSetResponse.body.set.id}`)
