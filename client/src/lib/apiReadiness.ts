@@ -30,6 +30,16 @@ function timeoutError() {
   return new Error('API health check timed out')
 }
 
+class ReadinessError extends Error {
+  readonly retryable: boolean
+
+  constructor(message: string, retryable: boolean) {
+    super(message)
+    this.name = 'ReadinessError'
+    this.retryable = retryable
+  }
+}
+
 function sleep(delayMs: number, signal?: AbortSignal) {
   if (signal?.aborted) {
     return Promise.reject(abortError())
@@ -68,12 +78,15 @@ async function checkApiHealth(
   try {
     const response = await fetchImpl(url, { signal: requestController.signal, cache: 'no-store' })
     if (!response.ok) {
-      throw new Error(`API health check returned ${response.status}`)
+      throw new ReadinessError(
+        `API health check returned ${response.status}`,
+        [502, 503, 504].includes(response.status),
+      )
     }
 
     const body: unknown = await response.json()
     if (!body || typeof body !== 'object' || !('ok' in body) || body.ok !== true) {
-      throw new Error('API health check returned an invalid response')
+      throw new ReadinessError('API health check returned an invalid response', true)
     }
   } catch (error) {
     if (didTimeout) {
@@ -116,6 +129,9 @@ export async function waitForApiReadiness({
       return
     } catch (error) {
       if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+        throw error
+      }
+      if (error instanceof ReadinessError && !error.retryable) {
         throw error
       }
       lastError = error

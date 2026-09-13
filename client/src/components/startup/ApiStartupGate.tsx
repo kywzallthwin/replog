@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { apiBaseUrl, apiConfigurationError } from '../../lib/api'
-import { waitForApiReadiness } from '../../lib/apiReadiness'
+import { markApiAvailable } from '../../lib/apiAvailability'
+import { ensureApiAvailable } from '../../lib/apiAvailability'
 import { BrandedLoader } from '../ui/BrandedLoader'
 
 type ApiStartupGateProps = {
@@ -18,9 +19,12 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
     const controller = new AbortController()
     let active = true
 
-    void waitForApiReadiness({ apiBaseUrl, signal: controller.signal }).then(
+    void ensureApiAvailable(() => apiBaseUrl, controller.signal).then(
       () => {
-        if (active) setState('ready')
+        if (active) {
+          markApiAvailable()
+          setState('ready')
+        }
       },
       (error: unknown) => {
         if (active && !(error instanceof DOMException && error.name === 'AbortError')) {
@@ -62,7 +66,7 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
           <p className="mt-2 text-sm text-slate-600">The server is taking longer than expected to start.</p>
           <button
             type="button"
-            className="mt-5 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+             className="mt-5 min-h-11 min-w-11 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
             onClick={() => {
               setState('checking')
               setRetryCount((count) => count + 1)
