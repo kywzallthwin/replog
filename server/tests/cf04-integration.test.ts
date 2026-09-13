@@ -31,6 +31,28 @@ function workerEnv() {
   }
 }
 
+function installLocalTransport() {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (input, init) => {
+    const incoming = input instanceof Request ? input : new Request(input, init)
+    const target = new URL(incoming.url)
+    target.protocol = 'http:'
+    target.hostname = '127.0.0.1'
+    target.port = new URL(upstreamOrigin).port
+    const requestInit: RequestInit & { duplex?: 'half' } = {
+      method: incoming.method,
+      headers: incoming.headers,
+      redirect: incoming.redirect,
+    }
+    if (incoming.body) {
+      requestInit.body = incoming.body
+      requestInit.duplex = 'half'
+    }
+    return originalFetch(target, requestInit)
+  }
+  return () => { globalThis.fetch = originalFetch }
+}
+
 before(async () => {
   server = app.listen(0, '127.0.0.1')
   await new Promise<void>((resolve) => server.once('listening', resolve))
@@ -44,14 +66,7 @@ after(async () => {
 })
 
 test('Worker and Express share edge enforcement, health, readiness, and cache policy', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async (input, init) => {
-    const target = new URL(input instanceof Request ? input.url : input.toString())
-    target.protocol = 'http:'
-    target.hostname = '127.0.0.1'
-    target.port = new URL(upstreamOrigin).port
-    return originalFetch(target, init)
-  }
+  const restoreTransport = installLocalTransport()
 
   try {
     const health = await worker.fetch(new Request(`${appOrigin}/api/not-a-route`), workerEnv())
@@ -68,19 +83,12 @@ test('Worker and Express share edge enforcement, health, readiness, and cache po
     assert.equal(ready.status, 200)
     assert.deepEqual(await ready.json(), { ok: true })
   } finally {
-    globalThis.fetch = originalFetch
+    restoreTransport()
   }
 })
 
 test('Worker preserves Express auth cookies, redirects, and invalid credentials', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async (input, init) => {
-    const target = new URL(input instanceof Request ? input.url : input.toString())
-    target.protocol = 'http:'
-    target.hostname = '127.0.0.1'
-    target.port = new URL(upstreamOrigin).port
-    return originalFetch(target, init)
-  }
+  const restoreTransport = installLocalTransport()
 
   try {
     const invalid = await worker.fetch(new Request(`${appOrigin}/api/auth/login`, {
@@ -96,20 +104,18 @@ test('Worker preserves Express auth cookies, redirects, and invalid credentials'
     assert.equal(logout.status, 204)
     assert.match(logout.headers.get('set-cookie') ?? '', /replog_token=.*Path=\//)
   } finally {
-    globalThis.fetch = originalFetch
+    restoreTransport()
   }
 })
 
 test('Worker forwards a representative mutation exactly once', async () => {
   let dispatches = 0
   const originalFetch = globalThis.fetch
+  const restoreTransport = installLocalTransport()
+  const localTransport = globalThis.fetch
   globalThis.fetch = async (input, init) => {
     dispatches += 1
-    const target = new URL(input instanceof Request ? input.url : input.toString())
-    target.protocol = 'http:'
-    target.hostname = '127.0.0.1'
-    target.port = new URL(upstreamOrigin).port
-    return originalFetch(target, init)
+    return localTransport(input, init)
   }
 
   try {
@@ -118,5 +124,6 @@ test('Worker forwards a representative mutation exactly once', async () => {
     assert.equal(dispatches, 1)
   } finally {
     globalThis.fetch = originalFetch
+    restoreTransport()
   }
 })

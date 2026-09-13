@@ -76,8 +76,11 @@ function upstreamRequest(request: Request, origin: URL, env: Env): Request {
   headers.set('X-Forwarded-Proto', 'https')
   const clientIp = request.headers.get('CF-Connecting-IP')
   if (clientIp) headers.set('X-Forwarded-For', clientIp)
-  const init: RequestInit = { method: request.method, headers, redirect: 'manual' }
-  if (request.method !== 'GET' && request.method !== 'HEAD' && request.body) init.body = request.body
+  const init: RequestInit & { duplex?: 'half' } = { method: request.method, headers, redirect: 'manual' }
+  if (request.method !== 'GET' && request.method !== 'HEAD' && request.body) {
+    init.body = request.body
+    init.duplex = 'half'
+  }
   return new Request(target, init)
 }
 
