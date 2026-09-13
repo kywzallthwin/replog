@@ -54,10 +54,18 @@ function parseOrigins(value: string | undefined) {
   return origins.map(normalizeOrigin)
 }
 
+function isValidOriginList(value: string) {
+  const origins = value.split(',').map((origin) => origin.trim()).filter(Boolean)
+  return origins.length > 0 && origins.every(isHttpOrigin)
+}
+
 function parseBoolean(value: string | undefined, fallback: boolean) {
   if (value === undefined) return fallback
-  if (value !== 'true' && value !== 'false') throw new Error('Invalid boolean')
   return value === 'true'
+}
+
+function isBoolean(value: string | undefined) {
+  return value === undefined || value === 'true' || value === 'false'
 }
 
 function normalizeOrigin(value: string) {
@@ -76,10 +84,13 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(1).default('RepLog <onboarding@resend.dev>'),
   PORT: z.coerce.number().int().positive().default(4000),
-  ADDITIONAL_CLIENT_ORIGINS: z.string().optional().transform(parseOrigins),
+  ADDITIONAL_CLIENT_ORIGINS: z.string().optional().refine(
+    (value) => value === undefined || value.trim() === '' || isValidOriginList(value),
+    'ADDITIONAL_CLIENT_ORIGINS must contain exact HTTP(S) origins',
+  ).transform(parseOrigins),
   EDGE_PROXY_SECRET: z.string().min(1).optional(),
-  REQUIRE_EDGE_PROXY: z.string().optional().transform((value) => parseBoolean(value, false)),
-  SERVE_CLIENT: z.string().optional().transform((value) => parseBoolean(value, true)),
+  REQUIRE_EDGE_PROXY: z.string().optional().refine(isBoolean, 'REQUIRE_EDGE_PROXY must be true or false').transform((value) => parseBoolean(value, false)),
+  SERVE_CLIENT: z.string().optional().refine(isBoolean, 'SERVE_CLIENT must be true or false').transform((value) => parseBoolean(value, false)),
 }).superRefine((value, context) => {
   const hasGoogleCredentials = Boolean(value.GOOGLE_CLIENT_ID || value.GOOGLE_CLIENT_SECRET)
 
