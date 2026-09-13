@@ -87,6 +87,22 @@ test('production environment validation and auth cookies fail closed safely', ()
   assert.equal(productionEnvironment.NODE_ENV, 'production')
   assert.equal(productionEnvironment.DATABASE_URL_UNPOOLED?.includes('sslmode=require'), true)
   assert.equal(productionEnvironment.CLIENT_URL, 'https://replog.example')
+  assert.deepEqual(
+    parseEnvironment({ ...baseEnvironment, ADDITIONAL_CLIENT_ORIGINS: 'https://transition.example/' }).ADDITIONAL_CLIENT_ORIGINS,
+    ['https://transition.example'],
+  )
+  assert.throws(
+    () => parseEnvironment({ ...baseEnvironment, NODE_ENV: 'production', ADDITIONAL_CLIENT_ORIGINS: 'http://transition.example' }),
+    /Invalid server environment/,
+  )
+  assert.throws(
+    () => parseEnvironment({ ...baseEnvironment, ADDITIONAL_CLIENT_ORIGINS: 'https://*.example' }),
+    /Invalid server environment/,
+  )
+  assert.throws(
+    () => parseEnvironment({ ...baseEnvironment, SERVE_CLIENT: 'yes' }),
+    /Invalid server environment/,
+  )
 
   assert.equal(getAuthCookieOptions(false).secure, false)
   assert.equal(getAuthCookieOptions(true).secure, true)
@@ -168,6 +184,34 @@ test('security headers, API cache policy, and parser errors are safe JSON respon
     .send(JSON.stringify({ payload: 'x'.repeat(100 * 1024) }))
   assert.equal(oversizedJsonResponse.status, 413, oversizedJsonResponse.text)
   assert.deepEqual(oversizedJsonResponse.body, { error: 'Request body too large' })
+})
+
+test('edge enforcement protects API and readiness while leaving health public', async () => {
+  const originalRequired = env.REQUIRE_EDGE_PROXY
+  const originalSecret = env.EDGE_PROXY_SECRET
+  env.REQUIRE_EDGE_PROXY = true
+  env.EDGE_PROXY_SECRET = 'edge-test-secret'
+
+  try {
+    const healthResponse = await request(app).get('/health')
+    assert.equal(healthResponse.status, 200, healthResponse.text)
+
+    const apiResponse = await request(app).get('/api/not-a-route')
+    assert.equal(apiResponse.status, 403, apiResponse.text)
+
+    const readyResponse = await request(app).get('/ready')
+    assert.equal(readyResponse.status, 403, readyResponse.text)
+
+    const validResponse = await request(app)
+      .get('/api/not-a-route')
+      .set('X-Edge-Proxy-Secret', 'edge-test-secret')
+      .set('X-Forwarded-For', '198.51.100.90')
+    assert.equal(validResponse.status, 404, validResponse.text)
+    assert.deepEqual(validResponse.body, { error: 'API route not found' })
+  } finally {
+    env.REQUIRE_EDGE_PROXY = originalRequired
+    env.EDGE_PROXY_SECRET = originalSecret
+  }
 })
 
 test('unsafe requests with auth cookies require an allowed origin or Fetch Metadata', async () => {

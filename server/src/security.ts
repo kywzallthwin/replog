@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
+import { timingSafeEqual } from 'node:crypto'
 import { env } from './env.js'
 import { readAuthCookie } from './modules/auth/auth.tokens.js'
 
@@ -45,7 +46,34 @@ function isAllowedDevelopmentOrigin(origin: string) {
 }
 
 export function isAllowedOrigin(origin: string) {
-  return origin === env.CLIENT_URL || (env.NODE_ENV !== 'production' && isAllowedDevelopmentOrigin(origin))
+  return env.CLIENT_URL === origin || env.ADDITIONAL_CLIENT_ORIGINS.includes(origin) || (env.NODE_ENV !== 'production' && isAllowedDevelopmentOrigin(origin))
+}
+
+export function hasValidEdgeSecret(req: Request) {
+  const supplied = req.get('X-Edge-Proxy-Secret')
+  if (!supplied || !env.EDGE_PROXY_SECRET) return false
+  const actual = Buffer.from(env.EDGE_PROXY_SECRET)
+  const candidate = Buffer.from(supplied)
+  return actual.length === candidate.length && timingSafeEqual(actual, candidate)
+}
+
+export function requireEdgeProxy(req: Request, res: Response, next: NextFunction) {
+  if (!isApiPath(req.path) && req.path !== '/ready') {
+    next()
+    return
+  }
+  if (!env.REQUIRE_EDGE_PROXY || hasValidEdgeSecret(req)) {
+    next()
+    return
+  }
+  res.status(403).json({ error: 'Edge proxy required' })
+}
+
+export function getClientIp(req: Request) {
+  if (!hasValidEdgeSecret(req)) return req.ip
+
+  const forwardedIp = req.get('X-Forwarded-For')?.split(',')[0]?.trim()
+  return forwardedIp || req.ip
 }
 
 export function isApiPath(path: string) {

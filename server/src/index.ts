@@ -18,6 +18,7 @@ import {
   isAllowedOrigin,
   isApiPath,
   noStoreApiResponses,
+  requireEdgeProxy,
   requireExpectedOrigin,
   securityHeaders,
 } from './security.js'
@@ -36,7 +37,7 @@ export type AppOptions = {
 }
 
 export function createApp({
-  serveClient = env.NODE_ENV === 'production',
+  serveClient = env.SERVE_CLIENT,
   clientDistPath = getDefaultClientDistPath(),
 }: AppOptions = {}) {
   const app = express()
@@ -58,24 +59,27 @@ export function createApp({
     }),
   )
   app.use(noStoreApiResponses)
-  app.use(express.json({ limit: '100kb' }))
-  app.use(cookieParser())
-  app.use(requireExpectedOrigin)
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true })
   })
 
+  app.use(requireEdgeProxy)
+
+  app.use(express.json({ limit: '100kb' }))
+  app.use(cookieParser())
+  app.use(requireExpectedOrigin)
+
   app.get('/ready', async (_req, res) => {
     if (await isDatabaseReady(() => prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = '${READINESS_TIMEOUT_MS}ms'`)
       await tx.$queryRaw`SELECT 1`
-    }))) {
+    }, { maxWait: READINESS_TIMEOUT_MS, timeout: READINESS_TIMEOUT_MS }))) {
       res.json(process.env.E2E_RUN_ID ? { ok: true, runId: process.env.E2E_RUN_ID } : { ok: true })
       return
     }
 
-    res.status(503).json({ ok: false })
+    res.status(503).set('Retry-After', '5').json({ ok: false, code: 'API_STARTING' })
   })
 
   app.use('/api/auth', authRouter)

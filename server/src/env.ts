@@ -42,10 +42,22 @@ function isHttpUrl(value: string) {
 function isHttpOrigin(value: string) {
   try {
     const url = new URL(value)
-    return isHttpUrl(value) && !url.search && !url.hash && url.pathname === '/'
+    return isHttpUrl(value) && !url.hostname.includes('*') && !url.search && !url.hash && url.pathname === '/'
   } catch {
     return false
   }
+}
+
+function parseOrigins(value: string | undefined) {
+  if (!value) return []
+  const origins = value.split(',').map((origin) => origin.trim()).filter(Boolean)
+  return origins.map(normalizeOrigin)
+}
+
+function parseBoolean(value: string | undefined, fallback: boolean) {
+  if (value === undefined) return fallback
+  if (value !== 'true' && value !== 'false') throw new Error('Invalid boolean')
+  return value === 'true'
 }
 
 function normalizeOrigin(value: string) {
@@ -64,6 +76,10 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(1).default('RepLog <onboarding@resend.dev>'),
   PORT: z.coerce.number().int().positive().default(4000),
+  ADDITIONAL_CLIENT_ORIGINS: z.string().optional().transform(parseOrigins),
+  EDGE_PROXY_SECRET: z.string().min(1).optional(),
+  REQUIRE_EDGE_PROXY: z.string().optional().transform((value) => parseBoolean(value, false)),
+  SERVE_CLIENT: z.string().optional().transform((value) => parseBoolean(value, true)),
 }).superRefine((value, context) => {
   const hasGoogleCredentials = Boolean(value.GOOGLE_CLIENT_ID || value.GOOGLE_CLIENT_SECRET)
 
@@ -76,6 +92,9 @@ const envSchema = z.object({
   }
 
   if (value.NODE_ENV === 'production') {
+    if (value.REQUIRE_EDGE_PROXY && !value.EDGE_PROXY_SECRET) {
+      context.addIssue({ code: 'custom', path: ['EDGE_PROXY_SECRET'], message: 'EDGE_PROXY_SECRET is required when edge proxy enforcement is enabled' })
+    }
     if (!isSecurePostgresUrl(value.DATABASE_URL)) {
       context.addIssue({
         code: 'custom',
@@ -103,6 +122,14 @@ const envSchema = z.object({
         code: 'custom',
         path: ['CLIENT_URL'],
         message: 'CLIENT_URL must use HTTPS in production',
+      })
+    }
+
+    if (value.ADDITIONAL_CLIENT_ORIGINS.some((origin) => !origin.startsWith('https://'))) {
+      context.addIssue({
+        code: 'custom',
+        path: ['ADDITIONAL_CLIENT_ORIGINS'],
+        message: 'ADDITIONAL_CLIENT_ORIGINS must use HTTPS in production',
       })
     }
 

@@ -1,10 +1,11 @@
 import { compare, hash } from 'bcryptjs'
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { Router, type Response } from 'express'
-import { rateLimit } from 'express-rate-limit'
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
 import { OAuth2Client } from 'google-auth-library'
 import type { User } from '../../generated/prisma/client.js'
 import { env } from '../../env.js'
+import { getClientIp } from '../../security.js'
 import { prisma } from '../../prisma.js'
 import { createStarterProgramForUser } from '../programs/starterProgram.js'
 import { sendPasswordResetEmail } from './auth.email.js'
@@ -36,6 +37,7 @@ function createAuthRateLimiter(limit: number, errorMessage: string) {
     limit,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(getClientIp(req) ?? '0.0.0.0'),
     handler: (_req, res, _next, options) => {
       res.status(options.statusCode).json({ error: errorMessage })
     },
