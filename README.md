@@ -97,7 +97,7 @@ Never commit `.env` files or secrets. Production database connections must use T
 
 ## Deployment
 
-RepLog can run as one Render service with a Neon PostgreSQL database. Render serves both the client and API, while Neon stores the data.
+The migration target is Cloudflare Workers Static Assets for the client, a narrowly scoped Worker proxy, the Express API on Render, and PostgreSQL on Neon. See [`CLOUDFLARE.md`](CLOUDFLARE.md) for environment tables, local preview, auth checks, and rollback.
 
 For production, configure the database URLs, `JWT_SECRET`, and `CLIENT_URL` in Render's environment settings. Use HTTPS for the app URL and OAuth callback URL. Render uses `/health` as its health check.
 
