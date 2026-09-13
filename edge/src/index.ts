@@ -76,7 +76,9 @@ function upstreamRequest(request: Request, origin: URL, env: Env): Request {
   headers.set('X-Forwarded-Proto', 'https')
   const clientIp = request.headers.get('CF-Connecting-IP')
   if (clientIp) headers.set('X-Forwarded-For', clientIp)
-  return new Request(target, { method: request.method, headers, body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body, redirect: 'manual' })
+  const init: RequestInit = { method: request.method, headers, redirect: 'manual' }
+  if (request.method !== 'GET' && request.method !== 'HEAD' && request.body) init.body = request.body
+  return new Request(target, init)
 }
 
 async function proxy(request: Request, env: Env): Promise<Response> {

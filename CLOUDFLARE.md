@@ -22,7 +22,7 @@ npm run dev -w server
 npm run dev -w client
 ```
 
-For a Worker preview, build the client first, set the three Worker variables in a local `.dev.vars`, and run `npm run dev -w edge`. The local Render API must accept the Worker secret and the Worker origin must be listed in `PUBLIC_APP_ORIGINS`.
+For a Worker preview, build the client first, start Express locally, and expose it through an HTTPS tunnel such as Cloudflare Tunnel (`cloudflared tunnel --url http://localhost:4000`). Set the resulting HTTPS tunnel URL as `API_UPSTREAM_ORIGIN` in `.dev.vars`, set the Worker secret and exact preview origin, then run `npm run dev -w edge`. Plain `http://localhost:4000` is rejected by the Worker’s upstream-origin validation.
 
 ## Auth and cold-start checks
 
