@@ -1348,6 +1348,7 @@ export function WorkoutPage() {
                       </div>
                     )}
                   </div>
+                  <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} />
                   {exercise.sets.length ? (
                     <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
                       {exercise.sets.map((set, setIndex) => {
@@ -1377,10 +1378,6 @@ export function WorkoutPage() {
       className="mt-3 min-w-0 rounded-[14px] border border-slate-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:p-4"
                     >
                       <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">New Set</p>
-                      {exercise.previousWorkout ? (
-                        <p className="mb-3 text-xs font-semibold text-slate-500">Last Set . KgxRepxDrop</p>
-                      ) : null}
-                      <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} />
                       <div className="grid min-w-0 gap-3">
                         <label className="block min-w-0">
                           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>

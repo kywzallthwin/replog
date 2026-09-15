@@ -84,11 +84,43 @@ test('last-time references use the latest owned earlier workout and the Progress
       })
     }
 
+    async function createUnfinishedSession(userId: string, startedAt: Date, sessionExercises: ExerciseFixture[]) {
+      return prisma.session.create({
+        data: {
+          userId,
+          dayNameSnapshot: 'TEST DAY',
+          badgeColorSnapshot: 'neutral',
+          startedAt,
+          sessionExercises: {
+            create: sessionExercises.map((exercise, exerciseIndex) => ({
+              exerciseId: exercise.exerciseId,
+              nameSnapshot: exercise.name,
+              order: exerciseIndex + 1,
+              setLogs: {
+                create: exercise.sets.map((set, setIndex) => ({
+                  ...set,
+                  order: setIndex + 1,
+                })),
+              },
+            })),
+          },
+        },
+      })
+    }
+
     await createCompletedSession(ownerId, new Date('2026-01-01T10:00:00.000Z'), [
       {
         exerciseId: temporalExercise.id,
         name: temporalExercise.name,
         sets: [{ kind: 'NORMAL', weightKg: 80, reps: 10 }],
+      },
+    ])
+
+    await createUnfinishedSession(ownerId, new Date('2026-01-01T18:00:00.000Z'), [
+      {
+        exerciseId: temporalExercise.id,
+        name: temporalExercise.name,
+        sets: [{ kind: 'NORMAL', weightKg: 999, reps: 10 }],
       },
     ])
 

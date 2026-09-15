@@ -214,21 +214,20 @@ describe('WorkoutPage regression coverage', () => {
     renderWorkout()
 
     expect(await screen.findByText('Active workout')).toBeInTheDocument()
-    const { form } = await openAddSetForm()
-    expect(within(form).getByLabelText(/Previous workout sets from/)).toHaveTextContent('wu40×10')
-    expect(within(form).getByLabelText(/Previous workout sets from/)).toHaveTextContent('77.5×8→60×6')
+    const { card, form } = await openAddSetForm()
+    expect(within(card).getByLabelText(/Previous workout sets from/)).toHaveTextContent('wu40×10')
+    expect(within(card).getByLabelText(/Previous workout sets from/)).toHaveTextContent('77.5×8→60×6')
     expect(within(form).getByRole('spinbutton', { name: 'Weight kg' })).toHaveValue(80)
     expect(within(form).getAllByRole('spinbutton')[1]).toHaveValue(8)
-    expect(within(form).getByText('Last Set . KgxRepxDrop')).toBeInTheDocument()
   })
 
   it('shows one concise format guide when no previous sets exist', async () => {
     renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [], lastTime: null, previousWorkout: null })] }))
-    const { form } = await openAddSetForm()
+    const { card } = await openAddSetForm()
 
-    expect(within(form).queryByText('Last Set . KgxRepxDrop')).not.toBeInTheDocument()
-    expect(within(form).getAllByText('No previous sets')).toHaveLength(1)
-    expect(within(form).queryByText('No previous set', { exact: true })).not.toBeInTheDocument()
+    expect(within(card).queryByText('Last Set . KgxRepxDrop')).not.toBeInTheDocument()
+    expect(within(card).getAllByText('No previous sets')).toHaveLength(1)
+    expect(within(card).queryByText('No previous set', { exact: true })).not.toBeInTheDocument()
   })
 
   it('renders a completed workout as read-only with its summary', async () => {
@@ -621,8 +620,8 @@ describe('mobile layout contract', () => {
 
   it('wraps the previous-set history line instead of scrolling', async () => {
     renderWorkout()
-    const { form } = await openAddSetForm()
-    const history = within(form).getByLabelText(/Previous workout sets from/)
+    const { card } = await openAddSetForm()
+    const history = within(card).getByLabelText(/Previous workout sets from/)
 
     expect(history).toHaveClass('rounded-[10px]', 'bg-slate-50', 'px-2.5', 'py-2')
     expect(history.className).not.toContain('overflow-x-auto')
@@ -665,14 +664,14 @@ describe('mobile layout contract', () => {
       bestNormalSetId: root.id,
       sets: [root, ...drops],
     }
-    const { form } = await (async () => {
+    const { card, form } = await (async () => {
       renderWorkout(workoutSession({
         exercises: [workoutExercise({ previousWorkout })],
       }))
       return openAddSetForm()
     })()
 
-    const history = within(form).getByLabelText(/Previous workout sets from/)
+    const history = within(card).getByLabelText(/Previous workout sets from/)
     expect(history).toHaveTextContent('1000×1000→1000×1000→999×999')
 
     for (let index = 0; index < 9; index += 1) {
