@@ -65,6 +65,7 @@ const mockedCancelSession = vi.mocked(cancelSession)
 const mockedUpdateSessionNotes = vi.mocked(updateSessionNotes)
 const mockedGetExercises = vi.mocked(getExercises)
 const mockedGetActiveProgram = vi.mocked(getActiveProgram)
+const restTimerKey = (sessionId = 'session-1') => `replog:rest-timer:${sessionId}`
 
 function workoutSet(overrides: Partial<WorkoutSet> = {}): WorkoutSet {
   return {
@@ -210,6 +211,75 @@ beforeEach(() => {
 })
 
 describe('WorkoutPage regression coverage', () => {
+  it('shows the idle timer before the first set and exposes the 44px sticky controls', async () => {
+    renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [] })] }))
+
+    expect(await screen.findByText('Ready')).toBeInTheDocument()
+    expect(screen.getByText('1:30')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start' })).toHaveClass('min-h-11')
+    expect(screen.getByRole('button', { name: '+15s' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Skip' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Start' }).parentElement).toHaveClass('flex', 'flex-wrap')
+    expect(screen.getByText('Rest timer').parentElement?.parentElement).toHaveClass('sticky')
+  })
+
+  it('transitions idle, running, expired, restart, extension, and skip states', async () => {
+    renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [] })] }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }))
+    expect(await screen.findByText('Resting')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Restart' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+15s' })).not.toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    expect(await screen.findByText('Ready')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument()
+  })
+
+  it('restarts after successful set create and update but preserves a failed save timer', async () => {
+    renderWorkout()
+    const { form } = await openAddSetForm()
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+    await waitFor(() => expect(window.localStorage.getItem(restTimerKey())).not.toBeNull())
+    const persistedExpiry = window.localStorage.getItem(restTimerKey())
+
+    mockedUpdateSet.mockRejectedValueOnce(new Error('offline'))
+    const card = await getExerciseCard()
+    fireEvent.click(within(card).getByRole('button', { name: 'Edit set' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => expect(within(card).getByText('Unable to save set. Please try again.')).toBeInTheDocument())
+    expect(window.localStorage.getItem(restTimerKey())).toBe(persistedExpiry)
+  })
+
+  it('does not start the timer after a failed set save', async () => {
+    mockedAddSet.mockRejectedValueOnce(new Error('offline'))
+    renderWorkout()
+    const { form } = await openAddSetForm()
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+    await waitFor(() => expect(within(form).getByText('Unable to add set. Please try again.')).toBeInTheDocument())
+    expect(window.localStorage.getItem(restTimerKey())).toBeNull()
+  })
+
+  it('clears the timer only after successful finish or cancel and never renders it completed', async () => {
+    window.localStorage.setItem(restTimerKey(), String(Date.now() + 90_000))
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+    mockedFinishSession.mockResolvedValueOnce(completed)
+    renderWorkout()
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish Workout' }))
+    await waitFor(() => expect(screen.queryByText('Rest timer')).not.toBeInTheDocument())
+    expect(window.localStorage.getItem(restTimerKey())).toBeNull()
+
+    window.localStorage.setItem(restTimerKey(), String(Date.now() + 90_000))
+    mockedCancelSession.mockRejectedValueOnce(new Error('offline'))
+    renderWorkout()
+    const cancel = await screen.findByRole('button', { name: 'Cancel Workout' })
+    fireEvent.click(cancel)
+    const dialog = screen.getByRole('alertdialog', { name: 'Cancel this workout?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel Workout' }))
+    await waitFor(() => expect(within(dialog).getByRole('alert')).toBeInTheDocument())
+    expect(window.localStorage.getItem(restTimerKey())).not.toBeNull()
+  })
+
   it('renders active sets and prefills add-set values while showing previous sets', async () => {
     renderWorkout()
 

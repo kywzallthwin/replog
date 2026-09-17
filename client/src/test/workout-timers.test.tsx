@@ -56,11 +56,12 @@ describe('workout timer', () => {
 })
 
 describe('rest timer', () => {
-  it('is initially hidden without a persisted timer', () => {
+  it('starts idle without a persisted timer', () => {
     const { result } = renderHook(() => useRestTimer('session-1', 'active'))
 
+    expect(result.current.state).toBe('idle')
     expect(result.current.remainingSeconds).toBeNull()
-    expect(result.current.formatted).toBeNull()
+    expect(result.current.formatted).toBe('1:30')
   })
 
   it('starts at 90 seconds, persists an absolute expiry, and counts down', () => {
@@ -68,6 +69,7 @@ describe('rest timer', () => {
 
     act(() => result.current.start())
 
+    expect(result.current.state).toBe('running')
     expect(result.current.remainingSeconds).toBe(90)
     expect(result.current.formatted).toBe('1:30')
     expect(window.localStorage.getItem(sessionKey('session-1'))).toBe(
@@ -78,6 +80,18 @@ describe('rest timer', () => {
 
     expect(result.current.remainingSeconds).toBe(89)
     expect(result.current.formatted).toBe('1:29')
+  })
+
+  it('restarts an existing timer from a fresh 90-second expiry', () => {
+    const { result } = renderHook(() => useRestTimer('session-1', 'active'))
+
+    act(() => result.current.start())
+    act(() => vi.advanceTimersByTime(30_000))
+    act(() => result.current.start())
+
+    expect(result.current.state).toBe('running')
+    expect(result.current.remainingSeconds).toBe(90)
+    expect(window.localStorage.getItem(sessionKey('session-1'))).toBe(String(now.getTime() + 120_000))
   })
 
   it('restores a persisted countdown after remounting', () => {
@@ -91,6 +105,16 @@ describe('rest timer', () => {
 
     expect(second.result.current.remainingSeconds).toBe(60)
     expect(second.result.current.formatted).toBe('1:00')
+  })
+
+  it('falls back to idle for malformed persisted state', () => {
+    window.localStorage.setItem(sessionKey('session-1'), 'not-a-timestamp')
+
+    const { result } = renderHook(() => useRestTimer('session-1', 'active'))
+
+    expect(result.current.state).toBe('idle')
+    expect(result.current.remainingSeconds).toBeNull()
+    expect(result.current.formatted).toBe('1:30')
   })
 
   it('extends an active timer by 15 seconds from its existing expiry', () => {
@@ -113,6 +137,7 @@ describe('rest timer', () => {
     act(() => vi.advanceTimersByTime(5_000))
 
     expect(result.current.remainingSeconds).toBe(0)
+    expect(result.current.state).toBe('expired')
     expect(result.current.formatted).toBe('0:00')
     expect(window.localStorage.getItem(sessionKey('session-1'))).toBe(
       String(now.getTime() + 1_000),
@@ -120,6 +145,7 @@ describe('rest timer', () => {
 
     act(() => result.current.addSeconds(15))
 
+    expect(result.current.state).toBe('running')
     expect(result.current.remainingSeconds).toBe(15)
     expect(window.localStorage.getItem(sessionKey('session-1'))).toBe(
       String(now.getTime() + 20_000),
@@ -137,8 +163,9 @@ describe('rest timer', () => {
 
     act(() => result.current.skip())
 
+    expect(result.current.state).toBe('idle')
     expect(result.current.remainingSeconds).toBeNull()
-    expect(result.current.formatted).toBeNull()
+    expect(result.current.formatted).toBe('1:30')
     expect(window.localStorage.getItem(sessionKey('session-1'))).toBeNull()
   })
 
@@ -148,7 +175,9 @@ describe('rest timer', () => {
     act(() => result.current.start())
     act(() => result.current.clear())
 
+    expect(result.current.state).toBe('idle')
     expect(result.current.remainingSeconds).toBeNull()
+    expect(result.current.formatted).toBe('1:30')
     expect(window.localStorage.getItem(sessionKey('session-1'))).toBeNull()
   })
 
@@ -157,8 +186,9 @@ describe('rest timer', () => {
 
     const { result } = renderHook(() => useRestTimer('session-1', 'completed'))
 
+    expect(result.current.state).toBe('idle')
     expect(result.current.remainingSeconds).toBeNull()
-    expect(result.current.formatted).toBeNull()
+    expect(result.current.formatted).toBe('1:30')
     expect(window.localStorage.getItem(sessionKey('session-1'))).toBeNull()
   })
 
@@ -172,9 +202,11 @@ describe('rest timer', () => {
     )
 
     expect(result.current.remainingSeconds).toBe(30)
+    expect(result.current.state).toBe('running')
 
     rerender({ sessionId: 'session-2' })
     expect(result.current.remainingSeconds).toBe(60)
+    expect(result.current.state).toBe('running')
 
     act(() => result.current.skip())
 
