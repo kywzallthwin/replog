@@ -159,13 +159,15 @@ function PreviousWorkoutLine({ previousWorkout }: { previousWorkout: PreviousWor
 }
 
 function RestTimer({
+  state,
   formatted,
-  remainingSeconds,
+  onStart,
   onAdd,
   onSkip,
 }: {
+  state: 'idle' | 'running' | 'expired'
   formatted: string
-  remainingSeconds: number
+  onStart: () => void
   onAdd: () => void
   onSkip: () => void
 }) {
@@ -174,21 +176,35 @@ function RestTimer({
       <div className="min-w-0">
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Rest timer</p>
         <p className="mt-1 text-2xl font-black tracking-[-0.04em]">{formatted}</p>
+        <p className="mt-1 text-xs font-semibold text-slate-300">
+          {state === 'idle' ? 'Ready' : state === 'running' ? 'Resting' : 'Time'}
+        </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex min-w-0 flex-wrap justify-end gap-2">
+        {state === 'idle' ? (
+          <button type="button" onClick={onStart} className="min-h-11 rounded-[11px] bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-100">
+            Start
+          </button>
+        ) : (
+          <button type="button" onClick={onStart} className="min-h-11 rounded-[11px] bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-100">
+            Restart
+          </button>
+        )}
         <button
           type="button"
           onClick={onAdd}
-          className="min-h-11 rounded-[11px] border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-slate-800"
+          disabled={state === 'idle'}
+          className="min-h-11 rounded-[11px] border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           +15s
         </button>
         <button
           type="button"
           onClick={onSkip}
-          className="min-h-11 rounded-[11px] bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-100"
+          disabled={state === 'idle'}
+          className="min-h-11 rounded-[11px] bg-white px-3 py-2 text-xs font-bold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {remainingSeconds === 0 ? 'Dismiss' : 'Skip'}
+          Skip
         </button>
       </div>
     </div>
@@ -774,6 +790,7 @@ export function WorkoutPage() {
   const updateSetMutation = useMutation({
     mutationFn: updateSet,
     onSuccess: async () => {
+      restTimer.start()
       if (sessionId) {
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
@@ -1248,10 +1265,11 @@ export function WorkoutPage() {
                ) : null}
              </div>
 
-            {!session.endedAt && restTimer.remainingSeconds !== null ? (
+            {!session.endedAt ? (
               <RestTimer
+                state={restTimer.state}
                 formatted={restTimer.formatted ?? '0:00'}
-                remainingSeconds={restTimer.remainingSeconds}
+                onStart={() => restTimer.start()}
                 onAdd={() => restTimer.addSeconds(15)}
                 onSkip={restTimer.skip}
               />
