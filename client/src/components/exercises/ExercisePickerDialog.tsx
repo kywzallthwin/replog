@@ -158,6 +158,7 @@ export function ExercisePickerDialog({
   const queryClient = useQueryClient()
   const pickerId = useId()
   const newExerciseTriggerRef = useRef<HTMLButtonElement>(null)
+  const categoryManagerTriggerRef = useRef<HTMLButtonElement>(null)
   const programTabRef = useRef<HTMLButtonElement>(null)
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
   const [source, setSource] = useState<PickerSource>('program')
@@ -165,7 +166,9 @@ export function ExercisePickerDialog({
   const [isNewExerciseOpen, setIsNewExerciseOpen] = useState(false)
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false)
   const [categoryName, setCategoryName] = useState('')
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  const [categoryManagerMode, setCategoryManagerMode] = useState<'rename' | 'delete' | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
   const [replacementId, setReplacementId] = useState('')
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null)
   const [mutationError, setMutationError] = useState('')
@@ -190,8 +193,8 @@ export function ExercisePickerDialog({
   })
   const categoriesQuery = useQuery({ queryKey: categoriesQueryKey, queryFn: getCategories })
   const categories = categoriesQuery.data ?? []
-  const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => category.id === editingCategoryId ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setEditingCategoryId(null); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
-  const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement?: string }) => deleteCategory(id, replacement), onSuccess: () => { setReplacementId(''); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
+  const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => selectedCategoryId === category.id ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setRenameDraft(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
+  const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement: string }) => deleteCategory(id, replacement), onSuccess: () => { setReplacementId(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
   const recategorizeMutation = useMutation({ mutationFn: ({ exerciseId, categoryId }: { exerciseId: string; categoryId: string }) => recategorizeExercise(exerciseId, categoryId), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to change category.')) })
 
   const existingIds = new Set(existingExerciseIds)
@@ -296,16 +299,24 @@ export function ExercisePickerDialog({
       return
     }
 
+    if (isCategoryManagerOpen) {
+      setIsCategoryManagerOpen(false)
+      setCategoryManagerMode(null)
+      setSelectedCategoryId(null)
+      window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus())
+      return
+    }
+
     onClose()
   }
 
   return (
     <Dialog
-      labelledBy={isNewExerciseOpen ? 'new-exercise-dialog-title' : 'exercise-picker-dialog-title'}
+      labelledBy={isNewExerciseOpen ? 'new-exercise-dialog-title' : isCategoryManagerOpen ? 'category-manager-title' : 'exercise-picker-dialog-title'}
       describedBy={isNewExerciseOpen ? 'new-exercise-dialog-description' : undefined}
       onClose={handleDialogClose}
       restoreFocusRef={restoreFocusRef}
-      focusKey={isNewExerciseOpen ? 'new-exercise' : 'exercise-picker'}
+      focusKey={isNewExerciseOpen ? 'new-exercise' : isCategoryManagerOpen ? 'category-manager' : 'exercise-picker'}
       overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
       className="flex max-h-[calc(100dvh-3rem)] w-full max-w-lg flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
     >
@@ -326,9 +337,9 @@ export function ExercisePickerDialog({
               <button className="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white" disabled={categoryMutation.isPending}>Add</button>
             </form>
             {mutationError ? <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{mutationError}</p> : null}
-            <div className="mt-4 space-y-2">{categories.map((category) => <div key={category.id} className="rounded-xl border border-slate-100 p-3">{editingCategoryId === category.id ? <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); if (categoryName.trim()) categoryMutation.mutate({ id: category.id, name: categoryName }) }}><input autoFocus value={categoryName} onChange={(event) => setCategoryName(event.target.value)} className="min-w-0 grow rounded-lg border px-2" /><button className="text-sm font-bold">Save</button></form> : <div className="flex items-center gap-2"><span className="min-w-0 grow break-words text-sm font-semibold">{category.name}</span>{category.isCustom ? <><button className="text-xs font-bold text-slate-500" onClick={() => { setEditingCategoryId(category.id); setCategoryName(category.name) }}>Rename</button><button className="text-xs font-bold text-red-600" onClick={() => { setReplacementId(''); setEditingCategoryId(category.id) }}>Delete</button></> : <span className="text-xs text-slate-400">Built-in</span>}</div>}{editingCategoryId === category.id && category.isCustom && replacementId === '' ? <div className="mt-2 flex gap-2"><select aria-label={`Replacement for ${category.name}`} value={replacementId} onChange={(event) => setReplacementId(event.target.value)} className="min-w-0 grow rounded-lg border px-2 text-sm"><option value="">Choose replacement to delete</option>{categories.filter((item) => item.id !== category.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button className="text-xs font-bold text-red-600" onClick={() => deleteMutation.mutate({ id: category.id })}>Delete empty</button></div> : null}{replacementId && editingCategoryId === category.id ? <button className="mt-2 text-xs font-bold text-red-600" onClick={() => deleteMutation.mutate({ id: category.id, replacement: replacementId })}>Confirm delete and reassign</button> : null}</div>)}</div>
+            <div className="mt-4 space-y-2">{categories.map((category) => <div key={category.id} className="rounded-xl border border-slate-100 p-3">{categoryManagerMode === 'rename' && selectedCategoryId === category.id ? <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); if (renameDraft.trim()) categoryMutation.mutate({ id: category.id, name: renameDraft }) }}><input autoFocus aria-label={`Rename ${category.name}`} value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} className="min-w-0 grow rounded-lg border px-2" /><button className="text-sm font-bold">Save</button><button type="button" className="text-sm" onClick={() => { setCategoryManagerMode(null); setSelectedCategoryId(null); setRenameDraft('') }}>Cancel</button></form> : categoryManagerMode === 'delete' && selectedCategoryId === category.id ? <div><p className="text-sm font-semibold">Delete {category.name}</p><select aria-label={`Replacement for ${category.name}`} value={replacementId} onChange={(event) => setReplacementId(event.target.value)} className="mt-2 min-w-0 rounded-lg border px-2 text-sm"><option value="">Choose replacement category</option>{categories.filter((item) => item.id !== category.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><div className="mt-2 flex gap-3"><button disabled={!replacementId || deleteMutation.isPending} className="text-xs font-bold text-red-600" onClick={() => deleteMutation.mutate({ id: category.id, replacement: replacementId })}>Delete and reassign</button><button type="button" className="text-xs" onClick={() => { setCategoryManagerMode(null); setSelectedCategoryId(null); setReplacementId('') }}>Cancel</button></div></div> : <div className="flex items-center gap-2"><span className="min-w-0 grow break-words text-sm font-semibold">{category.name}</span>{category.isCustom ? <><button type="button" className="text-xs font-bold text-slate-500" onClick={() => { setCategoryManagerMode('rename'); setSelectedCategoryId(category.id); setRenameDraft(category.name); setReplacementId('') }}>Rename</button><button type="button" className="text-xs font-bold text-red-600" onClick={() => { setCategoryManagerMode('delete'); setSelectedCategoryId(category.id); setReplacementId(''); setRenameDraft('') }}>Delete</button></> : <span className="text-xs text-slate-400">Built-in</span>}</div>}</div>)}</div>
           </div>
-          <div className="border-t border-slate-100 p-4"><button className="min-h-11 w-full rounded-xl border font-bold" onClick={() => { setIsCategoryManagerOpen(false); setEditingCategoryId(null); setMutationError('') }}>Done</button></div>
+          <div className="border-t border-slate-100 p-4"><button className="min-h-11 w-full rounded-xl border font-bold" onClick={() => { setIsCategoryManagerOpen(false); setCategoryManagerMode(null); setSelectedCategoryId(null); setMutationError(''); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }}>Done</button></div>
         </div>
       ) : (
         <>
@@ -445,11 +456,11 @@ export function ExercisePickerDialog({
                             </span>
                              <span className="min-w-0 grow break-words [overflow-wrap:anywhere]">{exercise.name}</span>
                              {exercise.isCustom ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Yours</span> : null}
-                             {exercise.isCustom && source === 'all' ? <button type="button" className="shrink-0 text-xs font-bold underline" onClick={(event) => { event.stopPropagation(); setEditingExerciseId(editingExerciseId === exercise.id ? null : exercise.id) }}>Edit category</button> : null}
                              {isCurrent ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Current</span> : null}
                              {isAdded ? <span className="shrink-0 text-xs text-slate-400">Added</span> : null}
                           </button>
-                          {editingExerciseId === exercise.id ? <div className="mt-1 flex gap-2"><select aria-label={`Category for ${exercise.name}`} value={exercise.category.id} onChange={(event) => recategorizeMutation.mutate({ exerciseId: exercise.id, categoryId: event.target.value })} className="min-h-10 min-w-0 grow rounded-lg border px-2 text-sm">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div> : null}</span>
+                          {exercise.isCustom && source === 'all' ? <button type="button" className="mt-1 text-xs font-bold underline" onClick={() => setEditingExerciseId(editingExerciseId === exercise.id ? null : exercise.id)}>Edit category</button> : null}
+                          {editingExerciseId === exercise.id ? <div className="mt-1 flex gap-2"><label htmlFor={`${pickerId}-${exercise.id}-category`} className="sr-only">Category for {exercise.name}</label><select id={`${pickerId}-${exercise.id}-category`} disabled={recategorizeMutation.isPending} value={exercise.category.id} onChange={(event) => recategorizeMutation.mutate({ exerciseId: exercise.id, categoryId: event.target.value })} className="min-h-10 min-w-0 grow rounded-lg border px-2 text-sm">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div> : null}</span>
                         )
                       })}
                     </div>
@@ -463,7 +474,7 @@ export function ExercisePickerDialog({
                 </p>
               ) : null}
             </div>
-            <button type="button" className="mt-4 min-h-11 w-full rounded-[14px] border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600" onClick={() => { setIsCategoryManagerOpen(true); setMutationError('') }} disabled={pickerIsBusy || categoriesQuery.isPending || categoriesQuery.isError}>Manage categories</button>
+            <button type="button" ref={categoryManagerTriggerRef} className="mt-4 min-h-11 w-full rounded-[14px] border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600" onClick={() => { setIsCategoryManagerOpen(true); setMutationError('') }} disabled={pickerIsBusy || categoriesQuery.isPending || categoriesQuery.isError}>Manage categories</button>
             <button
               type="button"
               ref={newExerciseTriggerRef}
