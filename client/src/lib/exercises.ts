@@ -1,6 +1,6 @@
 import { api } from './api'
 
-export type CategorySummary = { id: string; name: string; isCustom: boolean }
+export type CategorySummary = { id: string; name: string; isCustom: boolean; isOverridden?: boolean }
 
 export type ExerciseOption = {
   id: string
@@ -36,6 +36,10 @@ export async function createCategory(name: string) {
 export async function renameCategory(categoryId: string, name: string) {
   const response = await api.patch<{ category: CategorySummary }>(`/exercises/categories/${categoryId}`, { name })
   return response.data.category
+}
+
+export async function resetCategoryLabel(categoryId: string) {
+  await api.delete(`/exercises/categories/${categoryId}/label`)
 }
 
 export async function deleteCategory(categoryId: string, replacementCategoryId?: string) {

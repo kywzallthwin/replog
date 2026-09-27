@@ -34,13 +34,14 @@ progressRouter.get('/', requireAuth, async (req, res) => {
   })
 
   const workingSetLogs = setLogs.filter((setLog) => setLog.kind === 'NORMAL')
+  const labels = new Map((await prisma.userCategoryLabel.findMany({ where: { userId }, select: { categoryId: true, displayName: true } })).map((label) => [label.categoryId, label.displayName]))
   const exerciseMap = new Map<string, { id: string; name: string; category: string }>()
 
   for (const setLog of workingSetLogs) {
     exerciseMap.set(setLog.sessionExercise.exerciseId, {
       id: setLog.sessionExercise.exerciseId,
       name: setLog.sessionExercise.exercise.name,
-      category: setLog.sessionExercise.exercise.category.displayName,
+      category: labels.get(setLog.sessionExercise.exercise.category.id) ?? setLog.sessionExercise.exercise.category.displayName,
     })
   }
 

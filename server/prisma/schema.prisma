@@ -33,6 +33,7 @@ model User {
   programs               Program[]
   sessions               Session[]
   categories             ExerciseCategory[]
+  categoryLabels         UserCategoryLabel[]
 }
 
 model ExerciseCategory {
@@ -44,9 +45,24 @@ model ExerciseCategory {
   displayOrder   Int
   owner          User?      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   exercises      Exercise[]
+  userLabels     UserCategoryLabel[]
 
   @@unique([ownerId, normalizedName])
   @@index([ownerId, displayOrder])
+}
+
+model UserCategoryLabel {
+  id             String           @id @default(cuid())
+  userId         String
+  categoryId     String
+  displayName    String
+  normalizedName String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       ExerciseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+  @@unique([userId, normalizedName])
+  @@index([categoryId])
 }
 
 model Exercise {

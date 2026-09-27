@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
 import { categoryNameSchema, createExerciseSchema } from './exercises.schemas.js'
+import { hasCategoryNameConflict, loadCategoryLabels, normalizeCategoryName } from './categoryLabels.js'
 
 export const exercisesRouter = Router()
 
@@ -9,11 +10,15 @@ function normalizeExerciseName(name: string) {
   return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 }
 
-function toExercisePayload(exercise: { id: string; name: string; ownerId: string | null; category: { id: string; displayName: string; ownerId: string | null } }) {
+export function categoryName(category: { id: string; displayName: string; ownerId: string | null }, labels: Map<string, string>) {
+  return category.ownerId === null ? labels.get(category.id) ?? category.displayName : category.displayName
+}
+
+function toExercisePayload(exercise: { id: string; name: string; ownerId: string | null; category: { id: string; displayName: string; ownerId: string | null } }, labels: Map<string, string>) {
   return {
     id: exercise.id,
     name: exercise.name,
-    category: { id: exercise.category.id, name: exercise.category.displayName, isCustom: exercise.category.ownerId !== null },
+    category: { id: exercise.category.id, name: categoryName(exercise.category, labels), isCustom: exercise.category.ownerId !== null },
     isCustom: exercise.ownerId !== null,
   }
 }
@@ -33,9 +38,10 @@ exercisesRouter.get('/', requireAuth, async (req, res) => {
     include: { category: true },
     orderBy: [{ name: 'asc' }],
   })
+  const labels = await loadCategoryLabels(userId)
 
   res.json({
-    exercises: exercises.map(toExercisePayload),
+    exercises: exercises.map((exercise) => toExercisePayload(exercise, labels)),
   })
 })
 
@@ -78,7 +84,7 @@ exercisesRouter.post('/', requireAuth, async (req, res) => {
   })
 
   const created = await prisma.exercise.findUniqueOrThrow({ where: { id: exercise.id }, include: { category: true } })
-  res.status(201).json({ exercise: toExercisePayload(created) })
+  res.status(201).json({ exercise: toExercisePayload(created, await loadCategoryLabels(userId)) })
 })
 
 exercisesRouter.patch('/:exerciseId/category', requireAuth, async (req, res) => {
@@ -92,14 +98,16 @@ exercisesRouter.patch('/:exerciseId/category', requireAuth, async (req, res) => 
   const category = await prisma.exerciseCategory.findFirst({ where: { id: parsed.data, OR: [{ ownerId: null }, { ownerId: userId }] } })
   if (!category) { res.status(400).json({ error: 'Invalid category' }); return }
   const updated = await prisma.exercise.update({ where: { id: exercise.id }, data: { categoryId: category.id }, include: { category: true } })
-  res.json({ exercise: toExercisePayload(updated) })
+  const labels = await loadCategoryLabels(userId)
+  res.json({ exercise: toExercisePayload(updated, labels) })
 })
 
 exercisesRouter.get('/categories', requireAuth, async (req, res) => {
   const userId = req.userId
   if (!userId) { res.status(401).json({ error: 'Authentication required' }); return }
   const categories = await prisma.exerciseCategory.findMany({ where: { OR: [{ ownerId: null }, { ownerId: userId }] }, orderBy: [{ ownerId: 'asc' }, { displayOrder: 'asc' }, { displayName: 'asc' }] })
-  res.json({ categories: categories.map((category) => ({ id: category.id, name: category.displayName, isCustom: category.ownerId !== null })) })
+  const labels = await loadCategoryLabels(userId)
+  res.json({ categories: categories.map((category) => ({ id: category.id, name: categoryName(category, labels), isCustom: category.ownerId !== null, isOverridden: labels.has(category.id) })) })
 })
 
 exercisesRouter.post('/categories', requireAuth, async (req, res) => {
@@ -107,11 +115,10 @@ exercisesRouter.post('/categories', requireAuth, async (req, res) => {
   if (!userId) { res.status(401).json({ error: 'Authentication required' }); return }
   const parsed = categoryNameSchema.safeParse(req.body?.name)
   if (!parsed.success) { res.status(400).json({ error: 'Invalid category name' }); return }
-  const normalizedName = parsed.data.replace(/\s+/g, ' ').toLocaleLowerCase()
-  const conflict = await prisma.exerciseCategory.findFirst({ where: { normalizedName, OR: [{ ownerId: null }, { ownerId: userId }] } })
-  if (conflict) { res.status(409).json({ error: 'A category with this name already exists' }); return }
-  const category = await prisma.exerciseCategory.create({ data: { displayName: parsed.data.replace(/\s+/g, ' '), normalizedName, ownerId: userId, displayOrder: 1000 } })
-  res.status(201).json({ category: { id: category.id, name: category.displayName, isCustom: true } })
+  const displayName = parsed.data.replace(/\s+/g, ' ')
+  if (await hasCategoryNameConflict(userId, displayName)) { res.status(409).json({ error: 'A category with this name already exists' }); return }
+  const category = await prisma.exerciseCategory.create({ data: { displayName, normalizedName: normalizeCategoryName(displayName), ownerId: userId, displayOrder: 1000 } })
+  res.status(201).json({ category: { id: category.id, name: category.displayName, isCustom: true, isOverridden: false } })
 })
 
 exercisesRouter.patch('/categories/:categoryId', requireAuth, async (req, res) => {
@@ -121,13 +128,29 @@ exercisesRouter.patch('/categories/:categoryId', requireAuth, async (req, res) =
   if (!parsed.success) { res.status(400).json({ error: 'Invalid category name' }); return }
   const categoryId = Array.isArray(req.params.categoryId) ? req.params.categoryId[0] : req.params.categoryId
   if (!categoryId) { res.status(404).json({ error: 'Category not found' }); return }
-  const category = await prisma.exerciseCategory.findFirst({ where: { id: categoryId, ownerId: userId } })
+  const category = await prisma.exerciseCategory.findFirst({ where: { id: categoryId, OR: [{ ownerId: userId }, { ownerId: null }] } })
   if (!category) { res.status(404).json({ error: 'Category not found' }); return }
-  const normalizedName = parsed.data.replace(/\s+/g, ' ').toLocaleLowerCase()
-  const conflict = await prisma.exerciseCategory.findFirst({ where: { normalizedName, OR: [{ ownerId: null }, { ownerId: userId }], NOT: { id: category.id } } })
-  if (conflict) { res.status(409).json({ error: 'A category with this name already exists' }); return }
+  const displayName = parsed.data.replace(/\s+/g, ' ')
+  const normalizedName = normalizeCategoryName(displayName)
+  if (category.ownerId === null) {
+    if (await hasCategoryNameConflict(userId, displayName, categoryId)) { res.status(409).json({ error: 'A category with this name already exists' }); return }
+    const label = await prisma.userCategoryLabel.upsert({ where: { userId_categoryId: { userId, categoryId } }, create: { userId, categoryId, displayName, normalizedName }, update: { displayName, normalizedName } })
+    res.json({ category: { id: category.id, name: label.displayName, isCustom: false, isOverridden: true } }); return
+  }
+  if (await hasCategoryNameConflict(userId, displayName, category.id)) { res.status(409).json({ error: 'A category with this name already exists' }); return }
   const updated = await prisma.exerciseCategory.update({ where: { id: category.id }, data: { displayName: parsed.data.replace(/\s+/g, ' '), normalizedName } })
-  res.json({ category: { id: updated.id, name: updated.displayName, isCustom: true } })
+  res.json({ category: { id: updated.id, name: updated.displayName, isCustom: true, isOverridden: false } })
+})
+
+exercisesRouter.delete('/categories/:categoryId/label', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const categoryId = Array.isArray(req.params.categoryId) ? req.params.categoryId[0] : req.params.categoryId
+  if (!userId) { res.status(401).json({ error: 'Authentication required' }); return }
+  if (!categoryId) { res.status(404).json({ error: 'Built-in category not found' }); return }
+  const category = await prisma.exerciseCategory.findFirst({ where: { id: categoryId, ownerId: null } })
+  if (!category) { res.status(404).json({ error: 'Built-in category not found' }); return }
+  await prisma.userCategoryLabel.deleteMany({ where: { userId, categoryId } })
+  res.status(204).send()
 })
 
 exercisesRouter.delete('/categories/:categoryId', requireAuth, async (req, res) => {

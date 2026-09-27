@@ -71,6 +71,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
   ])
   const totalVolumeKg = setLogs.reduce((total, set) => total + set.weightKg * set.reps, 0)
   const days = activeProgram?.days ?? []
+  const labels = new Map((await prisma.userCategoryLabel.findMany({ where: { userId }, select: { categoryId: true, displayName: true } })).map((label) => [label.categoryId, label.displayName]))
   const nonEmptyDays = days.filter((day) => day.dayExercises.length > 0)
   const latestSessionDay = latestSession?.day
   const latestDayOrder =
@@ -99,7 +100,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
           name: activeProgram.name,
           days: days.map((day) => {
             const categories = new Set(
-              day.dayExercises.map((dayExercise) => dayExercise.exercise.category.displayName),
+              day.dayExercises.map((dayExercise) => labels.get(dayExercise.exercise.category.id) ?? dayExercise.exercise.category.displayName),
             )
 
             return {
@@ -119,7 +120,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
           name: suggestedDay.name,
           badgeColor: suggestedDay.badgeColor,
           exerciseCount: suggestedDay.dayExercises.length,
-          categories: [...new Set(suggestedDay.dayExercises.map((dayExercise) => dayExercise.exercise.category.displayName))],
+          categories: [...new Set(suggestedDay.dayExercises.map((dayExercise) => labels.get(dayExercise.exercise.category.id) ?? dayExercise.exercise.category.displayName))],
         }
       : null,
     recentSessions: recentSessions.map((session) => ({
