@@ -301,7 +301,24 @@ describe('dialog and menu keyboard contract', () => {
     expect(renameBack).toHaveAttribute('data-press', 'icon')
     expect(screen.getByRole('button', { name: 'Reset Back name' })).toHaveAttribute('data-press', 'icon')
     expect(screen.getByRole('button', { name: 'Rename Arms' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Delete Arms' })).toBeInTheDocument()
+    const deleteArms = screen.getByRole('button', { name: 'Delete Arms' })
+    expect(deleteArms).toHaveAttribute('data-press', 'icon')
+
+    deleteArms.focus()
+    fireEvent.click(deleteArms)
+    expect(screen.getByText('Delete Arms?')).toBeInTheDocument()
+    const replacement = screen.getByRole('button', { name: 'Replacement for Arms: Choose replacement category' })
+    expect(replacement).toBeInTheDocument()
+    const deleteAndReassign = screen.getByRole('button', { name: 'Delete and reassign' })
+    expect(deleteAndReassign).toBeDisabled()
+
+    fireEvent.keyDown(replacement, { key: 'ArrowDown' })
+    fireEvent.keyDown(replacement, { key: 'Enter' })
+    expect(screen.getByRole('button', { name: 'Replacement for Arms: Back' })).toBeInTheDocument()
+    expect(deleteAndReassign).toBeEnabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Delete Arms' })).toHaveFocus()
 
     fireEvent.click(renameBack)
     const renameInput = screen.getByRole('textbox', { name: 'Rename Back' })

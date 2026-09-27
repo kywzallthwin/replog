@@ -163,6 +163,8 @@ export function ExercisePickerDialog({
   const newExerciseTriggerRef = useRef<HTMLButtonElement>(null)
   const categoryManagerTriggerRef = useRef<HTMLButtonElement>(null)
   const categoryRenameButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const categoryDeleteButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const pendingCategoryDeleteFocusRef = useRef<string | null>(null)
   const programTabRef = useRef<HTMLButtonElement>(null)
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
   const [source, setSource] = useState<PickerSource>('program')
@@ -205,6 +207,17 @@ export function ExercisePickerDialog({
       if (button instanceof HTMLButtonElement) categoryRenameButtonRefs.current[category.id] = button
     }
   }, [categories, isCategoryManagerOpen])
+
+  useEffect(() => {
+    const categoryId = pendingCategoryDeleteFocusRef.current
+    if (!categoryId || categoryManagerMode === 'delete') return
+
+    const button = categoryDeleteButtonRefs.current[categoryId]
+    if (!button) return
+
+    pendingCategoryDeleteFocusRef.current = null
+    button.focus()
+  }, [categoryManagerMode, selectedCategoryId])
   const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category, variables) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => variables.id ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setRenameDraft(''); setMutationError(''); refreshLibrary(); setSelectedCategoryId(null); setCategoryManagerMode(null); if (variables.id) window.requestAnimationFrame(() => categoryRenameButtonRefs.current[variables.id!]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
   const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement: string }) => deleteCategory(id, replacement), onSuccess: () => { setReplacementId(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
   const resetLabelMutation = useMutation({ mutationFn: resetCategoryLabel, onSuccess: (_data, categoryId) => { setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryRenameButtonRefs.current[categoryId]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to reset category name.')) })
@@ -331,6 +344,14 @@ export function ExercisePickerDialog({
     if (categoryId) window.requestAnimationFrame(() => categoryRenameButtonRefs.current[categoryId]?.focus())
   }
 
+  function closeCategoryDelete() {
+    const categoryId = selectedCategoryId
+    pendingCategoryDeleteFocusRef.current = categoryId
+    setCategoryManagerMode(null)
+    setSelectedCategoryId(null)
+    setReplacementId('')
+  }
+
   return (
     <Dialog
       labelledBy={isNewExerciseOpen ? 'new-exercise-dialog-title' : isCategoryManagerOpen ? 'category-manager-title' : 'exercise-picker-dialog-title'}
@@ -368,10 +389,32 @@ export function ExercisePickerDialog({
                       <button type="button" data-press="icon" data-press-tone="slate" className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20" aria-label={`Cancel rename for ${category.name}`} title={`Cancel rename for ${category.name}`} onClick={closeCategoryEditor}><X size={17} aria-hidden="true" /></button>
                     </form>
                   ) : categoryManagerMode === 'delete' && selectedCategoryId === category.id ? (
-                    <div className="py-1">
-                      <p className="text-sm font-semibold">Delete {category.name}</p>
-                      <select aria-label={`Replacement for ${category.name}`} value={replacementId} onChange={(event) => setReplacementId(event.target.value)} className="mt-2 min-w-0 rounded-lg border px-2 text-sm"><option value="">Choose replacement category</option>{categories.filter((item) => item.id !== category.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-                      <div className="mt-2 flex gap-3"><button disabled={!replacementId || deleteMutation.isPending} className="text-xs font-bold text-red-600" onClick={() => deleteMutation.mutate({ id: category.id, replacement: replacementId })}>Delete and reassign</button><button type="button" className="text-xs" onClick={() => { setCategoryManagerMode(null); setSelectedCategoryId(null); setReplacementId('') }}>Cancel</button></div>
+                    <div className="rounded-[14px] border border-red-100 bg-red-50/60 p-3">
+                      <p className="text-sm font-extrabold text-slate-900">Delete {category.name}?</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">Affected exercises will move to the selected category.</p>
+                      <div className="mt-3">
+                        <FluidSelect
+                          value={replacementId}
+                          options={categories.filter((item) => item.id !== category.id).map((item) => ({ value: item.id, label: item.name }))}
+                          onValueChange={setReplacementId}
+                          ariaLabel={`Replacement for ${category.name}`}
+                          placeholder="Choose replacement category"
+                          disabled={deleteMutation.isPending}
+                        />
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+                        <button
+                          type="button"
+                          data-press="button"
+                          data-press-tone="red"
+                          disabled={!replacementId || deleteMutation.isPending}
+                          className="min-h-11 rounded-xl bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:bg-red-200"
+                          onClick={() => { if (replacementId && !deleteMutation.isPending) deleteMutation.mutate({ id: category.id, replacement: replacementId }) }}
+                        >
+                          {deleteMutation.isPending ? 'Deleting…' : 'Delete and reassign'}
+                        </button>
+                        <button type="button" data-press="button" data-press-tone="slate" className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-not-allowed disabled:text-slate-300" disabled={deleteMutation.isPending} onClick={closeCategoryDelete}>Cancel</button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex min-h-12 items-center gap-3">
@@ -380,7 +423,7 @@ export function ExercisePickerDialog({
                         {category.isCustom ? (
                           <>
                             <button type="button" data-press="icon" data-press-tone="slate" className="grid h-11 w-11 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20" aria-label={`Rename ${category.name}`} title={`Rename ${category.name}`} onClick={() => { setCategoryManagerMode('rename'); setSelectedCategoryId(category.id); setRenameDraft(category.name); setReplacementId('') }}><Pencil size={16} aria-hidden="true" /></button>
-                            <button type="button" data-press="icon" data-press-tone="red" className="grid h-11 w-11 place-items-center rounded-full text-red-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/20" aria-label={`Delete ${category.name}`} title={`Delete ${category.name}`} onClick={() => { setCategoryManagerMode('delete'); setSelectedCategoryId(category.id); setReplacementId(''); setRenameDraft('') }}><Trash2 size={16} aria-hidden="true" /></button>
+                            <button ref={(button) => { categoryDeleteButtonRefs.current[category.id] = button }} type="button" data-press="icon" data-press-tone="red" className="grid h-11 w-11 place-items-center rounded-full text-red-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/20" aria-label={`Delete ${category.name}`} title={`Delete ${category.name}`} onClick={() => { setCategoryManagerMode('delete'); setSelectedCategoryId(category.id); setReplacementId(''); setRenameDraft('') }}><Trash2 size={16} aria-hidden="true" /></button>
                           </>
                         ) : (
                           <>
