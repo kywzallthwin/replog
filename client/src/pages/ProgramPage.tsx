@@ -82,7 +82,7 @@ function formatCategory(category: string) {
 }
 
 function dayCategorySubtitle(day: ProgramDay) {
-  const categories = new Set(day.exercises.map((exercise) => formatCategory(exercise.category)))
+  const categories = new Set(day.exercises.map((exercise) => formatCategory(typeof exercise.category === 'string' ? exercise.category : exercise.category.name)))
 
   return categories.size ? [...categories].join(' + ') : 'No exercises yet'
 }

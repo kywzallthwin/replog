@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client.js";
-import { ExerciseCategory } from "../src/generated/prisma/enums.js";
 
 const databaseUrl = process.env["DATABASE_URL_UNPOOLED"] ?? process.env["DATABASE_URL"];
 
@@ -23,23 +22,23 @@ const demoUser = {
 };
 
 const globalExercises = [
-  { name: "Bench Press", category: ExerciseCategory.CHEST },
-  { name: "Incline Dumbbell Press", category: ExerciseCategory.CHEST },
-  { name: "Cable Fly", category: ExerciseCategory.CHEST },
-  { name: "Lat Pulldown", category: ExerciseCategory.BACK },
-  { name: "Barbell Row", category: ExerciseCategory.BACK },
-  { name: "Seated Cable Row", category: ExerciseCategory.BACK },
-  { name: "Overhead Press", category: ExerciseCategory.SHOULDERS },
-  { name: "Lateral Raise", category: ExerciseCategory.SHOULDERS },
-  { name: "Rear Delt Fly", category: ExerciseCategory.SHOULDERS },
-  { name: "Squat", category: ExerciseCategory.LEGS },
-  { name: "Romanian Deadlift", category: ExerciseCategory.LEGS },
-  { name: "Leg Press", category: ExerciseCategory.LEGS },
-  { name: "Barbell Curl", category: ExerciseCategory.ARMS },
-  { name: "Triceps Pushdown", category: ExerciseCategory.ARMS },
-  { name: "Hammer Curl", category: ExerciseCategory.ARMS },
-  { name: "Cable Crunch", category: ExerciseCategory.CORE },
-  { name: "Plank", category: ExerciseCategory.CORE },
+  { name: "Bench Press", category: 'CHEST' },
+  { name: "Incline Dumbbell Press", category: 'CHEST' },
+  { name: "Cable Fly", category: 'CHEST' },
+  { name: "Lat Pulldown", category: 'BACK' },
+  { name: "Barbell Row", category: 'BACK' },
+  { name: "Seated Cable Row", category: 'BACK' },
+  { name: "Overhead Press", category: 'SHOULDERS' },
+  { name: "Lateral Raise", category: 'SHOULDERS' },
+  { name: "Rear Delt Fly", category: 'SHOULDERS' },
+  { name: "Squat", category: 'QUADS' },
+  { name: "Romanian Deadlift", category: 'HAMSTRINGS' },
+  { name: "Leg Press", category: 'QUADS' },
+  { name: "Barbell Curl", category: 'BICEPS' },
+  { name: "Triceps Pushdown", category: 'TRICEPS' },
+  { name: "Hammer Curl", category: 'BICEPS' },
+  { name: "Cable Crunch", category: 'CORE' },
+  { name: "Plank", category: 'CORE' },
 ];
 
 const exampleDays = [
@@ -81,11 +80,12 @@ const exampleDays = [
   },
 ];
 
-async function getOrCreateGlobalExercise(name: string, category: ExerciseCategory) {
+async function getOrCreateGlobalExercise(name: string, builtInKey: string) {
+  const category = await prisma.exerciseCategory.findUniqueOrThrow({ where: { builtInKey } });
   const existing = await prisma.exercise.findFirst({
     where: {
       name,
-      category,
+      categoryId: category.id,
       ownerId: null,
     },
   });
@@ -97,7 +97,7 @@ async function getOrCreateGlobalExercise(name: string, category: ExerciseCategor
   return prisma.exercise.create({
     data: {
       name,
-      category,
+      categoryId: category.id,
     },
   });
 }
@@ -220,3 +220,4 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
+

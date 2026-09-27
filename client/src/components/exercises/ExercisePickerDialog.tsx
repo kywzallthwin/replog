@@ -1,8 +1,8 @@
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 import { useId, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { createExercise, exercisesQueryKey, type ExerciseCategory, type ExerciseOption } from '../../lib/exercises'
+import { createExercise, exercisesQueryKey, categoriesQueryKey, getCategories, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
 import type { Program } from '../../lib/programs'
 import { FluidSelect } from '../forms/FluidSelect'
 import { Dialog } from '../ui/Dialog'
@@ -31,17 +31,6 @@ type ExercisePickerDialogProps = {
   restoreFocusRef?: RefObject<HTMLElement | null>
 }
 
-const categoryLabels: Record<ExerciseCategory, string> = {
-  CHEST: 'Chest',
-  BACK: 'Back',
-  SHOULDERS: 'Shoulders',
-  LEGS: 'Legs',
-  ARMS: 'Arms',
-  CORE: 'Core',
-}
-
-const categoryOrder: ExerciseCategory[] = ['CHEST', 'BACK', 'SHOULDERS', 'LEGS', 'ARMS', 'CORE']
-
 function getErrorMessage(error: unknown, fallback: string) {
   if (axios.isAxiosError<{ error?: string }>(error)) {
     return error.response?.data?.error ?? fallback
@@ -51,18 +40,20 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 function NewExerciseForm({
+  categories,
   isSaving,
   error,
   onCancel,
   onSubmit,
 }: {
+  categories: CategorySummary[]
   isSaving: boolean
   error?: string
   onCancel: () => void
-  onSubmit: (name: string, category: ExerciseCategory) => void
+  onSubmit: (name: string, categoryId: string) => void
 }) {
   const [name, setName] = useState('')
-  const [category, setCategory] = useState<ExerciseCategory>('CHEST')
+  const [category, setCategory] = useState('')
   const [formError, setFormError] = useState('')
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -74,6 +65,7 @@ function NewExerciseForm({
       return
     }
 
+    if (!category) { setFormError('Choose a category'); return }
     setFormError('')
     onSubmit(trimmedName, category)
   }
@@ -108,8 +100,8 @@ function NewExerciseForm({
           <FluidSelect
             value={category}
             disabled={isSaving}
-            options={categoryOrder.map((option) => ({ value: option, label: categoryLabels[option] }))}
-            onValueChange={(nextCategory) => setCategory(nextCategory as ExerciseCategory)}
+            options={categories.map((option) => ({ value: option.id, label: option.name }))}
+            onValueChange={setCategory}
             ariaLabel="Exercise category"
           />
         </label>
@@ -181,6 +173,8 @@ export function ExercisePickerDialog({
       onCreated(exercise)
     },
   })
+  const categoriesQuery = useQuery({ queryKey: categoriesQueryKey, queryFn: getCategories })
+  const categories = categoriesQuery.data ?? []
 
   const existingIds = new Set(existingExerciseIds)
   const programGroups = [...(program?.days ?? [])]
@@ -209,10 +203,10 @@ export function ExercisePickerDialog({
 
       return { id: day.id, label: day.name, exercises }
     })
-  const allGroups = categoryOrder.map((category) => ({
-    id: category,
-    label: categoryLabels[category],
-    exercises: exerciseOptions.filter((exercise) => exercise.category === category),
+  const allGroups = categories.map((category) => ({
+    id: category.id,
+    label: category.name,
+    exercises: exerciseOptions.filter((exercise) => typeof exercise.category !== 'string' && exercise.category.id === category.id),
   }))
   const groups = source === 'program' ? programGroups : allGroups
   const normalizedSearch = search.trim().toLowerCase()
@@ -220,7 +214,7 @@ export function ExercisePickerDialog({
     .map((group) => ({
       ...group,
       exercises: group.exercises.filter((exercise) =>
-        `${exercise.name} ${categoryLabels[exercise.category]}`.toLowerCase().includes(normalizedSearch),
+        `${exercise.name} ${typeof exercise.category === 'string' ? exercise.category : exercise.category.name}`.toLowerCase().includes(normalizedSearch),
       ),
     }))
     .filter((group) => group.exercises.length > 0)
@@ -260,8 +254,8 @@ export function ExercisePickerDialog({
     nextTabRef.current?.focus()
   }
 
-  function handleCreate(name: string, category: ExerciseCategory) {
-    createMutation.mutate({ name, category })
+  function handleCreate(name: string, categoryId: string) {
+    createMutation.mutate({ name, categoryId })
   }
 
   function closeNewExercise() {
@@ -299,6 +293,7 @@ export function ExercisePickerDialog({
     >
       {isNewExerciseOpen ? (
         <NewExerciseForm
+          categories={categories}
           isSaving={createMutation.isPending}
           error={createMutation.isError ? getErrorMessage(createMutation.error, 'Unable to save exercise. Please try again.') : undefined}
           onCancel={closeNewExercise}

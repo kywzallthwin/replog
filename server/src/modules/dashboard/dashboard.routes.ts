@@ -5,10 +5,6 @@ import { createStarterProgramForUser } from '../programs/starterProgram.js'
 
 export const dashboardRouter = Router()
 
-function formatCategory(category: string) {
-  return category.charAt(0) + category.slice(1).toLowerCase()
-}
-
 dashboardRouter.get('/', requireAuth, async (req, res) => {
   const userId = req.userId
 
@@ -30,7 +26,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
         include: {
           dayExercises: {
             orderBy: { order: 'asc' },
-            include: { exercise: true },
+            include: { exercise: { include: { category: true } } },
           },
         },
       },
@@ -103,7 +99,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
           name: activeProgram.name,
           days: days.map((day) => {
             const categories = new Set(
-              day.dayExercises.map((dayExercise) => formatCategory(dayExercise.exercise.category)),
+              day.dayExercises.map((dayExercise) => dayExercise.exercise.category.displayName),
             )
 
             return {
@@ -123,7 +119,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
           name: suggestedDay.name,
           badgeColor: suggestedDay.badgeColor,
           exerciseCount: suggestedDay.dayExercises.length,
-          categories: [...new Set(suggestedDay.dayExercises.map((dayExercise) => formatCategory(dayExercise.exercise.category)))],
+          categories: [...new Set(suggestedDay.dayExercises.map((dayExercise) => dayExercise.exercise.category.displayName))],
         }
       : null,
     recentSessions: recentSessions.map((session) => ({

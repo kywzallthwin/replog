@@ -19,7 +19,7 @@ export type DayExerciseItem = {
   id: string
   exerciseId: string
   name: string
-  category: ExerciseCategory
+  category: ExerciseCategory | { id: string; name: string; isCustom: boolean }
   order: number
 }
 

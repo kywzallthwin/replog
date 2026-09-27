@@ -15,6 +15,7 @@ This file is the ticket index. Read only the active ticket named in `STATUS.md`.
 - [W2-10](tickets/W2-10.md): proposed - estimated 1RM guide route
 - [W2-11](tickets/W2-11.md): proposed - Wave 2 integration and mobile acceptance gate
 - [W2-12](tickets/W2-12.md): done - remove workout-level notes
+- [W2-13](tickets/W2-13.md): done - editable exercise categories
 
 ## Implementation Order
 

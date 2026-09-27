@@ -1,24 +1,23 @@
-import { ExerciseCategory } from '../../generated/prisma/enums.js'
 import { prisma } from '../../prisma.js'
 
 export const globalExercises = [
-  { name: 'Bench Press', category: ExerciseCategory.CHEST },
-  { name: 'Incline Dumbbell Press', category: ExerciseCategory.CHEST },
-  { name: 'Cable Fly', category: ExerciseCategory.CHEST },
-  { name: 'Lat Pulldown', category: ExerciseCategory.BACK },
-  { name: 'Barbell Row', category: ExerciseCategory.BACK },
-  { name: 'Seated Cable Row', category: ExerciseCategory.BACK },
-  { name: 'Overhead Press', category: ExerciseCategory.SHOULDERS },
-  { name: 'Lateral Raise', category: ExerciseCategory.SHOULDERS },
-  { name: 'Rear Delt Fly', category: ExerciseCategory.SHOULDERS },
-  { name: 'Squat', category: ExerciseCategory.LEGS },
-  { name: 'Romanian Deadlift', category: ExerciseCategory.LEGS },
-  { name: 'Leg Press', category: ExerciseCategory.LEGS },
-  { name: 'Barbell Curl', category: ExerciseCategory.ARMS },
-  { name: 'Triceps Pushdown', category: ExerciseCategory.ARMS },
-  { name: 'Hammer Curl', category: ExerciseCategory.ARMS },
-  { name: 'Cable Crunch', category: ExerciseCategory.CORE },
-  { name: 'Plank', category: ExerciseCategory.CORE },
+  { name: 'Bench Press', category: 'CHEST' },
+  { name: 'Incline Dumbbell Press', category: 'CHEST' },
+  { name: 'Cable Fly', category: 'CHEST' },
+  { name: 'Lat Pulldown', category: 'BACK' },
+  { name: 'Barbell Row', category: 'BACK' },
+  { name: 'Seated Cable Row', category: 'BACK' },
+  { name: 'Overhead Press', category: 'SHOULDERS' },
+  { name: 'Lateral Raise', category: 'SHOULDERS' },
+  { name: 'Rear Delt Fly', category: 'SHOULDERS' },
+  { name: 'Squat', category: 'QUADS' },
+  { name: 'Romanian Deadlift', category: 'HAMSTRINGS' },
+  { name: 'Leg Press', category: 'QUADS' },
+  { name: 'Barbell Curl', category: 'BICEPS' },
+  { name: 'Triceps Pushdown', category: 'TRICEPS' },
+  { name: 'Hammer Curl', category: 'BICEPS' },
+  { name: 'Cable Crunch', category: 'CORE' },
+  { name: 'Plank', category: 'CORE' },
 ] as const
 
 export type ProgramTemplate = {
@@ -142,11 +141,12 @@ export function normalizeProgramName(name: string) {
   return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 }
 
-async function getOrCreateGlobalExercise(db: typeof prisma, name: string, category: ExerciseCategory) {
+async function getOrCreateGlobalExercise(db: typeof prisma, name: string, builtInKey: string) {
+  const category = await db.exerciseCategory.findUniqueOrThrow({ where: { builtInKey } })
   const existing = await db.exercise.findFirst({
     where: {
       name,
-      category,
+      categoryId: category.id,
       ownerId: null,
     },
   })
@@ -158,7 +158,7 @@ async function getOrCreateGlobalExercise(db: typeof prisma, name: string, catego
   return db.exercise.create({
     data: {
       name,
-      category,
+      categoryId: category.id,
     },
   })
 }

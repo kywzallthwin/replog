@@ -19,7 +19,7 @@ const fullProgramInclude = {
     include: {
       dayExercises: {
         orderBy: { order: 'asc' as const },
-        include: { exercise: true },
+        include: { exercise: { include: { category: true } } },
       },
     },
   },
@@ -38,7 +38,7 @@ type FullProgram = {
       id: string
       exerciseId: string
       order: number
-      exercise: { name: string; category: string }
+      exercise: { name: string; category?: { displayName: string; id: string; ownerId: string | null } }
     }>
   }>
 }
@@ -52,7 +52,7 @@ function toDayExercisePayload(dayExercise: FullProgram['days'][number]['dayExerc
     id: dayExercise.id,
     exerciseId: dayExercise.exerciseId,
     name: dayExercise.exercise.name,
-    category: dayExercise.exercise.category,
+    category: dayExercise.exercise.category ? { id: dayExercise.exercise.category.id, name: dayExercise.exercise.category.displayName, isCustom: dayExercise.exercise.category.ownerId !== null } : null,
     order: dayExercise.order,
   }
 }
@@ -617,7 +617,7 @@ programsRouter.post('/:programId/days/:dayId/exercises', requireAuth, async (req
   const latestDayExercise = await prisma.dayExercise.findFirst({ where: { dayId }, orderBy: { order: 'desc' } })
   const dayExercise = await prisma.dayExercise.create({
     data: { dayId, exerciseId: exercise.id, order: (latestDayExercise?.order ?? 0) + 1 },
-    include: { exercise: true },
+        include: { exercise: { include: { category: true } } },
   })
 
   res.status(201).json({ exercise: toDayExercisePayload({ ...dayExercise, exercise: dayExercise.exercise }) })

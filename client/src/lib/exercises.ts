@@ -1,19 +1,23 @@
 import { api } from './api'
 
-export type ExerciseCategory = 'CHEST' | 'BACK' | 'SHOULDERS' | 'LEGS' | 'ARMS' | 'CORE'
+export type CategorySummary = { id: string; name: string; isCustom: boolean }
+/** Legacy payloads from older fixtures may still contain a category key. */
+export type ExerciseCategory = string
 
 export type ExerciseOption = {
   id: string
   name: string
-  category: ExerciseCategory
+  category: CategorySummary | string
   isCustom?: boolean
 }
 
 type ExercisesResponse = {
   exercises: ExerciseOption[]
 }
+type CategoriesResponse = { categories: CategorySummary[] }
 
 export const exercisesQueryKey = ['exercises'] as const
+export const categoriesQueryKey = ['exercise-categories'] as const
 
 export async function getExercises() {
   const response = await api.get<ExercisesResponse>('/exercises')
@@ -21,9 +25,33 @@ export async function getExercises() {
   return response.data.exercises
 }
 
+export async function getCategories() {
+  const response = await api.get<CategoriesResponse>('/exercises/categories')
+  return response.data.categories
+}
+
+export async function createCategory(name: string) {
+  const response = await api.post<{ category: CategorySummary }>('/exercises/categories', { name })
+  return response.data.category
+}
+
+export async function renameCategory(categoryId: string, name: string) {
+  const response = await api.patch<{ category: CategorySummary }>(`/exercises/categories/${categoryId}`, { name })
+  return response.data.category
+}
+
+export async function deleteCategory(categoryId: string, replacementCategoryId?: string) {
+  await api.delete(`/exercises/categories/${categoryId}`, { params: replacementCategoryId ? { replacementCategoryId } : undefined })
+}
+
+export async function recategorizeExercise(exerciseId: string, categoryId: string) {
+  const response = await api.patch<ExerciseResponse>(`/exercises/${exerciseId}/category`, { categoryId })
+  return response.data.exercise
+}
+
 export type CreateExerciseInput = {
   name: string
-  category: ExerciseCategory
+  categoryId: string
 }
 
 type ExerciseResponse = {

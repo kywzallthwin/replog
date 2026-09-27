@@ -5,10 +5,6 @@ import { requireAuth } from '../auth/auth.middleware.js'
 
 export const progressRouter = Router()
 
-function formatCategory(category: string) {
-  return category.charAt(0) + category.slice(1).toLowerCase()
-}
-
 progressRouter.get('/', requireAuth, async (req, res) => {
   const userId = req.userId
   const requestedExerciseId = typeof req.query.exerciseId === 'string' ? req.query.exerciseId : null
@@ -30,7 +26,7 @@ progressRouter.get('/', requireAuth, async (req, res) => {
     include: {
       sessionExercise: {
         include: {
-          exercise: true,
+          exercise: { include: { category: true } },
           session: true,
         },
       },
@@ -44,7 +40,7 @@ progressRouter.get('/', requireAuth, async (req, res) => {
     exerciseMap.set(setLog.sessionExercise.exerciseId, {
       id: setLog.sessionExercise.exerciseId,
       name: setLog.sessionExercise.exercise.name,
-      category: formatCategory(setLog.sessionExercise.exercise.category),
+      category: setLog.sessionExercise.exercise.category.displayName,
     })
   }
 
