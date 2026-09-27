@@ -116,8 +116,8 @@ function workoutSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession
 }
 
 const exerciseOptions: ExerciseOption[] = [
-  { id: 'bench', name: 'Bench Press', category: 'CHEST' },
-  { id: 'row', name: 'Barbell Row', category: 'BACK' },
+  { id: 'bench', name: 'Bench Press', category: { id: 'category-chest', name: 'Chest', isCustom: false } },
+  { id: 'row', name: 'Barbell Row', category: { id: 'category-back', name: 'Back', isCustom: false } },
 ]
 
 const activeProgram: Program = {

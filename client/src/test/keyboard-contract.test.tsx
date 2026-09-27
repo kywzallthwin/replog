@@ -230,6 +230,7 @@ describe('dialog and menu keyboard contract', () => {
 
   it('gives the custom exercise form the active picker dialog contract', () => {
     const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['exercise-categories'], [{ id: 'category-back', name: 'Back', isCustom: false }])
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -261,5 +262,83 @@ describe('dialog and menu keyboard contract', () => {
     fireEvent.keyDown(dialog, { key: 'Escape' })
 
     expect(screen.getByRole('dialog', { name: 'Choose an exercise' })).toBeInTheDocument()
+  })
+
+  it('uses the shared secondary-button interaction styling for category controls', () => {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['exercise-categories'], [
+      { id: 'category-back', name: 'Back', isCustom: false, isOverridden: true },
+      { id: 'category-arms', name: 'Arms', isCustom: true },
+    ])
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExercisePickerDialog
+          mode="add"
+          exerciseOptions={[]}
+          program={null}
+          existingExerciseIds={[]}
+          selectedExerciseId=""
+          isOptionsPending={false}
+          isOptionsError={false}
+          isSaving={false}
+          onSelectedExercise={vi.fn()}
+          onConfirm={vi.fn()}
+          onClose={vi.fn()}
+          onCreated={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    const manageCategories = screen.getByRole('button', { name: 'Manage categories' })
+    expect(manageCategories).toHaveClass('bg-white', 'border-slate-200', 'text-slate-500', 'transition', 'hover:bg-slate-50', 'disabled:cursor-not-allowed', 'disabled:text-slate-300')
+
+    fireEvent.click(manageCategories)
+
+    expect(screen.queryByText('Rename for me')).not.toBeInTheDocument()
+    const renameBack = screen.getByRole('button', { name: 'Rename Back' })
+    expect(renameBack).toHaveAttribute('title', 'Rename Back')
+    expect(renameBack).toHaveAttribute('data-press', 'icon')
+    expect(screen.getByRole('button', { name: 'Reset Back name' })).toHaveAttribute('data-press', 'icon')
+    expect(screen.getByRole('button', { name: 'Rename Arms' })).toBeInTheDocument()
+    const deleteArms = screen.getByRole('button', { name: 'Delete Arms' })
+    expect(deleteArms).toHaveAttribute('data-press', 'icon')
+
+    deleteArms.focus()
+    fireEvent.click(deleteArms)
+    expect(screen.getByText('Delete Arms?')).toBeInTheDocument()
+    const replacement = screen.getByRole('button', { name: 'Replacement for Arms: Choose replacement category' })
+    expect(replacement).toBeInTheDocument()
+    const deleteAndReassign = screen.getByRole('button', { name: 'Delete and reassign' })
+    expect(deleteAndReassign).toBeDisabled()
+
+    fireEvent.keyDown(replacement, { key: 'ArrowDown' })
+    fireEvent.keyDown(replacement, { key: 'Enter' })
+    expect(screen.getByRole('button', { name: 'Replacement for Arms: Back' })).toBeInTheDocument()
+    expect(deleteAndReassign).toBeEnabled()
+
+    fireEvent.click(deleteAndReassign)
+    const confirmation = screen.getByRole('alertdialog', { name: 'Delete Arms?' })
+    expect(confirmation).toHaveTextContent('reassigned to Back')
+    expect(confirmation).toHaveTextContent('cannot be undone')
+    expect(screen.getByRole('button', { name: 'Delete category' })).toBeInTheDocument()
+
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog', { name: 'Delete Arms?' })).not.toBeInTheDocument()
+    expect(deleteAndReassign).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Replacement for Arms: Back' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Delete Arms' })).toHaveFocus()
+
+    fireEvent.click(renameBack)
+    const renameInput = screen.getByRole('textbox', { name: 'Rename Back' })
+    expect(renameInput).toHaveValue('Back')
+    expect(renameInput).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Save rename for Back' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Cancel rename for Back' })).toBeInTheDocument()
+
+    const done = screen.getByRole('button', { name: 'Done' })
+    expect(done).toHaveClass('bg-white', 'border-slate-200', 'text-slate-500', 'transition', 'hover:bg-slate-50')
   })
 })

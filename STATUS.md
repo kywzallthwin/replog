@@ -2,9 +2,10 @@
 
 - Active initiative: Wave 2 mockup feature completion.
 - Governing plan: `WAVE2.md`.
-- Current ticket: W2-03 (`in progress`), tracked in `tickets/W2-03.md`.
+- Current ticket: W2-13 (`in progress`), tracked in `tickets/W2-13.md`.
+- Sequencing exception: W2-13 was reopened after review; W2-03 is returned to `ready` pending W2-13 completion.
 - Explicit user sequencing override: the Cloudflare migration and CF-05 production cutover are paused, not complete, while W2-03 proceeds.
-- W2-12 removed the superseded workout-level notes feature; W2-03 is restored to active development.
+- W2-12 removed the superseded workout-level notes feature; W2-13 review found missing category-management UI and strict client category contracts, now addressed pending verification.
 - W2-02 always-visible previous-workout references are complete, committed, and independently reviewed with no functional defects found.
 - CF-01 Worker implementation and verification are complete.
 - CF-02 server implementation and database-backed tests are complete; 19 server tests pass.

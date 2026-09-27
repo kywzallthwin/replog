@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
 import { createStarterProgramForUser, createProgramFromDays, normalizeProgramName, programTemplates } from './starterProgram.js'
+import { loadCategoryLabels } from '../exercises/categoryLabels.js'
 import {
   createDaySchema,
   createProgramSchema,
@@ -19,7 +20,7 @@ const fullProgramInclude = {
     include: {
       dayExercises: {
         orderBy: { order: 'asc' as const },
-        include: { exercise: true },
+        include: { exercise: { include: { category: true } } },
       },
     },
   },
@@ -38,7 +39,7 @@ type FullProgram = {
       id: string
       exerciseId: string
       order: number
-      exercise: { name: string; category: string }
+      exercise: { name: string; category?: { displayName: string; id: string; ownerId: string | null } }
     }>
   }>
 }
@@ -47,32 +48,32 @@ function isUniqueConstraintError(error: unknown) {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002'
 }
 
-function toDayExercisePayload(dayExercise: FullProgram['days'][number]['dayExercises'][number]) {
+function toDayExercisePayload(dayExercise: FullProgram['days'][number]['dayExercises'][number], labels: Map<string, string>) {
   return {
     id: dayExercise.id,
     exerciseId: dayExercise.exerciseId,
     name: dayExercise.exercise.name,
-    category: dayExercise.exercise.category,
+    category: dayExercise.exercise.category ? { id: dayExercise.exercise.category.id, name: labels.get(dayExercise.exercise.category.id) ?? dayExercise.exercise.category.displayName, isCustom: dayExercise.exercise.category.ownerId !== null } : null,
     order: dayExercise.order,
   }
 }
 
-function toDayPayload(day: FullProgram['days'][number]) {
+function toDayPayload(day: FullProgram['days'][number], labels: Map<string, string>) {
   return {
     id: day.id,
     name: day.name,
     badgeColor: day.badgeColor,
     order: day.order,
-    exercises: day.dayExercises.map(toDayExercisePayload),
+    exercises: day.dayExercises.map((exercise) => toDayExercisePayload(exercise, labels)),
   }
 }
 
-function toProgramPayload(program: FullProgram) {
+function toProgramPayload(program: FullProgram, labels: Map<string, string>) {
   return {
     id: program.id,
     name: program.name,
     isActive: program.isActive,
-    days: program.days.map(toDayPayload),
+    days: program.days.map((day) => toDayPayload(day, labels)),
   }
 }
 
@@ -151,7 +152,8 @@ programsRouter.get('/active', requireAuth, async (req, res) => {
   await createStarterProgramForUser(userId)
   const activeProgram = await getFullOwnedProgram('active', userId)
 
-  res.json({ program: activeProgram ? toProgramPayload(activeProgram as FullProgram) : null })
+  const labels = new Map((await prisma.userCategoryLabel.findMany({ where: { userId }, select: { categoryId: true, displayName: true } })).map((label) => [label.categoryId, label.displayName]))
+  res.json({ program: activeProgram ? toProgramPayload(activeProgram as FullProgram, labels) : null })
 })
 
 programsRouter.get('/:programId', requireAuth, async (req, res) => {
@@ -175,7 +177,8 @@ programsRouter.get('/:programId', requireAuth, async (req, res) => {
     return
   }
 
-  res.json({ program: toProgramPayload(program as FullProgram) })
+  const labels = new Map((await prisma.userCategoryLabel.findMany({ where: { userId }, select: { categoryId: true, displayName: true } })).map((label) => [label.categoryId, label.displayName]))
+  res.json({ program: toProgramPayload(program as FullProgram, labels) })
 })
 
 programsRouter.post('/', requireAuth, async (req, res) => {
@@ -282,7 +285,8 @@ programsRouter.post('/', requireAuth, async (req, res) => {
     })
 
     const program = await getFullProgramById(createdProgram.id, userId)
-    res.status(201).json({ program: program ? toProgramPayload(program as FullProgram) : null })
+    const labels = await loadCategoryLabels(userId)
+    res.status(201).json({ program: program ? toProgramPayload(program as FullProgram, labels) : null })
   } catch (error) {
     if (error instanceof Error && error.message === 'TEMPLATE_NOT_FOUND') {
       res.status(404).json({ error: 'Program template not found' })
@@ -349,7 +353,8 @@ programsRouter.patch('/:programId', requireAuth, async (req, res) => {
   }
 
   const program = await getFullProgramById(programId, userId)
-  res.json({ program: program ? toProgramPayload(program as FullProgram) : null })
+  const labels = await loadCategoryLabels(userId)
+  res.json({ program: program ? toProgramPayload(program as FullProgram, labels) : null })
 })
 
 programsRouter.post('/:programId/activate', requireAuth, async (req, res) => {
@@ -392,7 +397,8 @@ programsRouter.post('/:programId/activate', requireAuth, async (req, res) => {
   })
 
   const activatedProgram = await getFullProgramById(programId, userId)
-  res.json({ program: activatedProgram ? toProgramPayload(activatedProgram as FullProgram) : null })
+  const labels = await loadCategoryLabels(userId)
+  res.json({ program: activatedProgram ? toProgramPayload(activatedProgram as FullProgram, labels) : null })
 })
 
 programsRouter.delete('/:programId', requireAuth, async (req, res) => {
@@ -468,10 +474,11 @@ programsRouter.post('/:programId/days', requireAuth, async (req, res) => {
       badgeColor: parsedBody.data.badgeColor,
       order: (latestDay?.order ?? 0) + 1,
     },
-    include: { dayExercises: { orderBy: { order: 'asc' }, include: { exercise: true } } },
+    include: { dayExercises: { orderBy: { order: 'asc' }, include: { exercise: { include: { category: true } } } } },
   })
 
-  res.status(201).json({ day: toDayPayload(day as FullProgram['days'][number]) })
+  const labels = await loadCategoryLabels(userId)
+  res.status(201).json({ day: toDayPayload(day as FullProgram['days'][number], labels) })
 })
 
 programsRouter.patch('/:programId/days/:dayId', requireAuth, async (req, res) => {
@@ -517,10 +524,11 @@ programsRouter.patch('/:programId/days/:dayId', requireAuth, async (req, res) =>
       ...(parsedBody.data.name !== undefined ? { name: parsedBody.data.name } : {}),
       ...(parsedBody.data.badgeColor !== undefined ? { badgeColor: parsedBody.data.badgeColor } : {}),
     },
-    include: { dayExercises: { orderBy: { order: 'asc' }, include: { exercise: true } } },
+    include: { dayExercises: { orderBy: { order: 'asc' }, include: { exercise: { include: { category: true } } } } },
   })
 
-  res.json({ day: toDayPayload(updatedDay as FullProgram['days'][number]) })
+  const labels = await loadCategoryLabels(userId)
+  res.json({ day: toDayPayload(updatedDay as FullProgram['days'][number], labels) })
 })
 
 programsRouter.delete('/:programId/days/:dayId', requireAuth, async (req, res) => {
@@ -617,10 +625,11 @@ programsRouter.post('/:programId/days/:dayId/exercises', requireAuth, async (req
   const latestDayExercise = await prisma.dayExercise.findFirst({ where: { dayId }, orderBy: { order: 'desc' } })
   const dayExercise = await prisma.dayExercise.create({
     data: { dayId, exerciseId: exercise.id, order: (latestDayExercise?.order ?? 0) + 1 },
-    include: { exercise: true },
+        include: { exercise: { include: { category: true } } },
   })
 
-  res.status(201).json({ exercise: toDayExercisePayload({ ...dayExercise, exercise: dayExercise.exercise }) })
+  const labels = await loadCategoryLabels(userId)
+  res.status(201).json({ exercise: toDayExercisePayload({ ...dayExercise, exercise: dayExercise.exercise }, labels) })
 })
 
 programsRouter.delete('/:programId/days/:dayId/exercises/:dayExerciseId', requireAuth, async (req, res) => {
@@ -700,7 +709,7 @@ programsRouter.patch('/:programId/days/:dayId/exercises/:dayExerciseId/reorder',
   const exercisesInDay = await prisma.dayExercise.findMany({
     where: { dayId },
     orderBy: { order: 'asc' },
-    include: { exercise: true },
+    include: { exercise: { include: { category: true } } },
   })
   const sourceIndex = exercisesInDay.findIndex((exercise) => exercise.id === target.id)
   const targetIndex = parsedBody.data.targetIndex
@@ -732,7 +741,8 @@ programsRouter.patch('/:programId/days/:dayId/exercises/:dayExerciseId/reorder',
     })
   }
 
+  const labels = await loadCategoryLabels(userId)
   res.json({
-    exercises: reordered.map((exercise, index) => toDayExercisePayload({ ...exercise, order: index + 1 })),
+    exercises: reordered.map((exercise, index) => toDayExercisePayload({ ...exercise, order: index + 1 }, labels)),
   })
 })
