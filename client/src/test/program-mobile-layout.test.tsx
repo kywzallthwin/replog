@@ -18,6 +18,7 @@ describe('program mobile layout contract', () => {
 
   it('wraps long picker names instead of clipping them', () => {
     const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['exercise-categories'], [{ id: 'category-back', name: 'Back', isCustom: false }])
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -60,6 +61,7 @@ describe('program mobile layout contract', () => {
 
   it('describes a program with empty days as empty rather than no search matches', () => {
     const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['exercise-categories'], [{ id: 'category-back', name: 'Back', isCustom: false }])
 
     render(
       <QueryClientProvider client={queryClient}>

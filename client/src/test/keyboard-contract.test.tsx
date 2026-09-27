@@ -230,6 +230,7 @@ describe('dialog and menu keyboard contract', () => {
 
   it('gives the custom exercise form the active picker dialog contract', () => {
     const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['exercise-categories'], [{ id: 'category-back', name: 'Back', isCustom: false }])
 
     render(
       <QueryClientProvider client={queryClient}>

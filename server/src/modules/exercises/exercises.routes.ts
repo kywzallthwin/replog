@@ -149,7 +149,12 @@ exercisesRouter.delete('/categories/:categoryId/label', requireAuth, async (req,
   if (!categoryId) { res.status(404).json({ error: 'Built-in category not found' }); return }
   const category = await prisma.exerciseCategory.findFirst({ where: { id: categoryId, ownerId: null } })
   if (!category) { res.status(404).json({ error: 'Built-in category not found' }); return }
-  await prisma.userCategoryLabel.deleteMany({ where: { userId, categoryId } })
+  const label = await prisma.userCategoryLabel.findUnique({ where: { userId_categoryId: { userId, categoryId } } })
+  if (!label) { res.status(204).send(); return }
+  if (await hasCategoryNameConflict(userId, category.displayName, categoryId)) {
+    res.status(409).json({ error: 'A category with this name already exists' }); return
+  }
+  await prisma.userCategoryLabel.delete({ where: { userId_categoryId: { userId, categoryId } } })
   res.status(204).send()
 })
 

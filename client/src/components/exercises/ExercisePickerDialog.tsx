@@ -1,5 +1,5 @@
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { createCategory, createExercise, deleteCategory, exercisesQueryKey, categoriesQueryKey, getCategories, recategorizeExercise, renameCategory, resetCategoryLabel, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
@@ -10,6 +10,8 @@ import { FluidSelect } from '../forms/FluidSelect'
 import { Dialog } from '../ui/Dialog'
 
 type PickerSource = 'program' | 'all'
+
+const EMPTY_CATEGORIES: CategorySummary[] = []
 
 type ExercisePickerDialogProps = {
   mode: 'add' | 'swap'
@@ -159,6 +161,7 @@ export function ExercisePickerDialog({
   const pickerId = useId()
   const newExerciseTriggerRef = useRef<HTMLButtonElement>(null)
   const categoryManagerTriggerRef = useRef<HTMLButtonElement>(null)
+  const categoryRenameButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const programTabRef = useRef<HTMLButtonElement>(null)
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
   const [source, setSource] = useState<PickerSource>('program')
@@ -192,10 +195,18 @@ export function ExercisePickerDialog({
     },
   })
   const categoriesQuery = useQuery({ queryKey: categoriesQueryKey, queryFn: getCategories })
-  const categories = categoriesQuery.data ?? []
-  const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category, variables) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => variables.id ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setRenameDraft(''); setMutationError(''); refreshLibrary(); setSelectedCategoryId(null); setCategoryManagerMode(null) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
+  const categories = categoriesQuery.data ?? EMPTY_CATEGORIES
+  useEffect(() => {
+    if (!isCategoryManagerOpen) return
+    for (const category of categories) {
+      const name = Array.from(document.querySelectorAll('span')).find((element) => element.textContent === category.name)
+      const button = name?.parentElement?.querySelector('button')
+      if (button instanceof HTMLButtonElement) categoryRenameButtonRefs.current[category.id] = button
+    }
+  }, [categories, isCategoryManagerOpen])
+  const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category, variables) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => variables.id ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setRenameDraft(''); setMutationError(''); refreshLibrary(); setSelectedCategoryId(null); setCategoryManagerMode(null); if (variables.id) window.requestAnimationFrame(() => categoryRenameButtonRefs.current[variables.id!]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
   const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement: string }) => deleteCategory(id, replacement), onSuccess: () => { setReplacementId(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
-  const resetLabelMutation = useMutation({ mutationFn: resetCategoryLabel, onSuccess: () => { setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to reset category name.')) })
+  const resetLabelMutation = useMutation({ mutationFn: resetCategoryLabel, onSuccess: (_data, categoryId) => { setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryRenameButtonRefs.current[categoryId]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to reset category name.')) })
   const recategorizeMutation = useMutation({ mutationFn: ({ exerciseId, categoryId }: { exerciseId: string; categoryId: string }) => recategorizeExercise(exerciseId, categoryId), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to change category.')) })
 
   const existingIds = new Set(existingExerciseIds)
@@ -413,7 +424,7 @@ export function ExercisePickerDialog({
               ) : null}
               {source === 'all' && categoriesQuery.isPending ? <p role="status" className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">Loading categories...</p> : null}
               {source === 'all' && categoriesQuery.isError ? <div className="rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700"><p>Unable to load categories.</p><button className="mt-2 font-bold underline" onClick={() => void categoriesQuery.refetch()}>Retry</button></div> : null}
-               {!isSourcePending && !isSourceError && !categoriesQuery.isPending && !categoriesQuery.isError && visibleGroups.length === 0 ? (
+               {!isSourcePending && !isSourceError && (source === 'program' || (!categoriesQuery.isPending && !categoriesQuery.isError)) && visibleGroups.length === 0 ? (
                  <p role="status" aria-live="polite" className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
                    {!hasSourceExercises
                      ? source === 'program' ? 'Your Program has no exercises yet.' : 'No exercises are available.'
