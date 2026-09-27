@@ -97,6 +97,9 @@ const testEnvironment = {
   DATABASE_URL_UNPOOLED: testDatabaseUrl,
   JWT_SECRET: 'replog-test-secret-at-least-16-characters',
   CLIENT_URL: 'http://127.0.0.1:5173',
+  SERVE_CLIENT: 'false',
+  REQUIRE_EDGE_PROXY: 'false',
+  ADDITIONAL_CLIENT_ORIGINS: '',
   DOTENV_CONFIG_PATH: emptyEnvFile,
   DOTENV_CONFIG_QUIET: 'true',
 }

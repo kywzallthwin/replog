@@ -2,13 +2,19 @@ import { apiBaseUrl } from '../../lib/api'
 
 type GoogleButtonProps = {
   label: string
+  disabled?: boolean
 }
 
-export function GoogleButton({ label }: GoogleButtonProps) {
+export function GoogleButton({ label, disabled = false }: GoogleButtonProps) {
   return (
     <a
       href={`${apiBaseUrl}/auth/google`}
-      className="flex w-full items-center justify-center gap-3 rounded-[13px] border border-[#dadce0] bg-white px-5 py-[13px] text-[15px] font-medium text-[#3c4043] shadow-[0_1px_3px_rgba(60,64,67,0.12),0_2px_6px_rgba(60,64,67,0.06)] transition hover:bg-slate-50"
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : undefined}
+      onClick={(event) => {
+        if (disabled) event.preventDefault()
+      }}
+      className="flex min-h-11 w-full items-center justify-center gap-3 rounded-[13px] border border-[#dadce0] bg-white px-5 py-[13px] text-[15px] font-medium text-[#3c4043] shadow-[0_1px_3px_rgba(60,64,67,0.12),0_2px_6px_rgba(60,64,67,0.06)] transition hover:bg-slate-50 aria-disabled:pointer-events-none aria-disabled:opacity-60"
     >
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
         <path

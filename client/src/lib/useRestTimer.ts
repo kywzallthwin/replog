@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 const defaultRestSeconds = 90
 
 export type RestTimerSessionStatus = 'loading' | 'active' | 'completed'
+export type RestTimerState = 'idle' | 'running' | 'expired'
 
 function getStorageKey(sessionId: string) {
   return `replog:rest-timer:${sessionId}`
@@ -72,6 +73,11 @@ export function useRestTimer(sessionId: string | undefined, sessionStatus: RestT
   }, [endAt, sessionId, sessionStatus])
 
   const remainingSeconds = endAt === null ? null : Math.max(0, Math.ceil((endAt - now) / 1000))
+  const state: RestTimerState = endAt === null
+    ? 'idle'
+    : remainingSeconds === 0
+      ? 'expired'
+      : 'running'
 
   function persist(nextEndAt: number | null) {
     if (!sessionId) {
@@ -102,8 +108,9 @@ export function useRestTimer(sessionId: string | undefined, sessionStatus: RestT
   }
 
   return {
+    state,
     remainingSeconds,
-    formatted: remainingSeconds === null ? null : formatRestDuration(remainingSeconds),
+    formatted: formatRestDuration(state === 'idle' ? defaultRestSeconds : remainingSeconds ?? 0),
     start,
     addSeconds,
     skip,

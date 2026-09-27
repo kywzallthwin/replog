@@ -29,6 +29,7 @@ export function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({})
   const [error, setError] = useState(() => getGoogleError(searchParams.get('google_error')))
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const emailInputRef = useRef<HTMLInputElement>(null)
   const passwordInputRef = useRef<HTMLInputElement>(null)
 
@@ -59,12 +60,14 @@ export function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submittingRef.current) return
     setError('')
 
     if (!validateForm()) {
       return
     }
 
+    submittingRef.current = true
     setIsSubmitting(true)
 
     try {
@@ -84,6 +87,7 @@ export function LoginPage() {
 
       setError('Unable to log in')
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }
@@ -178,7 +182,7 @@ export function LoginPage() {
       </div>
 
       <div className="mb-5">
-        <GoogleButton label="Continue with Google" />
+           <GoogleButton label="Continue with Google" disabled={isSubmitting} />
       </div>
 
       <p className="text-center text-sm text-slate-500">

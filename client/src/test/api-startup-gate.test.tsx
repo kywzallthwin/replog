@@ -2,12 +2,14 @@ import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiStartupGate } from '../components/startup/ApiStartupGate'
 import { waitForApiReadiness } from '../lib/apiReadiness'
+import { resetApiAvailability } from '../lib/apiAvailability'
 
 vi.mock('../lib/apiReadiness', () => ({ waitForApiReadiness: vi.fn() }))
 const mockedReadiness = vi.mocked(waitForApiReadiness)
 
 describe('ApiStartupGate', () => {
   beforeEach(() => {
+    resetApiAvailability()
     mockedReadiness.mockReset().mockReturnValue(new Promise<void>(() => undefined))
   })
 

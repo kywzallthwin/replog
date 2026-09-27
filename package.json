@@ -6,23 +6,24 @@
   "main": "index.js",
   "scripts": {
     "build": "npm run build -w client && npm run build -w server",
-    "lint": "npm run lint -w client && npm run lint -w server",
+    "lint": "npm run lint -w client && npm run lint -w server && npm run lint -w edge",
     "migrate:deploy": "npm run migrate:deploy -w server",
     "start": "npm run start -w server",
-    "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
-    "test": "npm run test -w client && npm run test -w server",
+    "typecheck": "npm run typecheck -w client && npm run typecheck -w server && npm run typecheck -w edge",
+    "test": "npm run test -w client && npm run test -w server && npm run test -w edge",
     "prisma:generate": "npm run generate -w server",
     "prisma:validate": "npm run validate:prisma -w server",
     "smoke:health": "npm run smoke:health -w server",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:e2e:headed": "node scripts/run-e2e.mjs --headed",
     "test:e2e:install": "playwright install chromium",
-    "check": "npm run prisma:generate && npm run prisma:validate && npm run lint && npm run typecheck && npm test && npm run build && npm run smoke:health && git diff --check",
+    "check": "npm run prisma:generate && npm run prisma:validate && npm run lint && npm run typecheck && npm test && npm run build && npm run package -w edge && npm run smoke:health && git diff --check",
     "dev": "concurrently -k -n client,server -c blue,green \"npm run dev -w client\" \"npm run dev -w server\""
   },
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "edge"
   ],
   "keywords": [
     "workout",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "concurrently": "^10.0.3"
+    "concurrently": "^10.0.3",
+    "wrangler": "^4.31.0"
   }
 }

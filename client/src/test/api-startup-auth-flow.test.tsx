@@ -11,6 +11,7 @@ import { RequireAuth } from '../components/auth/RequireAuth'
 import { getCurrentUser } from '../lib/auth'
 import { waitForApiReadiness } from '../lib/apiReadiness'
 import { createTestQueryClient } from './query-client'
+import { resetApiAvailability } from '../lib/apiAvailability'
 
 vi.mock('../lib/apiReadiness', () => ({ waitForApiReadiness: vi.fn() }))
 vi.mock('../lib/auth', async () => {
@@ -69,6 +70,7 @@ function renderGuest() {
 
 describe('startup and authentication flow', () => {
   beforeEach(() => {
+    resetApiAvailability()
     mockedReadiness.mockReset()
     mockedGetCurrentUser.mockReset()
   })
@@ -152,18 +154,20 @@ describe('startup and authentication flow', () => {
     expect(screen.queryByText('Login page')).not.toBeInTheDocument()
   })
 
-  it('aborts the stale readiness run under Strict Mode', async () => {
+  it('shares and aborts the readiness run under Strict Mode', async () => {
     const signals: AbortSignal[] = []
     mockedReadiness.mockImplementation(({ signal }) => {
       signals.push(signal!)
       return new Promise<void>(() => undefined)
     })
 
-    render(<StrictMode><ApiStartupGate><p>Application</p></ApiStartupGate></StrictMode>)
+    const { unmount } = render(<StrictMode><ApiStartupGate><p>Application</p></ApiStartupGate></StrictMode>)
 
-    await waitFor(() => expect(signals.length).toBe(2))
-    expect(signals[0].aborted).toBe(true)
-    expect(signals[1].aborted).toBe(false)
+    await waitFor(() => expect(signals.length).toBe(1))
+    expect(signals[0].aborted).toBe(false)
     expect(mockedGetCurrentUser).not.toHaveBeenCalled()
+
+    unmount()
+    await waitFor(() => expect(signals[0].aborted).toBe(true))
   })
 })

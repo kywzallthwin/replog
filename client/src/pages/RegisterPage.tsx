@@ -37,6 +37,7 @@ export function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({})
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const usernameInputRef = useRef<HTMLInputElement>(null)
   const emailInputRef = useRef<HTMLInputElement>(null)
   const passwordInputRef = useRef<HTMLInputElement>(null)
@@ -77,12 +78,14 @@ export function RegisterPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submittingRef.current) return
     setError('')
 
     if (!validateForm()) {
       return
     }
 
+    submittingRef.current = true
     setIsSubmitting(true)
 
     try {
@@ -103,6 +106,7 @@ export function RegisterPage() {
 
       setError('Unable to create account')
     } finally {
+      submittingRef.current = false
       setIsSubmitting(false)
     }
   }
@@ -125,7 +129,7 @@ export function RegisterPage() {
       </div>
 
       <div className="mb-4">
-        <GoogleButton label="Sign up with Google" />
+         <GoogleButton label="Sign up with Google" disabled={isSubmitting} />
       </div>
 
       <div className="mb-4 flex items-center gap-3">

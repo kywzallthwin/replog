@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkoutPage } from '../pages/WorkoutPage'
 import {
@@ -14,7 +14,6 @@ import {
   removeSessionExercise,
   swapSessionExercise,
   updateSet,
-  updateSessionNotes,
   type WorkoutExercise,
   type WorkoutSession,
   type WorkoutSet,
@@ -38,7 +37,6 @@ vi.mock('../lib/sessions', async (importOriginal) => {
     removeSessionExercise: vi.fn(),
     finishSession: vi.fn(),
     cancelSession: vi.fn(),
-    updateSessionNotes: vi.fn(),
   }
 })
 
@@ -62,9 +60,9 @@ const mockedSwapSessionExercise = vi.mocked(swapSessionExercise)
 const mockedRemoveSessionExercise = vi.mocked(removeSessionExercise)
 const mockedFinishSession = vi.mocked(finishSession)
 const mockedCancelSession = vi.mocked(cancelSession)
-const mockedUpdateSessionNotes = vi.mocked(updateSessionNotes)
 const mockedGetExercises = vi.mocked(getExercises)
 const mockedGetActiveProgram = vi.mocked(getActiveProgram)
+const restTimerKey = (sessionId = 'session-1') => `replog:rest-timer:${sessionId}`
 
 function workoutSet(overrides: Partial<WorkoutSet> = {}): WorkoutSet {
   return {
@@ -112,7 +110,6 @@ function workoutSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession
     startedAt: '2026-09-06T08:00:00.000Z',
     endedAt: null,
     durationSec: null,
-    notes: null,
     exercises: [workoutExercise()],
     ...overrides,
   }
@@ -172,11 +169,6 @@ function renderWorkout(session: WorkoutSession = workoutSession()) {
   )
 }
 
-function SessionNavigation() {
-  const navigate = useNavigate()
-  return <button onClick={() => navigate('/workout/session-2')}>Open second session</button>
-}
-
 async function getExerciseCard(name = 'Bench Press') {
   const heading = await screen.findByRole('heading', { name })
   const card = heading.closest('article')
@@ -206,29 +198,96 @@ beforeEach(() => {
   mockedRemoveSessionExercise.mockResolvedValue(undefined)
   mockedFinishSession.mockResolvedValue(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
   mockedCancelSession.mockResolvedValue(undefined)
-  mockedUpdateSessionNotes.mockResolvedValue(workoutSession({ notes: 'Felt strong today.' }))
 })
 
 describe('WorkoutPage regression coverage', () => {
+  it('shows the idle timer before the first set and exposes the 44px sticky controls', async () => {
+    renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [] })] }))
+
+    expect(await screen.findByText('Ready')).toBeInTheDocument()
+    expect(screen.getByText('1:30')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start' })).toHaveClass('min-h-11')
+    expect(screen.getByRole('button', { name: '+15s' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Skip' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Start' }).parentElement).toHaveClass('flex', 'flex-wrap')
+    expect(screen.getByText('Rest timer').parentElement?.parentElement).toHaveClass('sticky')
+  })
+
+  it('transitions idle, running, expired, restart, extension, and skip states', async () => {
+    renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [] })] }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }))
+    expect(await screen.findByText('Resting')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Restart' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+15s' })).not.toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    expect(await screen.findByText('Ready')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument()
+  })
+
+  it('restarts after successful set create and update but preserves a failed save timer', async () => {
+    renderWorkout()
+    const { form } = await openAddSetForm()
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+    await waitFor(() => expect(window.localStorage.getItem(restTimerKey())).not.toBeNull())
+    const persistedExpiry = window.localStorage.getItem(restTimerKey())
+
+    mockedUpdateSet.mockRejectedValueOnce(new Error('offline'))
+    const card = await getExerciseCard()
+    fireEvent.click(within(card).getByRole('button', { name: 'Edit set' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => expect(within(card).getByText('Unable to save set. Please try again.')).toBeInTheDocument())
+    expect(window.localStorage.getItem(restTimerKey())).toBe(persistedExpiry)
+  })
+
+  it('does not start the timer after a failed set save', async () => {
+    mockedAddSet.mockRejectedValueOnce(new Error('offline'))
+    renderWorkout()
+    const { form } = await openAddSetForm()
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+    await waitFor(() => expect(within(form).getByText('Unable to add set. Please try again.')).toBeInTheDocument())
+    expect(window.localStorage.getItem(restTimerKey())).toBeNull()
+  })
+
+  it('clears the timer only after successful finish or cancel and never renders it completed', async () => {
+    window.localStorage.setItem(restTimerKey(), String(Date.now() + 90_000))
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+    mockedFinishSession.mockResolvedValueOnce(completed)
+    renderWorkout()
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish Workout' }))
+    await waitFor(() => expect(screen.queryByText('Rest timer')).not.toBeInTheDocument())
+    expect(window.localStorage.getItem(restTimerKey())).toBeNull()
+
+    window.localStorage.setItem(restTimerKey(), String(Date.now() + 90_000))
+    mockedCancelSession.mockRejectedValueOnce(new Error('offline'))
+    renderWorkout()
+    const cancel = await screen.findByRole('button', { name: 'Cancel Workout' })
+    fireEvent.click(cancel)
+    const dialog = screen.getByRole('alertdialog', { name: 'Cancel this workout?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel Workout' }))
+    await waitFor(() => expect(within(dialog).getByRole('alert')).toBeInTheDocument())
+    expect(window.localStorage.getItem(restTimerKey())).not.toBeNull()
+  })
+
   it('renders active sets and prefills add-set values while showing previous sets', async () => {
     renderWorkout()
 
     expect(await screen.findByText('Active workout')).toBeInTheDocument()
-    const { form } = await openAddSetForm()
-    expect(within(form).getByLabelText(/Previous workout sets from/)).toHaveTextContent('wu40×10')
-    expect(within(form).getByLabelText(/Previous workout sets from/)).toHaveTextContent('77.5×8→60×6')
+    const { card, form } = await openAddSetForm()
+    expect(within(card).getByLabelText(/Previous workout sets from/)).toHaveTextContent('wu40×10')
+    expect(within(card).getByLabelText(/Previous workout sets from/)).toHaveTextContent('77.5×8→60×6')
     expect(within(form).getByRole('spinbutton', { name: 'Weight kg' })).toHaveValue(80)
     expect(within(form).getAllByRole('spinbutton')[1]).toHaveValue(8)
-    expect(within(form).getByText('Last Set . KgxRepxDrop')).toBeInTheDocument()
   })
 
   it('shows one concise format guide when no previous sets exist', async () => {
     renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [], lastTime: null, previousWorkout: null })] }))
-    const { form } = await openAddSetForm()
+    const { card } = await openAddSetForm()
 
-    expect(within(form).queryByText('Last Set . KgxRepxDrop')).not.toBeInTheDocument()
-    expect(within(form).getAllByText('No previous sets')).toHaveLength(1)
-    expect(within(form).queryByText('No previous set', { exact: true })).not.toBeInTheDocument()
+    expect(within(card).queryByText('Last Set . KgxRepxDrop')).not.toBeInTheDocument()
+    expect(within(card).getAllByText('No previous sets')).toHaveLength(1)
+    expect(within(card).queryByText('No previous set', { exact: true })).not.toBeInTheDocument()
   })
 
   it('renders a completed workout as read-only with its summary', async () => {
@@ -240,85 +299,7 @@ describe('WorkoutPage regression coverage', () => {
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
-  })
-
-  it('saves trimmed workout notes and shows them after saving', async () => {
-    renderWorkout()
-
-    const notes = await screen.findByLabelText(/Workout notes/)
-    fireEvent.change(notes, { target: { value: '  Felt strong today.  ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
-
-    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenCalledWith(
-      { sessionId: 'session-1', notes: 'Felt strong today.' },
-      expect.anything(),
-    ))
-  })
-
-  it('renders completed workout notes without an editor', async () => {
-    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600, notes: 'Keep the same pace.' }))
-
-    expect(await screen.findByText('Keep the same pace.')).toBeInTheDocument()
-    expect(screen.queryByLabelText(/Workout notes/)).not.toBeInTheDocument()
-  })
-
-  it('preserves an existing note when saving without editing and can clear it', async () => {
-    renderWorkout(workoutSession({ notes: 'Knee felt unstable.' }))
-
-    const notes = await screen.findByLabelText(/Workout notes/)
-    expect(notes).toHaveValue('Knee felt unstable.')
-    expect(screen.getByText('19/1000')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
-
-    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenCalledWith(
-      { sessionId: 'session-1', notes: 'Knee felt unstable.' },
-      expect.anything(),
-    ))
-
-    fireEvent.change(notes, { target: { value: '' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
-    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenLastCalledWith(
-      { sessionId: 'session-1', notes: null },
-      expect.anything(),
-    ))
-  })
-
-  it('preserves the note draft when saving fails', async () => {
-    mockedUpdateSessionNotes.mockRejectedValueOnce(new Error('offline'))
-    renderWorkout()
-
-    const notes = await screen.findByLabelText(/Workout notes/)
-    fireEvent.change(notes, { target: { value: 'Keep this draft.' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Your draft is still here.')
-    expect(notes).toHaveValue('Keep this draft.')
-  })
-
-  it('resets the note draft when navigating to another workout session', async () => {
-    const firstSession = workoutSession({ id: 'session-1', notes: null })
-    const secondSession = workoutSession({ id: 'session-2', notes: 'Second session note.' })
-    mockedGetSession.mockImplementation(async (sessionId) => sessionId === 'session-2' ? secondSession : firstSession)
-    const queryClient = createTestQueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    })
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/workout/session-1']}>
-          <Routes>
-            <Route path="/workout/:sessionId" element={<><SessionNavigation /><WorkoutPage /></>} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    )
-
-    const notes = await screen.findByLabelText(/Workout notes/)
-    fireEvent.change(notes, { target: { value: 'Draft from first session.' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Open second session' }))
-
-    expect(await screen.findByDisplayValue('Second session note.')).toBeInTheDocument()
-    expect(screen.queryByDisplayValue('Draft from first session.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Workout notes')).not.toBeInTheDocument()
   })
 
   it('submits the single-set payload and reports a rejected add', async () => {
@@ -621,8 +602,8 @@ describe('mobile layout contract', () => {
 
   it('wraps the previous-set history line instead of scrolling', async () => {
     renderWorkout()
-    const { form } = await openAddSetForm()
-    const history = within(form).getByLabelText(/Previous workout sets from/)
+    const { card } = await openAddSetForm()
+    const history = within(card).getByLabelText(/Previous workout sets from/)
 
     expect(history).toHaveClass('rounded-[10px]', 'bg-slate-50', 'px-2.5', 'py-2')
     expect(history.className).not.toContain('overflow-x-auto')
@@ -665,14 +646,14 @@ describe('mobile layout contract', () => {
       bestNormalSetId: root.id,
       sets: [root, ...drops],
     }
-    const { form } = await (async () => {
+    const { card, form } = await (async () => {
       renderWorkout(workoutSession({
         exercises: [workoutExercise({ previousWorkout })],
       }))
       return openAddSetForm()
     })()
 
-    const history = within(form).getByLabelText(/Previous workout sets from/)
+    const history = within(card).getByLabelText(/Previous workout sets from/)
     expect(history).toHaveTextContent('1000×1000→1000×1000→999×999')
 
     for (let index = 0; index < 9; index += 1) {

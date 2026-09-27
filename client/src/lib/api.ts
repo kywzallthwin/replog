@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { installApiAvailability } from './apiAvailability'
 
 function normalizeConfiguredApiUrl(configuredApiUrl: string, isProduction: boolean) {
   let parsedUrl: URL
@@ -60,3 +61,5 @@ export const api = axios.create({
   withCredentials: true,
   timeout: 10000,
 })
+
+installApiAvailability(api, () => apiBaseUrl)
