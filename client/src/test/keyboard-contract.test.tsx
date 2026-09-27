@@ -292,6 +292,14 @@ describe('dialog and menu keyboard contract', () => {
 
     fireEvent.click(manageCategories)
 
+    expect(screen.queryByText('Rename for me')).not.toBeInTheDocument()
+    const renameBack = screen.getByRole('button', { name: 'Rename Back' })
+    expect(renameBack).toHaveAttribute('title', 'Rename Back')
+    expect(renameBack).toHaveAttribute('data-press', 'icon')
+
+    fireEvent.click(renameBack)
+    expect(screen.getByRole('textbox', { name: 'Rename Back' })).toHaveValue('Back')
+
     const done = screen.getByRole('button', { name: 'Done' })
     expect(done).toHaveClass('bg-white', 'border-slate-200', 'text-slate-500', 'transition', 'hover:bg-slate-50')
   })
