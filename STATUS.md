@@ -4,7 +4,7 @@
 - Governing plan: `WAVE2.md`.
 - Current ticket: W2-03 (`in progress`), tracked in `tickets/W2-03.md`.
 - Explicit user sequencing override: the Cloudflare migration and CF-05 production cutover are paused, not complete, while W2-03 proceeds.
-- W2-01 persistent workout-level notes are complete and verified.
+- W2-12 removed the superseded workout-level notes feature; W2-03 is restored to active development.
 - W2-02 always-visible previous-workout references are complete, committed, and independently reviewed with no functional defects found.
 - CF-01 Worker implementation and verification are complete.
 - CF-02 server implementation and database-backed tests are complete; 19 server tests pass.

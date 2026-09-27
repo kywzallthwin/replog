@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkoutPage } from '../pages/WorkoutPage'
 import {
@@ -14,7 +14,6 @@ import {
   removeSessionExercise,
   swapSessionExercise,
   updateSet,
-  updateSessionNotes,
   type WorkoutExercise,
   type WorkoutSession,
   type WorkoutSet,
@@ -38,7 +37,6 @@ vi.mock('../lib/sessions', async (importOriginal) => {
     removeSessionExercise: vi.fn(),
     finishSession: vi.fn(),
     cancelSession: vi.fn(),
-    updateSessionNotes: vi.fn(),
   }
 })
 
@@ -62,7 +60,6 @@ const mockedSwapSessionExercise = vi.mocked(swapSessionExercise)
 const mockedRemoveSessionExercise = vi.mocked(removeSessionExercise)
 const mockedFinishSession = vi.mocked(finishSession)
 const mockedCancelSession = vi.mocked(cancelSession)
-const mockedUpdateSessionNotes = vi.mocked(updateSessionNotes)
 const mockedGetExercises = vi.mocked(getExercises)
 const mockedGetActiveProgram = vi.mocked(getActiveProgram)
 const restTimerKey = (sessionId = 'session-1') => `replog:rest-timer:${sessionId}`
@@ -113,7 +110,6 @@ function workoutSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession
     startedAt: '2026-09-06T08:00:00.000Z',
     endedAt: null,
     durationSec: null,
-    notes: null,
     exercises: [workoutExercise()],
     ...overrides,
   }
@@ -173,11 +169,6 @@ function renderWorkout(session: WorkoutSession = workoutSession()) {
   )
 }
 
-function SessionNavigation() {
-  const navigate = useNavigate()
-  return <button onClick={() => navigate('/workout/session-2')}>Open second session</button>
-}
-
 async function getExerciseCard(name = 'Bench Press') {
   const heading = await screen.findByRole('heading', { name })
   const card = heading.closest('article')
@@ -207,7 +198,6 @@ beforeEach(() => {
   mockedRemoveSessionExercise.mockResolvedValue(undefined)
   mockedFinishSession.mockResolvedValue(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
   mockedCancelSession.mockResolvedValue(undefined)
-  mockedUpdateSessionNotes.mockResolvedValue(workoutSession({ notes: 'Felt strong today.' }))
 })
 
 describe('WorkoutPage regression coverage', () => {
@@ -309,85 +299,7 @@ describe('WorkoutPage regression coverage', () => {
     expect(screen.queryByRole('button', { name: 'Add Set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit set' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
-  })
-
-  it('saves trimmed workout notes and shows them after saving', async () => {
-    renderWorkout()
-
-    const notes = await screen.findByLabelText(/Workout notes/)
-    fireEvent.change(notes, { target: { value: '  Felt strong today.  ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
-
-    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenCalledWith(
-      { sessionId: 'session-1', notes: 'Felt strong today.' },
-      expect.anything(),
-    ))
-  })
-
-  it('renders completed workout notes without an editor', async () => {
-    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600, notes: 'Keep the same pace.' }))
-
-    expect(await screen.findByText('Keep the same pace.')).toBeInTheDocument()
-    expect(screen.queryByLabelText(/Workout notes/)).not.toBeInTheDocument()
-  })
-
-  it('preserves an existing note when saving without editing and can clear it', async () => {
-    renderWorkout(workoutSession({ notes: 'Knee felt unstable.' }))
-
-    const notes = await screen.findByLabelText(/Workout notes/)
-    expect(notes).toHaveValue('Knee felt unstable.')
-    expect(screen.getByText('19/1000')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
-
-    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenCalledWith(
-      { sessionId: 'session-1', notes: 'Knee felt unstable.' },
-      expect.anything(),
-    ))
-
-    fireEvent.change(notes, { target: { value: '' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
-    await waitFor(() => expect(mockedUpdateSessionNotes).toHaveBeenLastCalledWith(
-      { sessionId: 'session-1', notes: null },
-      expect.anything(),
-    ))
-  })
-
-  it('preserves the note draft when saving fails', async () => {
-    mockedUpdateSessionNotes.mockRejectedValueOnce(new Error('offline'))
-    renderWorkout()
-
-    const notes = await screen.findByLabelText(/Workout notes/)
-    fireEvent.change(notes, { target: { value: 'Keep this draft.' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save notes' }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Your draft is still here.')
-    expect(notes).toHaveValue('Keep this draft.')
-  })
-
-  it('resets the note draft when navigating to another workout session', async () => {
-    const firstSession = workoutSession({ id: 'session-1', notes: null })
-    const secondSession = workoutSession({ id: 'session-2', notes: 'Second session note.' })
-    mockedGetSession.mockImplementation(async (sessionId) => sessionId === 'session-2' ? secondSession : firstSession)
-    const queryClient = createTestQueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    })
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/workout/session-1']}>
-          <Routes>
-            <Route path="/workout/:sessionId" element={<><SessionNavigation /><WorkoutPage /></>} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    )
-
-    const notes = await screen.findByLabelText(/Workout notes/)
-    fireEvent.change(notes, { target: { value: 'Draft from first session.' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Open second session' }))
-
-    expect(await screen.findByDisplayValue('Second session note.')).toBeInTheDocument()
-    expect(screen.queryByDisplayValue('Draft from first session.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Workout notes')).not.toBeInTheDocument()
   })
 
   it('submits the single-set payload and reports a rejected add', async () => {

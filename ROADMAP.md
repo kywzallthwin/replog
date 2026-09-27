@@ -25,8 +25,8 @@ Detailed tickets: `WAVE1.md` and the linked files in `tickets/`.
 
 ### Wave 2: Mockup Feature Completion
 
-Implement the remaining mockup behavior: workout-level notes, always-visible
-previous-workout references, enhanced rest timers, active-workout exercise
+Implement the remaining mockup behavior: always-visible previous-workout
+references, enhanced rest timers, active-workout exercise
 reordering, whole-day reordering, custom exercise editing/deletion, completed
 workout deletion, kg/lb preferences, the SVG progress chart, and `/guide`.
 
