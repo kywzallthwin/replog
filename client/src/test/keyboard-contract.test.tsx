@@ -263,4 +263,36 @@ describe('dialog and menu keyboard contract', () => {
 
     expect(screen.getByRole('dialog', { name: 'Choose an exercise' })).toBeInTheDocument()
   })
+
+  it('uses the shared secondary-button interaction styling for category controls', () => {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['exercise-categories'], [{ id: 'category-back', name: 'Back', isCustom: false }])
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExercisePickerDialog
+          mode="add"
+          exerciseOptions={[]}
+          program={null}
+          existingExerciseIds={[]}
+          selectedExerciseId=""
+          isOptionsPending={false}
+          isOptionsError={false}
+          isSaving={false}
+          onSelectedExercise={vi.fn()}
+          onConfirm={vi.fn()}
+          onClose={vi.fn()}
+          onCreated={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    const manageCategories = screen.getByRole('button', { name: 'Manage categories' })
+    expect(manageCategories).toHaveClass('bg-white', 'border-slate-200', 'text-slate-500', 'transition', 'hover:bg-slate-50', 'disabled:cursor-not-allowed', 'disabled:text-slate-300')
+
+    fireEvent.click(manageCategories)
+
+    const done = screen.getByRole('button', { name: 'Done' })
+    expect(done).toHaveClass('bg-white', 'border-slate-200', 'text-slate-500', 'transition', 'hover:bg-slate-50')
+  })
 })
