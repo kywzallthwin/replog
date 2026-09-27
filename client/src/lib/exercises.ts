@@ -1,13 +1,11 @@
 import { api } from './api'
 
 export type CategorySummary = { id: string; name: string; isCustom: boolean }
-/** Legacy payloads from older fixtures may still contain a category key. */
-export type ExerciseCategory = string
 
 export type ExerciseOption = {
   id: string
   name: string
-  category: CategorySummary | string
+  category: CategorySummary
   isCustom?: boolean
 }
 

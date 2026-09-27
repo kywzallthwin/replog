@@ -37,7 +37,7 @@ describe('program mobile layout contract', () => {
                 id: 'day-exercise-1',
                 exerciseId: 'exercise-1',
                 name: longName,
-                category: 'BACK',
+                category: { id: 'category-back', name: 'Back', isCustom: false },
                 order: 1,
               }],
             }],

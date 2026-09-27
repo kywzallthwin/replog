@@ -2,7 +2,9 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from '
 import { useId, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { createExercise, exercisesQueryKey, categoriesQueryKey, getCategories, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
+import { createCategory, createExercise, deleteCategory, exercisesQueryKey, categoriesQueryKey, getCategories, recategorizeExercise, renameCategory, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
+import { dashboardQueryKey } from '../../lib/dashboard'
+import { programsQueryKey } from '../../lib/programs'
 import type { Program } from '../../lib/programs'
 import { FluidSelect } from '../forms/FluidSelect'
 import { Dialog } from '../ui/Dialog'
@@ -161,6 +163,19 @@ export function ExercisePickerDialog({
   const [source, setSource] = useState<PickerSource>('program')
   const [search, setSearch] = useState('')
   const [isNewExerciseOpen, setIsNewExerciseOpen] = useState(false)
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false)
+  const [categoryName, setCategoryName] = useState('')
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  const [replacementId, setReplacementId] = useState('')
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null)
+  const [mutationError, setMutationError] = useState('')
+  const refreshLibrary = () => {
+    void queryClient.invalidateQueries({ queryKey: categoriesQueryKey })
+    void queryClient.invalidateQueries({ queryKey: exercisesQueryKey })
+    void queryClient.invalidateQueries({ queryKey: programsQueryKey })
+    void queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+    void queryClient.invalidateQueries({ queryKey: ['progress'] })
+  }
   const createMutation = useMutation({
     mutationFn: createExercise,
     onSuccess: (exercise) => {
@@ -175,6 +190,9 @@ export function ExercisePickerDialog({
   })
   const categoriesQuery = useQuery({ queryKey: categoriesQueryKey, queryFn: getCategories })
   const categories = categoriesQuery.data ?? []
+  const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => category.id === editingCategoryId ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setEditingCategoryId(null); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
+  const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement?: string }) => deleteCategory(id, replacement), onSuccess: () => { setReplacementId(''); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
+  const recategorizeMutation = useMutation({ mutationFn: ({ exerciseId, categoryId }: { exerciseId: string; categoryId: string }) => recategorizeExercise(exerciseId, categoryId), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to change category.')) })
 
   const existingIds = new Set(existingExerciseIds)
   const programGroups = [...(program?.days ?? [])]
@@ -206,7 +224,7 @@ export function ExercisePickerDialog({
   const allGroups = categories.map((category) => ({
     id: category.id,
     label: category.name,
-    exercises: exerciseOptions.filter((exercise) => typeof exercise.category !== 'string' && exercise.category.id === category.id),
+    exercises: exerciseOptions.filter((exercise) => exercise.category.id === category.id),
   }))
   const groups = source === 'program' ? programGroups : allGroups
   const normalizedSearch = search.trim().toLowerCase()
@@ -214,7 +232,7 @@ export function ExercisePickerDialog({
     .map((group) => ({
       ...group,
       exercises: group.exercises.filter((exercise) =>
-        `${exercise.name} ${typeof exercise.category === 'string' ? exercise.category : exercise.category.name}`.toLowerCase().includes(normalizedSearch),
+        `${exercise.name} ${exercise.category.name}`.toLowerCase().includes(normalizedSearch),
       ),
     }))
     .filter((group) => group.exercises.length > 0)
@@ -299,6 +317,19 @@ export function ExercisePickerDialog({
           onCancel={closeNewExercise}
           onSubmit={handleCreate}
         />
+      ) : isCategoryManagerOpen ? (
+        <div className="flex max-h-[calc(100dvh-3rem)] min-h-0 w-full flex-col">
+          <div className="border-b border-slate-100 px-5 py-4"><h2 id="category-manager-title" className="text-xl font-extrabold text-slate-900">Manage categories</h2><p className="mt-1 text-sm text-slate-500">Built-in categories are read-only.</p></div>
+          <div className="min-h-0 overflow-y-auto p-5">
+            <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); if (categoryName.trim()) categoryMutation.mutate({ name: categoryName }) }}>
+              <input aria-label="New category name" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} className="h-11 min-w-0 grow rounded-xl border border-slate-200 px-3 text-sm" placeholder="New category" maxLength={80} />
+              <button className="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white" disabled={categoryMutation.isPending}>Add</button>
+            </form>
+            {mutationError ? <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{mutationError}</p> : null}
+            <div className="mt-4 space-y-2">{categories.map((category) => <div key={category.id} className="rounded-xl border border-slate-100 p-3">{editingCategoryId === category.id ? <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); if (categoryName.trim()) categoryMutation.mutate({ id: category.id, name: categoryName }) }}><input autoFocus value={categoryName} onChange={(event) => setCategoryName(event.target.value)} className="min-w-0 grow rounded-lg border px-2" /><button className="text-sm font-bold">Save</button></form> : <div className="flex items-center gap-2"><span className="min-w-0 grow break-words text-sm font-semibold">{category.name}</span>{category.isCustom ? <><button className="text-xs font-bold text-slate-500" onClick={() => { setEditingCategoryId(category.id); setCategoryName(category.name) }}>Rename</button><button className="text-xs font-bold text-red-600" onClick={() => { setReplacementId(''); setEditingCategoryId(category.id) }}>Delete</button></> : <span className="text-xs text-slate-400">Built-in</span>}</div>}{editingCategoryId === category.id && category.isCustom && replacementId === '' ? <div className="mt-2 flex gap-2"><select aria-label={`Replacement for ${category.name}`} value={replacementId} onChange={(event) => setReplacementId(event.target.value)} className="min-w-0 grow rounded-lg border px-2 text-sm"><option value="">Choose replacement to delete</option>{categories.filter((item) => item.id !== category.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button className="text-xs font-bold text-red-600" onClick={() => deleteMutation.mutate({ id: category.id })}>Delete empty</button></div> : null}{replacementId && editingCategoryId === category.id ? <button className="mt-2 text-xs font-bold text-red-600" onClick={() => deleteMutation.mutate({ id: category.id, replacement: replacementId })}>Confirm delete and reassign</button> : null}</div>)}</div>
+          </div>
+          <div className="border-t border-slate-100 p-4"><button className="min-h-11 w-full rounded-xl border font-bold" onClick={() => { setIsCategoryManagerOpen(false); setEditingCategoryId(null); setMutationError('') }}>Done</button></div>
+        </div>
       ) : (
         <>
           <div className="border-b border-slate-100 px-5 py-4">
@@ -368,7 +399,9 @@ export function ExercisePickerDialog({
                   Unable to load exercises. Please try again.
                 </p>
               ) : null}
-               {!isSourcePending && !isSourceError && visibleGroups.length === 0 ? (
+              {source === 'all' && categoriesQuery.isPending ? <p role="status" className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">Loading categories...</p> : null}
+              {source === 'all' && categoriesQuery.isError ? <div className="rounded-[12px] bg-red-50 px-4 py-3 text-sm text-red-700"><p>Unable to load categories.</p><button className="mt-2 font-bold underline" onClick={() => void categoriesQuery.refetch()}>Retry</button></div> : null}
+               {!isSourcePending && !isSourceError && !categoriesQuery.isPending && !categoriesQuery.isError && visibleGroups.length === 0 ? (
                  <p role="status" aria-live="polite" className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
                    {!hasSourceExercises
                      ? source === 'program' ? 'Your Program has no exercises yet.' : 'No exercises are available.'
@@ -388,6 +421,7 @@ export function ExercisePickerDialog({
                         const isDisabled = isAdded
 
                         return (
+                          <span key={`${group.id}-${exercise.id}`} className="block">
                           <button
                             key={`${group.id}-${exercise.id}`}
                             type="button"
@@ -411,9 +445,11 @@ export function ExercisePickerDialog({
                             </span>
                              <span className="min-w-0 grow break-words [overflow-wrap:anywhere]">{exercise.name}</span>
                              {exercise.isCustom ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Yours</span> : null}
+                             {exercise.isCustom && source === 'all' ? <button type="button" className="shrink-0 text-xs font-bold underline" onClick={(event) => { event.stopPropagation(); setEditingExerciseId(editingExerciseId === exercise.id ? null : exercise.id) }}>Edit category</button> : null}
                              {isCurrent ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Current</span> : null}
                              {isAdded ? <span className="shrink-0 text-xs text-slate-400">Added</span> : null}
                           </button>
+                          {editingExerciseId === exercise.id ? <div className="mt-1 flex gap-2"><select aria-label={`Category for ${exercise.name}`} value={exercise.category.id} onChange={(event) => recategorizeMutation.mutate({ exerciseId: exercise.id, categoryId: event.target.value })} className="min-h-10 min-w-0 grow rounded-lg border px-2 text-sm">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div> : null}</span>
                         )
                       })}
                     </div>
@@ -427,6 +463,7 @@ export function ExercisePickerDialog({
                 </p>
               ) : null}
             </div>
+            <button type="button" className="mt-4 min-h-11 w-full rounded-[14px] border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600" onClick={() => { setIsCategoryManagerOpen(true); setMutationError('') }} disabled={pickerIsBusy || categoriesQuery.isPending || categoriesQuery.isError}>Manage categories</button>
             <button
               type="button"
               ref={newExerciseTriggerRef}
@@ -435,7 +472,7 @@ export function ExercisePickerDialog({
                 createMutation.reset()
                 setIsNewExerciseOpen(true)
               }}
-              disabled={pickerIsBusy}
+              disabled={pickerIsBusy || categoriesQuery.isPending || categoriesQuery.isError || categories.length === 0}
               className="mt-5 min-h-11 w-full rounded-[14px] border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:border-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               + New Exercise

@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { api } from './api'
-import type { ExerciseCategory } from './exercises'
+import type { CategorySummary } from './exercises'
 
 export const DAY_BADGE_COLORS = [
   'bg-amber-100 text-amber-800',
@@ -19,7 +19,7 @@ export type DayExerciseItem = {
   id: string
   exerciseId: string
   name: string
-  category: ExerciseCategory | { id: string; name: string; isCustom: boolean }
+  category: CategorySummary
   order: number
 }
 
