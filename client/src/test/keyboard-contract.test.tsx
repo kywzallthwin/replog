@@ -317,6 +317,17 @@ describe('dialog and menu keyboard contract', () => {
     expect(screen.getByRole('button', { name: 'Replacement for Arms: Back' })).toBeInTheDocument()
     expect(deleteAndReassign).toBeEnabled()
 
+    fireEvent.click(deleteAndReassign)
+    const confirmation = screen.getByRole('alertdialog', { name: 'Delete Arms?' })
+    expect(confirmation).toHaveTextContent('reassigned to Back')
+    expect(confirmation).toHaveTextContent('cannot be undone')
+    expect(screen.getByRole('button', { name: 'Delete category' })).toBeInTheDocument()
+
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog', { name: 'Delete Arms?' })).not.toBeInTheDocument()
+    expect(deleteAndReassign).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Replacement for Arms: Back' })).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(screen.getByRole('button', { name: 'Delete Arms' })).toHaveFocus()
 

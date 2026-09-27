@@ -164,6 +164,7 @@ export function ExercisePickerDialog({
   const categoryManagerTriggerRef = useRef<HTMLButtonElement>(null)
   const categoryRenameButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const categoryDeleteButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const categoryDeleteConfirmButtonRef = useRef<HTMLButtonElement>(null)
   const pendingCategoryDeleteFocusRef = useRef<string | null>(null)
   const programTabRef = useRef<HTMLButtonElement>(null)
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
@@ -173,6 +174,7 @@ export function ExercisePickerDialog({
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false)
   const [categoryName, setCategoryName] = useState('')
   const [categoryManagerMode, setCategoryManagerMode] = useState<'rename' | 'delete' | null>(null)
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [replacementId, setReplacementId] = useState('')
@@ -219,7 +221,7 @@ export function ExercisePickerDialog({
     button.focus()
   }, [categoryManagerMode, selectedCategoryId])
   const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category, variables) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => variables.id ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setRenameDraft(''); setMutationError(''); refreshLibrary(); setSelectedCategoryId(null); setCategoryManagerMode(null); if (variables.id) window.requestAnimationFrame(() => categoryRenameButtonRefs.current[variables.id!]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
-  const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement: string }) => deleteCategory(id, replacement), onSuccess: () => { setReplacementId(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
+  const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement: string }) => deleteCategory(id, replacement), onSuccess: () => { setIsDeleteConfirmationOpen(false); setReplacementId(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
   const resetLabelMutation = useMutation({ mutationFn: resetCategoryLabel, onSuccess: (_data, categoryId) => { setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryRenameButtonRefs.current[categoryId]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to reset category name.')) })
   const recategorizeMutation = useMutation({ mutationFn: ({ exerciseId, categoryId }: { exerciseId: string; categoryId: string }) => recategorizeExercise(exerciseId, categoryId), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to change category.')) })
 
@@ -352,6 +354,12 @@ export function ExercisePickerDialog({
     setReplacementId('')
   }
 
+  function closeDeleteConfirmation() {
+    if (deleteMutation.isPending) return
+    setIsDeleteConfirmationOpen(false)
+    setMutationError('')
+  }
+
   return (
     <Dialog
       labelledBy={isNewExerciseOpen ? 'new-exercise-dialog-title' : isCategoryManagerOpen ? 'category-manager-title' : 'exercise-picker-dialog-title'}
@@ -405,11 +413,12 @@ export function ExercisePickerDialog({
                       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
                         <button
                           type="button"
+                          ref={categoryDeleteConfirmButtonRef}
                           data-press="button"
                           data-press-tone="red"
                           disabled={!replacementId || deleteMutation.isPending}
-                          className="min-h-11 rounded-xl bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:bg-red-200"
-                          onClick={() => { if (replacementId && !deleteMutation.isPending) deleteMutation.mutate({ id: category.id, replacement: replacementId }) }}
+                          className="min-h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-600 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 disabled:cursor-not-allowed disabled:border-red-100 disabled:bg-red-50 disabled:text-red-300"
+                          onClick={() => { if (replacementId && !deleteMutation.isPending) { setMutationError(''); setIsDeleteConfirmationOpen(true) } }}
                         >
                           {deleteMutation.isPending ? 'Deleting…' : 'Delete and reassign'}
                         </button>
@@ -438,7 +447,7 @@ export function ExercisePickerDialog({
               ))}
             </div>
           </div>
-          <div className="border-t border-slate-100 p-4"><button className="min-h-11 w-full rounded-xl border border-slate-200 bg-white font-bold text-slate-500 transition hover:bg-slate-50" onClick={() => { setIsCategoryManagerOpen(false); setCategoryManagerMode(null); setSelectedCategoryId(null); setMutationError(''); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }}>Done</button></div>
+          <div className="border-t border-slate-100 p-4"><button className="min-h-11 w-full rounded-xl border border-slate-200 bg-white font-bold text-slate-500 transition hover:bg-slate-50" onClick={() => { setIsCategoryManagerOpen(false); setCategoryManagerMode(null); setSelectedCategoryId(null); setIsDeleteConfirmationOpen(false); setMutationError(''); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }}>Done</button></div>
         </div>
       ) : (
         <>
@@ -608,6 +617,33 @@ export function ExercisePickerDialog({
           </div>
         </>
       )}
+      {isDeleteConfirmationOpen && selectedCategoryId ? (() => {
+        const category = categories.find((item) => item.id === selectedCategoryId)
+        const replacement = categories.find((item) => item.id === replacementId)
+        if (!category || !replacement) return null
+        return (
+          <Dialog
+            role="alertdialog"
+            labelledBy="delete-category-dialog-title"
+            describedBy="delete-category-dialog-description"
+            onClose={closeDeleteConfirmation}
+            closeOnEscape={!deleteMutation.isPending}
+            restoreFocusRef={categoryDeleteConfirmButtonRef}
+            overlayClassName="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+            className="max-h-[calc(100dvh-3rem)] w-full max-w-md overflow-y-auto rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-400">Category management</p>
+            <h2 id="delete-category-dialog-title" className="mt-1 break-words text-2xl font-extrabold text-slate-900">Delete {category.name}?</h2>
+            <p id="delete-category-dialog-description" className="mt-3 text-sm leading-6 text-slate-500">Exercises in {category.name} will be reassigned to {replacement.name}.</p>
+            <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold leading-5 text-red-700">This action cannot be undone.</p>
+            {mutationError ? <p role="alert" className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{mutationError}</p> : null}
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={closeDeleteConfirmation} disabled={deleteMutation.isPending} className="min-h-11 flex-1 rounded-[13px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button>
+              <button type="button" onClick={() => { if (!deleteMutation.isPending) deleteMutation.mutate({ id: category.id, replacement: replacement.id }) }} disabled={deleteMutation.isPending} className="min-h-11 flex-1 rounded-[13px] border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300">{deleteMutation.isPending ? 'Deleting...' : 'Delete category'}</button>
+            </div>
+          </Dialog>
+        )
+      })() : null}
     </Dialog>
   )
 }
