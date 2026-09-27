@@ -2,7 +2,7 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from '
 import { useEffect, useId, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { Pencil } from 'lucide-react'
+import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
 import { createCategory, createExercise, deleteCategory, exercisesQueryKey, categoriesQueryKey, getCategories, recategorizeExercise, renameCategory, resetCategoryLabel, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
 import { dashboardQueryKey } from '../../lib/dashboard'
 import { programsQueryKey } from '../../lib/programs'
@@ -323,6 +323,14 @@ export function ExercisePickerDialog({
     onClose()
   }
 
+  function closeCategoryEditor() {
+    const categoryId = selectedCategoryId
+    setCategoryManagerMode(null)
+    setSelectedCategoryId(null)
+    setRenameDraft('')
+    if (categoryId) window.requestAnimationFrame(() => categoryRenameButtonRefs.current[categoryId]?.focus())
+  }
+
   return (
     <Dialog
       labelledBy={isNewExerciseOpen ? 'new-exercise-dialog-title' : isCategoryManagerOpen ? 'category-manager-title' : 'exercise-picker-dialog-title'}
@@ -350,7 +358,42 @@ export function ExercisePickerDialog({
               <button className="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white" disabled={categoryMutation.isPending}>Add</button>
             </form>
             {mutationError ? <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{mutationError}</p> : null}
-            <div className="mt-4 space-y-2">{categories.map((category) => <div key={category.id} className="rounded-xl border border-slate-100 p-3">{categoryManagerMode === 'rename' && selectedCategoryId === category.id ? <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); if (renameDraft.trim()) categoryMutation.mutate({ id: category.id, name: renameDraft }) }}><input autoFocus aria-label={`Rename ${category.name}`} value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} className="min-w-0 grow rounded-lg border px-2" /><button className="text-sm font-bold" disabled={categoryMutation.isPending}>Save</button><button type="button" className="text-sm" onClick={() => { setCategoryManagerMode(null); setSelectedCategoryId(null); setRenameDraft('') }}>Cancel</button></form> : categoryManagerMode === 'delete' && selectedCategoryId === category.id ? <div><p className="text-sm font-semibold">Delete {category.name}</p><select aria-label={`Replacement for ${category.name}`} value={replacementId} onChange={(event) => setReplacementId(event.target.value)} className="mt-2 min-w-0 rounded-lg border px-2 text-sm"><option value="">Choose replacement category</option>{categories.filter((item) => item.id !== category.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><div className="mt-2 flex gap-3"><button disabled={!replacementId || deleteMutation.isPending} className="text-xs font-bold text-red-600" onClick={() => deleteMutation.mutate({ id: category.id, replacement: replacementId })}>Delete and reassign</button><button type="button" className="text-xs" onClick={() => { setCategoryManagerMode(null); setSelectedCategoryId(null); setReplacementId('') }}>Cancel</button></div></div> : <div className="flex items-center gap-2"><span className="min-w-0 grow break-words text-sm font-semibold">{category.name}</span>{category.isCustom ? <><button type="button" className="text-xs font-bold text-slate-500" onClick={() => { setCategoryManagerMode('rename'); setSelectedCategoryId(category.id); setRenameDraft(category.name); setReplacementId('') }}>Rename</button><button type="button" className="text-xs font-bold text-red-600" onClick={() => { setCategoryManagerMode('delete'); setSelectedCategoryId(category.id); setReplacementId(''); setRenameDraft('') }}>Delete</button></> : <><button type="button" data-press="icon" data-press-tone="slate" className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-50 hover:text-slate-600" aria-label={`Rename ${category.name}`} title={`Rename ${category.name}`} onClick={() => { setCategoryManagerMode('rename'); setSelectedCategoryId(category.id); setRenameDraft(category.name); setReplacementId('') }}><Pencil size={16} aria-hidden="true" /></button>{category.isOverridden ? <button type="button" className="text-xs font-bold text-slate-500" disabled={resetLabelMutation.isPending} onClick={() => resetLabelMutation.mutate(category.id)}>Reset name</button> : null}</>}</div>}</div>)}</div>
+            <div className="mt-4 space-y-2">
+              {categories.map((category) => (
+                <div key={category.id} className="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2">
+                  {categoryManagerMode === 'rename' && selectedCategoryId === category.id ? (
+                    <form className="flex min-h-12 items-center gap-2" onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeCategoryEditor() } }} onSubmit={(event) => { event.preventDefault(); const trimmedName = renameDraft.trim(); if (trimmedName && !categoryMutation.isPending) categoryMutation.mutate({ id: category.id, name: trimmedName }) }}>
+                      <input autoFocus aria-label={`Rename ${category.name}`} value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} className="h-11 min-w-0 grow rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10" />
+                      <button type="submit" data-press="icon" data-press-tone="blue" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-not-allowed disabled:bg-slate-300" aria-label={`Save rename for ${category.name}`} title={`Save rename for ${category.name}`} disabled={!renameDraft.trim() || categoryMutation.isPending}><Check size={17} aria-hidden="true" /></button>
+                      <button type="button" data-press="icon" data-press-tone="slate" className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20" aria-label={`Cancel rename for ${category.name}`} title={`Cancel rename for ${category.name}`} onClick={closeCategoryEditor}><X size={17} aria-hidden="true" /></button>
+                    </form>
+                  ) : categoryManagerMode === 'delete' && selectedCategoryId === category.id ? (
+                    <div className="py-1">
+                      <p className="text-sm font-semibold">Delete {category.name}</p>
+                      <select aria-label={`Replacement for ${category.name}`} value={replacementId} onChange={(event) => setReplacementId(event.target.value)} className="mt-2 min-w-0 rounded-lg border px-2 text-sm"><option value="">Choose replacement category</option>{categories.filter((item) => item.id !== category.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                      <div className="mt-2 flex gap-3"><button disabled={!replacementId || deleteMutation.isPending} className="text-xs font-bold text-red-600" onClick={() => deleteMutation.mutate({ id: category.id, replacement: replacementId })}>Delete and reassign</button><button type="button" className="text-xs" onClick={() => { setCategoryManagerMode(null); setSelectedCategoryId(null); setReplacementId('') }}>Cancel</button></div>
+                    </div>
+                  ) : (
+                    <div className="flex min-h-12 items-center gap-3">
+                      <span className="min-w-0 grow break-words text-sm font-semibold text-slate-700">{category.name}</span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {category.isCustom ? (
+                          <>
+                            <button type="button" data-press="icon" data-press-tone="slate" className="grid h-11 w-11 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20" aria-label={`Rename ${category.name}`} title={`Rename ${category.name}`} onClick={() => { setCategoryManagerMode('rename'); setSelectedCategoryId(category.id); setRenameDraft(category.name); setReplacementId('') }}><Pencil size={16} aria-hidden="true" /></button>
+                            <button type="button" data-press="icon" data-press-tone="red" className="grid h-11 w-11 place-items-center rounded-full text-red-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/20" aria-label={`Delete ${category.name}`} title={`Delete ${category.name}`} onClick={() => { setCategoryManagerMode('delete'); setSelectedCategoryId(category.id); setReplacementId(''); setRenameDraft('') }}><Trash2 size={16} aria-hidden="true" /></button>
+                          </>
+                        ) : (
+                          <>
+                            <button type="button" data-press="icon" data-press-tone="slate" className="grid h-11 w-11 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20" aria-label={`Rename ${category.name}`} title={`Rename ${category.name}`} onClick={() => { setCategoryManagerMode('rename'); setSelectedCategoryId(category.id); setRenameDraft(category.name); setReplacementId('') }}><Pencil size={16} aria-hidden="true" /></button>
+                            {category.isOverridden ? <button type="button" data-press="icon" data-press-tone="slate" className="grid h-11 w-11 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-not-allowed disabled:text-slate-200" disabled={resetLabelMutation.isPending} aria-label={`Reset ${category.name} name`} title={`Reset ${category.name} name`} onClick={() => resetLabelMutation.mutate(category.id)}><RotateCcw size={16} aria-hidden="true" /></button> : null}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
           <div className="border-t border-slate-100 p-4"><button className="min-h-11 w-full rounded-xl border border-slate-200 bg-white font-bold text-slate-500 transition hover:bg-slate-50" onClick={() => { setIsCategoryManagerOpen(false); setCategoryManagerMode(null); setSelectedCategoryId(null); setMutationError(''); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }}>Done</button></div>
         </div>

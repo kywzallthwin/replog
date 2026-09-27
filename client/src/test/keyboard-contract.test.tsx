@@ -266,7 +266,10 @@ describe('dialog and menu keyboard contract', () => {
 
   it('uses the shared secondary-button interaction styling for category controls', () => {
     const queryClient = createTestQueryClient()
-    queryClient.setQueryData(['exercise-categories'], [{ id: 'category-back', name: 'Back', isCustom: false }])
+    queryClient.setQueryData(['exercise-categories'], [
+      { id: 'category-back', name: 'Back', isCustom: false, isOverridden: true },
+      { id: 'category-arms', name: 'Arms', isCustom: true },
+    ])
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -296,9 +299,16 @@ describe('dialog and menu keyboard contract', () => {
     const renameBack = screen.getByRole('button', { name: 'Rename Back' })
     expect(renameBack).toHaveAttribute('title', 'Rename Back')
     expect(renameBack).toHaveAttribute('data-press', 'icon')
+    expect(screen.getByRole('button', { name: 'Reset Back name' })).toHaveAttribute('data-press', 'icon')
+    expect(screen.getByRole('button', { name: 'Rename Arms' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete Arms' })).toBeInTheDocument()
 
     fireEvent.click(renameBack)
-    expect(screen.getByRole('textbox', { name: 'Rename Back' })).toHaveValue('Back')
+    const renameInput = screen.getByRole('textbox', { name: 'Rename Back' })
+    expect(renameInput).toHaveValue('Back')
+    expect(renameInput).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Save rename for Back' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Cancel rename for Back' })).toBeInTheDocument()
 
     const done = screen.getByRole('button', { name: 'Done' })
     expect(done).toHaveClass('bg-white', 'border-slate-200', 'text-slate-500', 'transition', 'hover:bg-slate-50')
