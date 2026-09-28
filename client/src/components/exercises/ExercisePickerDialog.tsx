@@ -168,6 +168,7 @@ export function ExercisePickerDialog({
   const pendingCategoryDeleteFocusRef = useRef<string | null>(null)
   const programTabRef = useRef<HTMLButtonElement>(null)
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
+  const exerciseEditButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [source, setSource] = useState<PickerSource>('program')
   const [search, setSearch] = useState('')
   const [isNewExerciseOpen, setIsNewExerciseOpen] = useState(false)
@@ -179,6 +180,7 @@ export function ExercisePickerDialog({
   const [renameDraft, setRenameDraft] = useState('')
   const [replacementId, setReplacementId] = useState('')
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null)
+  const [categoryDraft, setCategoryDraft] = useState('')
   const [mutationError, setMutationError] = useState('')
   const refreshLibrary = () => {
     void queryClient.invalidateQueries({ queryKey: categoriesQueryKey })
@@ -223,7 +225,7 @@ export function ExercisePickerDialog({
   const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category, variables) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => variables.id ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setRenameDraft(''); setMutationError(''); refreshLibrary(); setSelectedCategoryId(null); setCategoryManagerMode(null); if (variables.id) window.requestAnimationFrame(() => categoryRenameButtonRefs.current[variables.id!]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
   const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement: string }) => deleteCategory(id, replacement), onSuccess: () => { setIsDeleteConfirmationOpen(false); setReplacementId(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
   const resetLabelMutation = useMutation({ mutationFn: resetCategoryLabel, onSuccess: (_data, categoryId) => { setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryRenameButtonRefs.current[categoryId]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to reset category name.')) })
-  const recategorizeMutation = useMutation({ mutationFn: ({ exerciseId, categoryId }: { exerciseId: string; categoryId: string }) => recategorizeExercise(exerciseId, categoryId), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setMutationError(''); refreshLibrary() }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to change category.')) })
+  const recategorizeMutation = useMutation({ mutationFn: ({ exerciseId, categoryId }: { exerciseId: string; categoryId: string }) => recategorizeExercise(exerciseId, categoryId), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setCategoryDraft(''); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => exerciseEditButtonRefs.current[exercise.id]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to change category.')) })
 
   const existingIds = new Set(existingExerciseIds)
   const programGroups = [...(program?.days ?? [])]
@@ -270,7 +272,8 @@ export function ExercisePickerDialog({
   const isSourcePending = source === 'program' ? programIsPending : isOptionsPending
   const isSourceError = source === 'program' ? programIsError : isOptionsError
   const hasSourceExercises = groups.some((group) => group.exercises.length > 0)
-  const pickerIsBusy = isSaving || createMutation.isPending
+  const recategorizeIsPending = recategorizeMutation.isPending
+  const pickerIsBusy = isSaving || createMutation.isPending || recategorizeIsPending
 
   function selectSource(nextSource: PickerSource) {
     if (pickerIsBusy) {
@@ -279,6 +282,10 @@ export function ExercisePickerDialog({
 
     setSource(nextSource)
     setSearch('')
+    setEditingExerciseId(null)
+    setCategoryDraft('')
+    recategorizeMutation.reset()
+    setMutationError('')
     onSelectedExercise('')
   }
 
@@ -307,6 +314,15 @@ export function ExercisePickerDialog({
     createMutation.mutate({ name, categoryId })
   }
 
+  function handleExerciseSelect(exerciseId: string) {
+    if (editingExerciseId && editingExerciseId !== exerciseId) {
+      setEditingExerciseId(null)
+      setCategoryDraft('')
+      recategorizeMutation.reset()
+    }
+    onSelectedExercise(exerciseId)
+  }
+
   function closeNewExercise() {
     if (createMutation.isPending) {
       return
@@ -318,7 +334,7 @@ export function ExercisePickerDialog({
   }
 
   function handleDialogClose() {
-    if (isSaving || createMutation.isPending) {
+    if (pickerIsBusy) {
       return
     }
 
@@ -335,6 +351,9 @@ export function ExercisePickerDialog({
       return
     }
 
+    setEditingExerciseId(null)
+    setCategoryDraft('')
+    recategorizeMutation.reset()
     onClose()
   }
 
@@ -538,16 +557,19 @@ export function ExercisePickerDialog({
                         const isAdded = existingIds.has(exercise.id) && !isCurrent
                         const isSelected = selectedExerciseId === exercise.id
                         const isDisabled = isAdded
+                        const isEditing = editingExerciseId === exercise.id
 
                         return (
                           <span key={`${group.id}-${exercise.id}`} className="block">
+                          <div className="relative">
                           <button
                             key={`${group.id}-${exercise.id}`}
                             type="button"
-                            onClick={() => onSelectedExercise(exercise.id)}
-                           disabled={isDisabled || isSaving}
+                            onClick={() => handleExerciseSelect(exercise.id)}
+                           disabled={isDisabled || pickerIsBusy}
                             aria-pressed={isSelected}
-                            className={`flex min-h-11 w-full items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${
+                            aria-label={isAdded ? `${exercise.name}, already in this workout` : undefined}
+                            className={`flex min-h-11 w-full min-w-0 items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${exercise.isCustom && source === 'all' && !isAdded ? 'pr-16' : ''} ${
                               isDisabled
                                 ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400'
                                 : isSelected
@@ -563,12 +585,12 @@ export function ExercisePickerDialog({
                               <span className="h-2 w-2 rounded-full bg-current" />
                             </span>
                              <span className="min-w-0 grow break-words [overflow-wrap:anywhere]">{exercise.name}</span>
-                             {exercise.isCustom ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Yours</span> : null}
                              {isCurrent ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Current</span> : null}
-                             {isAdded ? <span className="shrink-0 text-xs text-slate-400">Added</span> : null}
+                             {isAdded ? <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400"><Check size={14} aria-hidden="true" /> In use</span> : null}
                           </button>
-                          {exercise.isCustom && source === 'all' ? <button type="button" className="mt-1 text-xs font-bold underline" onClick={() => setEditingExerciseId(editingExerciseId === exercise.id ? null : exercise.id)}>Edit category</button> : null}
-                          {editingExerciseId === exercise.id ? <div className="mt-1 flex gap-2"><label htmlFor={`${pickerId}-${exercise.id}-category`} className="sr-only">Category for {exercise.name}</label><select id={`${pickerId}-${exercise.id}-category`} disabled={recategorizeMutation.isPending} value={exercise.category.id} onChange={(event) => recategorizeMutation.mutate({ exerciseId: exercise.id, categoryId: event.target.value })} className="min-h-10 min-w-0 grow rounded-lg border px-2 text-sm">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div> : null}</span>
+                          {exercise.isCustom && source === 'all' && !isAdded ? <button ref={(button) => { exerciseEditButtonRefs.current[exercise.id] = button }} type="button" data-press="icon" className={`absolute right-1 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center transition-[color,opacity] duration-150 motion-reduce:transition-none hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 ${isEditing && isSelected ? 'text-white' : isEditing ? 'text-slate-700' : isSelected ? 'text-white' : 'text-slate-400'} ${pickerIsBusy ? 'cursor-not-allowed opacity-50' : ''}`} aria-label={`Edit category for ${exercise.name}`} title={`Edit category for ${exercise.name}`} aria-expanded={isEditing} aria-controls={`${pickerId}-${exercise.id}-category-editor`} disabled={pickerIsBusy} onClick={(event) => { event.stopPropagation(); if (recategorizeIsPending) return; recategorizeMutation.reset(); setEditingExerciseId(isEditing ? null : exercise.id); setCategoryDraft(isEditing ? '' : exercise.category.id); setMutationError('') }}><span className={`inline-flex transition-[color,opacity,transform] duration-150 motion-reduce:transition-none active:scale-95 ${isEditing ? 'opacity-100' : 'opacity-90'}`}><Pencil size={16} aria-hidden="true" /></span></button> : null}
+                          </div>
+                          {isEditing ? <div id={`${pickerId}-${exercise.id}-category-editor`} className="mt-1 rounded-[14px] border border-slate-200 bg-slate-50 p-3" aria-label={`Category editor for ${exercise.name}`}><FluidSelect value={categoryDraft} options={categories.map((category) => ({ value: category.id, label: category.name }))} onValueChange={setCategoryDraft} ariaLabel={`Category for ${exercise.name}`} disabled={recategorizeMutation.isPending} /><div className="mt-3 flex gap-2"><button type="button" disabled={recategorizeMutation.isPending || !categoryDraft || categoryDraft === exercise.category.id} onClick={() => recategorizeMutation.mutate({ exerciseId: exercise.id, categoryId: categoryDraft })} className="min-h-11 flex-1 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300">{recategorizeMutation.isPending ? 'Saving…' : 'Save'}</button><button type="button" disabled={recategorizeMutation.isPending} onClick={() => { setEditingExerciseId(null); setCategoryDraft(''); recategorizeMutation.reset(); setMutationError(''); window.requestAnimationFrame(() => exerciseEditButtonRefs.current[exercise.id]?.focus()) }} className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button></div>{recategorizeMutation.isError ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{getErrorMessage(recategorizeMutation.error, 'Unable to change category.')}</p> : null}</div> : null}</span>
                         )
                       })}
                     </div>

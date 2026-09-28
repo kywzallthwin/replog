@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { ProgramDeleteDialog } from '../components/programs/ProgramDeleteDialog'
@@ -132,5 +132,34 @@ describe('program mobile layout contract', () => {
     const dialog = screen.getByRole('alertdialog')
     expect(dialog).toHaveClass('max-h-[calc(100dvh-3rem)]', 'overflow-y-auto')
     expect(screen.getByRole('heading', { name: `Delete ${longName}?` })).toHaveClass('break-words')
+  })
+
+  it('exposes the exercise name and unavailable state for exercises already in the workout', () => {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['exercise-categories'], [{ id: 'category-arms', name: 'Arms', isCustom: false }])
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExercisePickerDialog
+          mode="add"
+          exerciseOptions={[{ id: 'triceps', name: 'Triceps Pushdown', category: { id: 'category-arms', name: 'Arms', isCustom: false } }]}
+          program={null}
+          existingExerciseIds={['triceps']}
+          selectedExerciseId=""
+          isOptionsPending={false}
+          isOptionsError={false}
+          isSaving={false}
+          onSelectedExercise={vi.fn()}
+          onConfirm={vi.fn()}
+          onClose={vi.fn()}
+          onCreated={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: 'All exercises' }))
+
+    expect(screen.getByRole('button', { name: 'Triceps Pushdown, already in this workout' })).toBeDisabled()
+    expect(screen.getByText('In use')).toBeInTheDocument()
   })
 })
