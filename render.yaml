@@ -19,10 +19,7 @@ services:
       - key: DATABASE_URL_UNPOOLED
         sync: false
       - key: CLIENT_URL
-        fromService:
-          name: replog
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
+        value: https://replog.zllt.workers.dev
       - key: SERVE_CLIENT
         value: true
       - key: REQUIRE_EDGE_PROXY
