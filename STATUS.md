@@ -1,10 +1,11 @@
 # RepLog Status
 
-- Active initiative: Cloudflare migration.
-- Governing plan: `tickets/CF-00.md`.
-- Wave 2 status: paused; W2-02 remains ready and unchanged.
-- Current branch: `feat/cloudflare-migration`.
-- Current ticket: CF-05 (`active`), tracked in `tickets/CF-05.md`.
+- Active initiative: Wave 2 product work (CF-05 paused by explicit user direction).
+- Governing plan: `tickets/W2-13.md` and shared Cloudflare contract `tickets/CF-00.md`.
+- Wave 2 status: W2-13 active; later Wave 2 tickets remain paused.
+- Current branch: `feat/w2-13-category-editor-ui`.
+- Current ticket: W2-13 (`in progress`), tracked in `tickets/W2-13.md`.
+- CF-05 status: paused by explicit user direction; not complete. Preserve its existing history and handoff records; do not resume until W2-13 review is complete and the user explicitly directs resumption.
 - Final public URL: `https://replog-edge.kywzallthwin1.workers.dev`.
 - CF-05 deployment record: old/intermediate URLs, Render revision/commit, and Worker version are not recorded; rollback evidence remains incomplete.
 - Wave 1 mobile and cold-start gates are complete; Wave 2 product work is paused for Cloudflare implementation.
@@ -13,5 +14,8 @@
 - CF-02 server implementation and database-backed tests are complete; 19 server tests pass.
 - CF-03 client startup and stale-tab recovery implementation is complete; focused verification and independent React/auth-flow review passed.
 - CF-04 cross-stack authentication and integration implementation is complete; the user-run full repository verification passed.
-- CF-05 verification blocker cleared: unrestricted `npm test -w client` passed (22 files, 123 tests), and unrestricted `npm run check` passed (Prisma generate/validate, lint, typecheck, 22 server tests against an isolated PostgreSQL test schema, 6 edge tests, builds, Worker dry-run packaging, health smoke, and `git diff --check`). No tracked files, dependency versions, or configuration were changed. Remaining CF-05 blockers are production-only: account/hostname/DNS prerequisites, independent security/deployment review, explicit cutover authorization, and the authorized production acceptance sequence.
-- Accepted CF-05 smoke evidence: Cloudflare SPA and genuine cold-start loader, login/logout, workout reads/mutations, and `/ready` succeeded; Google OAuth was disabled. Extended browser automation and additional manual checks were intentionally skipped. Independent review still needs deployment identifiers, URL history, origin enforcement, cache headers, direct-Render blocking, and rollback readiness.
+- CF-05 remains paused with its prior verification evidence and production-only blockers retained in existing history/handoff records.
+- W2-13 category-editor redesign is implemented on the current branch. Focused picker keyboard/mobile checks passed (14 tests); complete `npm run check` passed (126 client tests, 22 server tests, 6 edge tests, builds, Worker dry-run packaging, health smoke, and `git diff --check`). Manual 375px visual confirmation remains a review item.
+- W2-13 review handoff: CF-05 remains paused; resume status must be explicitly recorded after W2-13 review.
+- W2-13 follow-up (unverified): integrated pencil stacking and open/selected visual states were refined; per user direction, no tests, lint, typecheck, or full verification were run.
+- W2-13 follow-up (unverified): removed the pencil's visible circular surface while retaining its 44px target, keyboard focus ring, stacking, and icon feedback; no verification was run by user direction.
