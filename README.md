@@ -56,6 +56,8 @@ The app uses React and TypeScript on the client, and Express, Prisma, and Postgr
 
 4. Check `server/.env` and set the database URLs. Keep the development and test databases separate.
 
+   PostgreSQL must be running before starting the development server. RepLog waits for the database-backed `/ready` endpoint before launching Vite.
+
 5. Start the app:
 
    ```bash

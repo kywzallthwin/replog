@@ -18,7 +18,7 @@
     "test:e2e:headed": "node scripts/run-e2e.mjs --headed",
     "test:e2e:install": "playwright install chromium",
     "check": "npm run prisma:generate && npm run prisma:validate && npm run lint && npm run typecheck && npm test && npm run build && npm run package -w edge && npm run smoke:health && git diff --check",
-    "dev": "concurrently -k -n client,server -c blue,green \"npm run dev -w client\" \"npm run dev -w server\""
+    "dev": "node scripts/run-dev.mjs"
   },
   "workspaces": [
     "client",

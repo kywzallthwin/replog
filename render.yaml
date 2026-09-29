@@ -21,8 +21,8 @@ services:
       - key: CLIENT_URL
         value: https://replog.zllt.workers.dev
       - key: SERVE_CLIENT
-        value: true
-      - key: REQUIRE_EDGE_PROXY
         value: false
+      - key: REQUIRE_EDGE_PROXY
+        value: true
       - key: EDGE_PROXY_SECRET
         sync: false
