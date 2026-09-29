@@ -165,9 +165,6 @@ jobs:
       - name: Verify Render health
         run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "${RENDER_URL}/health"
 
-      - name: Verify Cloudflare readiness
-        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "${CLOUDFLARE_URL}/ready"
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -191,3 +188,6 @@ jobs:
           npm run deploy -w edge 2>&1 | tee /tmp/replog-cloudflare-deploy.log
           worker_version=$(grep -Eo '(Version ID|version_id|version):[[:space:]]*[[:alnum:]_-]+' /tmp/replog-cloudflare-deploy.log | tail -1 | sed -E 's/^[^:]+:[[:space:]]*//' || true)
           echo "Worker version: ${worker_version:-unreported}"
+
+      - name: Verify Cloudflare readiness
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "${CLOUDFLARE_URL}/ready"

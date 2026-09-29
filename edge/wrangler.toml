@@ -1,6 +1,7 @@
 name = "replog"
 main = "src/index.ts"
 compatibility_date = "2026-09-12"
+keep_vars = true
 
 [assets]
 directory = "../client/dist"
@@ -8,4 +9,5 @@ not_found_handling = "single-page-application"
 run_worker_first = ["/api", "/api/*", "/ready"]
 
 [vars]
-# Set API_UPSTREAM_ORIGIN, PUBLIC_APP_ORIGINS, and EDGE_PROXY_SECRET per environment.
+API_UPSTREAM_ORIGIN = "https://replog-tracker.onrender.com"
+PUBLIC_APP_ORIGINS = "https://replog.zllt.workers.dev"

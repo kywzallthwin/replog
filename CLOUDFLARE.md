@@ -15,7 +15,7 @@ Keep `VITE_API_URL` unset for the production client. Preview deployments must us
 
 ## Coordinated production deployment from `main`
 
-The `deploy-production` job in `.github/workflows/ci.yml` runs after the unchanged `verify` job, and only for successful pushes to `main`. It checks out the exact verified commit, triggers Render with that commit SHA through the Render API, and polls for up to 30 minutes until the deployment is live or failed. It then verifies Render `/health`. Only after Render is live and healthy does it verify Cloudflare `/ready`, build `client/dist`, and deploy the Worker.
+The `deploy-production` job in `.github/workflows/ci.yml` runs after the unchanged `verify` job, and only for successful pushes to `main`. It checks out the exact verified commit, triggers Render with that commit SHA through the Render API, and polls for up to 30 minutes until the deployment is live or failed. It then verifies Render `/health`, builds `client/dist`, deploys the Worker, and verifies Cloudflare `/ready` against the newly deployed Worker.
 
 Render's `autoDeployTrigger` is set to `off` in `render.yaml`; GitHub Actions is the single deployment coordinator. Production concurrency is non-cancelling, so a running external Render deployment finishes before the next production deployment begins. The workflow prints the Git SHA, Render deploy ID, and Cloudflare Worker version when available.
 
