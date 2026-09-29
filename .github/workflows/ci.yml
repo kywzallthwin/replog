@@ -87,3 +87,105 @@ jobs:
 
       - name: Check diff formatting
         run: git diff --check
+
+  deploy-production:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://replog.zllt.workers.dev
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+      CLOUDFLARE_URL: https://replog.zllt.workers.dev
+    steps:
+      - name: Check out verified commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Trigger Render deployment
+        id: render
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Git SHA: ${GITHUB_SHA}"
+          deploy_response=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys" \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --header 'Content-Type: application/json' \
+            --data "{\"commitId\":\"${GITHUB_SHA}\"}")
+          deploy_id=$(jq -r '.id // .deploy.id' <<<"${deploy_response}")
+          test -n "${deploy_id}" && test "${deploy_id}" != "null"
+          echo "Render deploy ID: ${deploy_id}"
+          echo "deploy_id=${deploy_id}" >> "${GITHUB_OUTPUT}"
+
+      - name: Wait for Render deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          service_response=$(curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --url "https://api.render.com/v1/services/${RENDER_SERVICE_ID}")
+          render_url=$(jq -r '.serviceDetails.url // .url' <<<"${service_response}")
+          test -n "${render_url}" && test "${render_url}" != "null"
+          echo "Render URL: ${render_url}"
+          echo "RENDER_URL=${render_url}" >> "${GITHUB_ENV}"
+
+          for attempt in {1..60}; do
+            deploy_status=$(curl --fail-with-body --silent --show-error \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+              --url "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys/${{ steps.render.outputs.deploy_id }}" \
+              | jq -r '.status')
+            echo "Render deploy status (${attempt}/60): ${deploy_status}"
+            case "${deploy_status}" in
+              live) exit 0 ;;
+              failed|build_failed|pre_deploy_failed|update_failed|canceled|cancelled|deactivated)
+                echo "Final Render deployment status: ${deploy_status}" >&2
+                exit 1
+                ;;
+            esac
+            sleep 30
+          done
+          echo 'Render deployment timed out.' >&2
+          exit 1
+
+      - name: Verify Render health
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "${RENDER_URL}/health"
+
+      - name: Verify Cloudflare readiness
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 "${CLOUDFLARE_URL}/ready"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@11.9.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build client assets
+        run: npm run build -w client
+
+      - name: Deploy Cloudflare Worker
+        id: cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run deploy -w edge 2>&1 | tee /tmp/replog-cloudflare-deploy.log
+          worker_version=$(grep -Eo '(Version ID|version_id|version):[[:space:]]*[[:alnum:]_-]+' /tmp/replog-cloudflare-deploy.log | tail -1 | sed -E 's/^[^:]+:[[:space:]]*//' || true)
+          echo "Worker version: ${worker_version:-unreported}"
