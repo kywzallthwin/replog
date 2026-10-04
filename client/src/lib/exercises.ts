@@ -51,6 +51,16 @@ export async function recategorizeExercise(exerciseId: string, categoryId: strin
   return response.data.exercise
 }
 
+export type MergeExerciseResult = {
+  changedProgramDayEntries: number
+  changedWorkoutEntries: number
+}
+
+export async function mergeExercise(sourceId: string, targetExerciseId: string) {
+  const response = await api.post<MergeExerciseResult>(`/exercises/${sourceId}/merge`, { targetExerciseId })
+  return response.data
+}
+
 export type CreateExerciseInput = {
   name: string
   categoryId: string
