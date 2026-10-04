@@ -636,7 +636,7 @@ export function ExercisePickerDialog({
                     <button type="button" onClick={() => { if (mergeSourceId && mergeTargetId) mergeMutation.mutate({ sourceId: mergeSourceId, targetId: mergeTargetId }) }} disabled={!mergeTargetId || mergeMutation.isPending} className="min-h-11 rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500">{mergeMutation.isPending ? 'Combining...' : 'Combine'}</button>
                   </div>
                   {mergeTargetId ? <div className="mt-3 rounded-[14px] border border-slate-200 px-4 py-3 text-sm leading-6 text-slate-700">Combine <strong>“{mergeSource?.name}”</strong> into <strong>“{mergeTarget?.name}”</strong>?</div> : null}
-                  <div className="mt-3 rounded-[14px] bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">Program uses and progress move to the keeper. Completed workout names and sets remain as logged. A built-in source stays in your library.</div>
+                  <div className="mt-3 rounded-[14px] bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">Your programs and progress move to the keeper. Logged names and sets stay. Built-in exercises remain.</div>
                   {mergeMutation.isError ? <p role="alert" className="mt-3 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{getErrorMessage(mergeMutation.error, 'Unable to combine exercises. Please try again.')}</p> : null}
                 </>
               ) : mergeStep === 'source' ? (

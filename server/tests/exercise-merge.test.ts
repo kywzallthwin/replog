@@ -119,6 +119,19 @@ test('merges exercises while preserving completed workout entries and progress o
 
     const inaccessible = await ownerAgent.post(`/api/exercises/${otherSource.id}/merge`).send({ targetExerciseId: target.id })
     assert.equal(inaccessible.status, 404, inaccessible.text)
+
+    const builtInTarget = await prisma.exercise.findFirstOrThrow({ where: { ownerId: null, id: { not: builtIn.id } } })
+    const builtInTargetSource = await prisma.exercise.create({ data: { name: `Built-in Target Source ${suffix}`, categoryId: category.id, ownerId } })
+    const builtInTargetResponse = await ownerAgent.post(`/api/exercises/${builtInTargetSource.id}/merge`).send({ targetExerciseId: builtInTarget.id })
+    assert.equal(builtInTargetResponse.status, 404, builtInTargetResponse.text)
+    assert.ok(await prisma.exercise.findUnique({ where: { id: builtInTargetSource.id } }))
+
+    const validationSource = await prisma.exercise.create({ data: { name: `Validation Source ${suffix}`, categoryId: category.id, ownerId } })
+    const sameIdResponse = await ownerAgent.post(`/api/exercises/${validationSource.id}/merge`).send({ targetExerciseId: validationSource.id })
+    assert.equal(sameIdResponse.status, 400, sameIdResponse.text)
+    const invalidInputResponse = await ownerAgent.post(`/api/exercises/${validationSource.id}/merge`).send({ targetExerciseId: '   ' })
+    assert.equal(invalidInputResponse.status, 400, invalidInputResponse.text)
+    assert.ok(await prisma.exercise.findUnique({ where: { id: validationSource.id } }))
   } finally {
     // Test data is isolated by unique email and is removed by the test database lifecycle.
   }
@@ -135,10 +148,11 @@ test('rejects a merge when either exercise is in an unfinished workout', async (
   const source = await prisma.exercise.create({ data: { name: `Active Source ${suffix}`, categoryId: category.id, ownerId: userId } })
   const program = await prisma.program.create({ data: { ownerId: userId, name: `Active Program ${suffix}`, nameKey: `active-program-${suffix}` } })
   const day = await prisma.day.create({ data: { programId: program.id, name: 'Active day', badgeColor: 'bg-blue-100 text-blue-800', order: 1 } })
-  await prisma.session.create({ data: { userId, programId: program.id, dayId: day.id, dayNameSnapshot: day.name, badgeColorSnapshot: day.badgeColor, sessionExercises: { create: [{ exerciseId: source.id, nameSnapshot: source.name, order: 1 }] } } })
+  await prisma.session.create({ data: { userId, programId: program.id, dayId: day.id, dayNameSnapshot: day.name, badgeColorSnapshot: day.badgeColor, sessionExercises: { create: [{ exerciseId: target.id, nameSnapshot: target.name, order: 1 }] } } })
 
   const response = await agent.post(`/api/exercises/${source.id}/merge`).send({ targetExerciseId: target.id })
   assert.equal(response.status, 409, response.text)
   assert.ok(await prisma.exercise.findUnique({ where: { id: source.id } }))
-  assert.ok(await prisma.sessionExercise.findFirst({ where: { exerciseId: source.id } }))
+  assert.ok(await prisma.exercise.findUnique({ where: { id: target.id } }))
+  assert.ok(await prisma.sessionExercise.findFirst({ where: { exerciseId: target.id } }))
 })
