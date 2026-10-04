@@ -5,13 +5,8 @@ import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDial
 import { exercisesQueryKey, mergeExercise } from '../lib/exercises'
 import { createTestQueryClient } from './query-client'
 
-vi.mock('../lib/exercises', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/exercises')>()),
-  mergeExercise: vi.fn(),
-}))
-
+vi.mock('../lib/exercises', async (importOriginal) => ({ ...(await importOriginal<typeof import('../lib/exercises')>()), mergeExercise: vi.fn() }))
 const mockedMergeExercise = vi.mocked(mergeExercise)
-
 const category = { id: 'category-back', name: 'Back', isCustom: false }
 const source = { id: 'source', name: 'Vague Pull', category, isCustom: true }
 const builtInSource = { id: 'built-in-source', name: 'Built-in Pull', category, isCustom: false }
@@ -22,80 +17,79 @@ function renderPicker(options = [source, keeper, otherKeeper]) {
   const queryClient = createTestQueryClient()
   queryClient.setQueryData(['exercise-categories'], [category])
   queryClient.setQueryData(exercisesQueryKey, options)
-
-  render(
-    <QueryClientProvider client={queryClient}>
-      <ExercisePickerDialog
-        mode="add"
-        exerciseOptions={options}
-        program={null}
-        existingExerciseIds={[]}
-        selectedExerciseId=""
-        isOptionsPending={false}
-        isOptionsError={false}
-        isSaving={false}
-        onSelectedExercise={vi.fn()}
-        onConfirm={vi.fn()}
-        onClose={vi.fn()}
-        onCreated={vi.fn()}
-      />
-    </QueryClientProvider>,
-  )
-
+  render(<QueryClientProvider client={queryClient}><ExercisePickerDialog mode="add" exerciseOptions={options} program={null} existingExerciseIds={[]} selectedExerciseId="" isOptionsPending={false} isOptionsError={false} isSaving={false} onSelectedExercise={vi.fn()} onConfirm={vi.fn()} onClose={vi.fn()} onCreated={vi.fn()} /></QueryClientProvider>)
   fireEvent.click(screen.getByRole('tab', { name: 'All exercises' }))
   return queryClient
 }
 
+function openKeeperSelection() {
+  fireEvent.click(screen.getByRole('button', { name: 'Merge exercises' }))
+  const search = screen.getByRole('searchbox', { name: 'Search exercises to merge' })
+  expect(search).toHaveFocus()
+  fireEvent.change(search, { target: { value: 'Vague' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Vague Pull' }))
+}
+
 describe('exercise merge picker flow', () => {
-  it('focuses the keeper search, supports keyboard traversal, and preserves confirmation after filtering', async () => {
+  it('opens source search, supports back, and restores focus on cancel', async () => {
     renderPicker()
-
-    const mergeButton = screen.getByRole('button', { name: 'Merge Vague Pull' })
-    mergeButton.focus()
-    fireEvent.click(mergeButton)
-
-    const search = screen.getByRole('searchbox', { name: 'Search keeper exercises' })
-    expect(search).toHaveFocus()
-    const dialog = screen.getByRole('dialog', { name: 'Merge Vague Pull' })
-    fireEvent.keyDown(dialog, { key: 'Tab' })
-    expect(screen.getByRole('button', { name: /Chest Supported Row/ })).toHaveFocus()
-
-    fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
-    fireEvent.change(search, { target: { value: 'One Arm' } })
-
-    expect(screen.getByText('Merge Vague Pull')).toBeInTheDocument()
-    expect(screen.getByText('Chest Supported Row')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Confirm merge' })).toBeEnabled()
-
+    openKeeperSelection()
+    expect(screen.getByRole('searchbox', { name: 'Search keeper exercises' })).toHaveFocus()
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Search exercises to merge' })).toHaveFocus())
+    expect(screen.getByRole('button', { name: 'Vague Pull' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Merge Vague Pull' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Merge exercises' })).toHaveFocus())
   })
 
-  it('removes a merged source from the cached library and restores focus to All exercises', async () => {
-    mockedMergeExercise.mockResolvedValueOnce({ changedProgramDayEntries: 1, changedWorkoutEntries: 1 })
-    const queryClient = renderPicker()
+  it('preserves the selected keeper after filtering and supports keyboard traversal', () => {
+    renderPicker()
+    openKeeperSelection()
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Merge Vague Pull' }), { key: 'Tab' })
+    expect(screen.getByRole('button', { name: /Chest Supported Row/ })).toHaveFocus()
+    fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search keeper exercises' }), { target: { value: 'One Arm' } })
+    expect(screen.getByText('Chest Supported Row')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm merge' })).toBeEnabled()
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Merge Vague Pull' }))
+  it('keeps merge errors in the keeper view', async () => {
+    mockedMergeExercise.mockRejectedValueOnce(new Error('The workout is still active.'))
+    renderPicker()
+    openKeeperSelection()
     fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unable to merge exercises. Please try again.'))
+    expect(screen.getByRole('dialog', { name: 'Merge Vague Pull' })).toBeInTheDocument()
+  })
 
+  it('removes a merged custom source and restores focus to All exercises', async () => {
+    mockedMergeExercise.mockResolvedValueOnce({ changedProgramDayEntries: 1, changedWorkoutEntries: 1 })
+    const queryClient = renderPicker()
+    openKeeperSelection()
+    fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
     await waitFor(() => expect(mockedMergeExercise).toHaveBeenCalledWith('source', 'keeper'))
     await waitFor(() => expect(queryClient.getQueryData(exercisesQueryKey)).toEqual([keeper, otherKeeper]))
     expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus()
-    expect(screen.queryByRole('dialog', { name: 'Merge Vague Pull' })).not.toBeInTheDocument()
   })
 
-  it('keeps a merged built-in source in the cached library and visible in All exercises', async () => {
+  it('keeps a merged built-in source visible in All exercises', async () => {
     mockedMergeExercise.mockResolvedValueOnce({ changedProgramDayEntries: 1, changedWorkoutEntries: 1 })
     const queryClient = renderPicker([builtInSource, keeper, otherKeeper])
-
-    fireEvent.click(screen.getByRole('button', { name: 'Merge Built-in Pull' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Merge exercises' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Built-in Pull' }))
     fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
-
     await waitFor(() => expect(mockedMergeExercise).toHaveBeenCalledWith('built-in-source', 'keeper'))
     await waitFor(() => expect(queryClient.getQueryData(exercisesQueryKey)).toEqual([builtInSource, keeper, otherKeeper]))
-    expect(screen.getByRole('button', { name: 'Merge Built-in Pull' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Built-in Pull' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus()
+  })
+
+  it('removes row merge controls while keeping category editing available', () => {
+    renderPicker()
+    expect(screen.queryByRole('button', { name: 'Merge Vague Pull' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit category for Vague Pull' })).toBeInTheDocument()
   })
 })
