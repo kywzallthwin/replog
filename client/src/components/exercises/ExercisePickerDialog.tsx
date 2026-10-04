@@ -1,5 +1,5 @@
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
@@ -170,6 +170,7 @@ export function ExercisePickerDialog({
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
   const exerciseEditButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const mergeActionRef = useRef<HTMLButtonElement>(null)
+  const mergeInstructionRef = useRef<HTMLParagraphElement>(null)
   const pickerSearchInputRef = useRef<HTMLInputElement>(null)
   const pendingMergeFocusRef = useRef<'all' | 'merge' | null>(null)
   const [source, setSource] = useState<PickerSource>('program')
@@ -301,6 +302,11 @@ export function ExercisePickerDialog({
   const mergeSource = mergeSourceId ? exerciseOptions.find((exercise) => exercise.id === mergeSourceId) ?? null : null
   const mergeTarget = exerciseOptions.find((exercise) => exercise.id === mergeTargetId) ?? null
   const resultCount = visibleGroups.reduce((count, group) => count + group.exercises.length, 0)
+
+  useLayoutEffect(() => {
+    if (!mergeStep) return
+    mergeInstructionRef.current?.focus()
+  }, [mergeStep])
 
   useEffect(() => {
     if (mergeStep || !pendingMergeFocusRef.current) return
@@ -479,8 +485,7 @@ export function ExercisePickerDialog({
       describedBy={isNewExerciseOpen ? 'new-exercise-dialog-description' : undefined}
       onClose={handleDialogClose}
       restoreFocusRef={restoreFocusRef}
-      focusKey={isNewExerciseOpen ? 'new-exercise' : isCategoryManagerOpen ? 'category-manager' : mergeStep === 'source' ? 'merge-source-inline' : mergeStep === 'keeper' ? `merge-keeper-inline-${mergeSourceId}` : 'exercise-picker'}
-      initialFocusRef={mergeStep ? pickerSearchInputRef : undefined}
+      focusKey={isNewExerciseOpen ? 'new-exercise' : isCategoryManagerOpen ? 'category-manager' : 'exercise-picker'}
       overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
       className="flex max-h-[calc(100dvh-3rem)] w-full max-w-lg flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
     >
@@ -618,7 +623,7 @@ export function ExercisePickerDialog({
             </div>
 
             <div className="mb-4 flex min-h-11 items-center justify-between gap-3">
-              <p className="min-w-0 break-words text-sm font-bold text-slate-500">
+              <p ref={mergeInstructionRef} tabIndex={mergeStep ? -1 : undefined} className="min-w-0 break-words text-sm font-bold text-slate-500">
                 {mergeStep === 'source' ? 'Select the exercise to combine' : mergeStep === 'keeper' ? 'Select a custom exercise to keep' : source === 'program' ? `${resultCount} in program` : `${resultCount} available`}
               </p>
               {mergeStep === 'keeper' ? (
