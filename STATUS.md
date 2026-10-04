@@ -4,7 +4,7 @@
 - Governing plan: `tickets/W2-14.md` and shared Cloudflare contract `tickets/CF-00.md`.
 - Wave 2 status: W2-13 is paused by explicit user direction; CF-05 production work remains outside this product implementation.
 - Current branch: `feat/w2-14-exercise-merge`.
-- Current ticket: W2-14 (`in progress`), tracked in `tickets/W2-14.md`.
+- Current ticket: W2-14 (`done`), tracked in `tickets/W2-14.md`.
 - CF-05 status: active by explicit user authorization on 2026-09-30; production cutover remains gated on shared-secret confirmation, independent review, and coordinated deployment evidence.
 - Final public URL: `https://replog-edge.kywzallthwin1.workers.dev`.
 - CF-05 deployment record: pre-cutover; old/intermediate URLs, Render revision/commit, Worker version, and rollback evidence remain to be recorded after coordinated deployment.
@@ -19,3 +19,4 @@
 - CF-05 handoff: commit/push may proceed with unrelated worktree changes preserved; merge is blocked until Render and Cloudflare contain the exact same strong `EDGE_PROXY_SECRET` and independent review passes.
 - W2-13 follow-up (unverified): integrated pencil stacking and open/selected visual states were refined; per user direction, no tests, lint, typecheck, or full verification were run.
 - W2-13 follow-up (unverified): removed the pencil's visible circular surface while retaining its 44px target, keyboard focus ring, stacking, and icon feedback; no verification was run by user direction.
+- W2-14 exercise combine flow is complete. Focused client tests pass (7), focused server merge tests pass (24), and the complete `npm run check` passes (134 client, 24 server, 6 edge tests plus lint, typecheck, builds, Worker dry-run packaging, health smoke, and diff check). Manual 375px and keyboard review passed; no commit, push, or deployment was performed.
