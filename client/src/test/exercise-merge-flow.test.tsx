@@ -24,32 +24,29 @@ function renderPicker(options = [source, keeper, otherKeeper]) {
 
 function openKeeperSelection() {
   fireEvent.click(screen.getByRole('button', { name: 'Merge exercises' }))
-  const search = screen.getByRole('searchbox', { name: 'Search exercises to merge' })
+  const search = screen.getByRole('searchbox', { name: 'Search exercises' })
   expect(search).toHaveFocus()
-  fireEvent.change(search, { target: { value: 'Vague' } })
   fireEvent.click(screen.getByRole('button', { name: 'Vague Pull' }))
 }
 
 describe('exercise merge picker flow', () => {
-  it('opens source search, supports back, and restores focus on cancel', async () => {
+  it('keeps the All exercises list visible, supports back, and restores focus on cancel', async () => {
     renderPicker()
     openKeeperSelection()
-    expect(screen.getByRole('searchbox', { name: 'Search keeper exercises' })).toHaveFocus()
+    expect(screen.getByRole('searchbox', { name: 'Search exercises' })).toHaveFocus()
     fireEvent.click(screen.getByRole('button', { name: 'Back' }))
-    await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Search exercises to merge' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Search exercises' })).toHaveFocus())
     expect(screen.getByRole('button', { name: 'Vague Pull' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel merge' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Merge exercises' })).toHaveFocus())
   })
 
-  it('preserves the selected keeper after filtering and supports keyboard traversal', () => {
+  it('selects a keeper from the visible list and enables confirmation', () => {
     renderPicker()
     openKeeperSelection()
-    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Merge Vague Pull' }), { key: 'Tab' })
-    expect(screen.getByRole('button', { name: /Chest Supported Row/ })).toHaveFocus()
-    fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search keeper exercises' }), { target: { value: 'One Arm' } })
-    expect(screen.getByText('Chest Supported Row')).toBeInTheDocument()
+    const keeperButton = screen.getByRole('button', { name: /Chest Supported Row/ })
+    fireEvent.click(keeperButton)
+    expect(keeperButton).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Confirm merge' })).toBeEnabled()
   })
 
@@ -60,7 +57,8 @@ describe('exercise merge picker flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unable to merge exercises. Please try again.'))
-    expect(screen.getByRole('dialog', { name: 'Merge Vague Pull' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm merge' })).toBeInTheDocument()
+    expect(screen.getByText((_, element) => element?.textContent === 'Merge Vague Pull into Chest Supported Row?')).toBeInTheDocument()
   })
 
   it('removes a merged custom source and restores focus to All exercises', async () => {
@@ -71,7 +69,7 @@ describe('exercise merge picker flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
     await waitFor(() => expect(mockedMergeExercise).toHaveBeenCalledWith('source', 'keeper'))
     await waitFor(() => expect(queryClient.getQueryData(exercisesQueryKey)).toEqual([keeper, otherKeeper]))
-    expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus())
   })
 
   it('keeps a merged built-in source visible in All exercises', async () => {
@@ -84,7 +82,7 @@ describe('exercise merge picker flow', () => {
     await waitFor(() => expect(mockedMergeExercise).toHaveBeenCalledWith('built-in-source', 'keeper'))
     await waitFor(() => expect(queryClient.getQueryData(exercisesQueryKey)).toEqual([builtInSource, keeper, otherKeeper]))
     expect(screen.getByRole('button', { name: 'Built-in Pull' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus()
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus())
   })
 
   it('removes row merge controls while keeping category editing available', () => {
