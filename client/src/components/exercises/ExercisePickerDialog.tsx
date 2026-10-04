@@ -2,7 +2,7 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from '
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
+import { Check, GitMerge, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
 import { createCategory, createExercise, deleteCategory, exercisesQueryKey, categoriesQueryKey, getCategories, mergeExercise, recategorizeExercise, renameCategory, resetCategoryLabel, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
 import { dashboardQueryKey } from '../../lib/dashboard'
 import { programsQueryKey } from '../../lib/programs'
@@ -622,19 +622,27 @@ export function ExercisePickerDialog({
               </button>
             </div>
 
-            <div className="mb-4 flex min-h-11 items-center justify-between gap-3">
+            <div className={mergeStep === 'keeper' ? 'mb-4' : 'mb-4 flex min-h-11 items-center justify-between gap-3'}>
               <p ref={mergeInstructionRef} tabIndex={mergeStep ? -1 : undefined} className="min-w-0 break-words text-sm font-bold text-slate-500">
                 {mergeStep === 'source' ? 'Select the exercise to combine' : mergeStep === 'keeper' ? 'Select a custom exercise to keep' : source === 'program' ? `${resultCount} in program` : `${resultCount} available`}
               </p>
               {mergeStep === 'keeper' ? (
-                <div className="flex shrink-0 items-center gap-3">
-                  <button type="button" onClick={backToMergeSources} disabled={mergeMutation.isPending} className="min-h-11 px-1 text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300">Back</button>
-                  <button type="button" onClick={closeMerge} disabled={mergeMutation.isPending} className="min-h-11 px-1 text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button>
-                </div>
+                <>
+                  <div className="mt-2 flex min-h-11 items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={backToMergeSources} disabled={mergeMutation.isPending} className="min-h-11 px-1 text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300">Back</button>
+                      <button type="button" onClick={closeMerge} disabled={mergeMutation.isPending} className="min-h-11 px-1 text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button>
+                    </div>
+                    <button type="button" onClick={() => { if (mergeSourceId && mergeTargetId) mergeMutation.mutate({ sourceId: mergeSourceId, targetId: mergeTargetId }) }} disabled={!mergeTargetId || mergeMutation.isPending} className="min-h-11 rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500">{mergeMutation.isPending ? 'Combining...' : 'Combine'}</button>
+                  </div>
+                  {mergeTargetId ? <div className="mt-3 rounded-[14px] border border-slate-200 px-4 py-3 text-sm leading-6 text-slate-700">Combine <strong>“{mergeSource?.name}”</strong> into <strong>“{mergeTarget?.name}”</strong>?</div> : null}
+                  <div className="mt-3 rounded-[14px] bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">Program uses and progress move to the keeper. Completed workout names and sets remain as logged. A built-in source stays in your library.</div>
+                  {mergeMutation.isError ? <p role="alert" className="mt-3 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{getErrorMessage(mergeMutation.error, 'Unable to combine exercises. Please try again.')}</p> : null}
+                </>
               ) : mergeStep === 'source' ? (
                 <button type="button" onClick={closeMerge} disabled={mergeMutation.isPending} className="min-h-11 shrink-0 px-1 text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button>
               ) : source === 'all' ? (
-                <button type="button" ref={mergeActionRef} onClick={openMerge} disabled={pickerIsBusy || isOptionsPending || categoriesQuery.isPending || categoriesQuery.isError} className="min-h-11 shrink-0 rounded-xl bg-slate-100 px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300">Combine exercises</button>
+                <button type="button" ref={mergeActionRef} onClick={openMerge} disabled={pickerIsBusy || isOptionsPending || categoriesQuery.isPending || categoriesQuery.isError} className="inline-flex min-h-11 shrink-0 items-center gap-1.5 px-1.5 text-[13px] font-semibold text-slate-500 transition hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300"><GitMerge size={16} aria-hidden="true" />Combine exercises</button>
               ) : null}
             </div>
 
@@ -718,15 +726,6 @@ export function ExercisePickerDialog({
                   </section>
                 ))}
               </div>
-
-              {isMerging && mergeStep === 'keeper' ? (
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-[14px] bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">Program uses and progress move to the keeper. Completed workout names and sets remain as logged. A built-in source stays in your library.</div>
-                  {mergeTargetId ? <div className="rounded-[14px] border border-slate-200 px-4 py-3 text-sm leading-6 text-slate-700">Merge <strong>{mergeSource?.name}</strong> into <strong>{mergeTarget?.name}</strong>?</div> : null}
-                  {mergeMutation.isError ? <p role="alert" className="rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{getErrorMessage(mergeMutation.error, 'Unable to merge exercises. Please try again.')}</p> : null}
-                  <button type="button" onClick={() => { if (mergeSourceId && mergeTargetId) mergeMutation.mutate({ sourceId: mergeSourceId, targetId: mergeTargetId }) }} disabled={!mergeTargetId || mergeMutation.isPending} className="min-h-11 w-full rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500">{mergeMutation.isPending ? 'Merging...' : 'Confirm merge'}</button>
-                </div>
-              ) : null}
 
               {saveError ? (
                 <p role="alert" className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
