@@ -619,17 +619,17 @@ export function ExercisePickerDialog({
 
             <div className="mb-4 flex min-h-11 items-center justify-between gap-3">
               <p className="min-w-0 break-words text-sm font-bold text-slate-500">
-                {mergeStep === 'source' ? 'Select the exercise to merge' : mergeStep === 'keeper' ? 'Select a custom exercise to keep' : source === 'program' ? `${resultCount} in program` : `${resultCount} available`}
+                {mergeStep === 'source' ? 'Select the exercise to combine' : mergeStep === 'keeper' ? 'Select a custom exercise to keep' : source === 'program' ? `${resultCount} in program` : `${resultCount} available`}
               </p>
               {mergeStep === 'keeper' ? (
                 <div className="flex shrink-0 items-center gap-3">
-                  <button type="button" onClick={backToMergeSources} disabled={mergeMutation.isPending} className="min-h-11 px-1 text-sm font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-300">Back</button>
-                  <button type="button" onClick={closeMerge} disabled={mergeMutation.isPending} className="min-h-11 px-1 text-sm font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-300">Cancel merge</button>
+                  <button type="button" onClick={backToMergeSources} disabled={mergeMutation.isPending} className="min-h-11 px-1 text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300">Back</button>
+                  <button type="button" onClick={closeMerge} disabled={mergeMutation.isPending} className="min-h-11 px-1 text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button>
                 </div>
               ) : mergeStep === 'source' ? (
-                <button type="button" onClick={closeMerge} disabled={mergeMutation.isPending} className="min-h-11 shrink-0 px-1 text-sm font-bold text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-300">Cancel merge</button>
+                <button type="button" onClick={closeMerge} disabled={mergeMutation.isPending} className="min-h-11 shrink-0 px-1 text-sm font-semibold text-slate-500 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button>
               ) : source === 'all' ? (
-                <button type="button" ref={mergeActionRef} onClick={openMerge} disabled={pickerIsBusy || isOptionsPending || categoriesQuery.isPending || categoriesQuery.isError} className="min-h-11 shrink-0 rounded-[10px] border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 disabled:cursor-not-allowed disabled:opacity-60">Combine exercises</button>
+                <button type="button" ref={mergeActionRef} onClick={openMerge} disabled={pickerIsBusy || isOptionsPending || categoriesQuery.isPending || categoriesQuery.isError} className="min-h-11 shrink-0 rounded-xl bg-slate-100 px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-300">Combine exercises</button>
               ) : null}
             </div>
 
