@@ -170,6 +170,8 @@ export function ExercisePickerDialog({
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
   const exerciseEditButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const exerciseMergeButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const mergeSearchInputRef = useRef<HTMLInputElement>(null)
+  const pendingMergeFocusRef = useRef<string | 'all' | null>(null)
   const [source, setSource] = useState<PickerSource>('program')
   const [search, setSearch] = useState('')
   const [isNewExerciseOpen, setIsNewExerciseOpen] = useState(false)
@@ -232,14 +234,15 @@ export function ExercisePickerDialog({
   const recategorizeMutation = useMutation({ mutationFn: ({ exerciseId, categoryId }: { exerciseId: string; categoryId: string }) => recategorizeExercise(exerciseId, categoryId), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setCategoryDraft(''); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => exerciseEditButtonRefs.current[exercise.id]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to change category.')) })
   const mergeMutation = useMutation({
     mutationFn: ({ sourceId, targetId }: { sourceId: string; targetId: string }) => mergeExercise(sourceId, targetId),
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
+      queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.filter((exercise) => exercise.id !== variables.sourceId))
       refreshLibrary()
       void queryClient.invalidateQueries({ queryKey: ['sessions'] })
       setMergeSourceId(null)
       setMergeTargetId('')
       setMergeSearch('')
       onSelectedExercise('')
-      window.requestAnimationFrame(() => allExercisesTabRef.current?.focus())
+      pendingMergeFocusRef.current = 'all'
     },
   })
 
@@ -292,10 +295,20 @@ export function ExercisePickerDialog({
   const pickerIsBusy = isSaving || createMutation.isPending || recategorizeIsPending || mergeMutation.isPending
 
   const mergeSource = mergeSourceId ? exerciseOptions.find((exercise) => exercise.id === mergeSourceId) ?? null : null
+  const mergeTarget = exerciseOptions.find((exercise) => exercise.id === mergeTargetId) ?? null
   const normalizedMergeSearch = mergeSearch.trim().toLowerCase()
   const mergeTargets = exerciseOptions.filter((exercise) =>
     exercise.isCustom && exercise.id !== mergeSourceId && `${exercise.name} ${exercise.category.name}`.toLowerCase().includes(normalizedMergeSearch),
   )
+
+  useEffect(() => {
+    if (mergeSourceId || !pendingMergeFocusRef.current) return
+    const focusTarget = pendingMergeFocusRef.current === 'all'
+      ? allExercisesTabRef.current
+      : exerciseMergeButtonRefs.current[pendingMergeFocusRef.current]
+    pendingMergeFocusRef.current = null
+    focusTarget?.focus()
+  }, [mergeSourceId])
 
   function selectSource(nextSource: PickerSource) {
     if (pickerIsBusy) {
@@ -363,7 +376,7 @@ export function ExercisePickerDialog({
     setMergeTargetId('')
     setMergeSearch('')
     mergeMutation.reset()
-    window.requestAnimationFrame(() => (sourceId ? exerciseMergeButtonRefs.current[sourceId] : allExercisesTabRef.current)?.focus())
+    pendingMergeFocusRef.current = sourceId
   }
 
   function closeNewExercise() {
@@ -433,7 +446,8 @@ export function ExercisePickerDialog({
       describedBy={isNewExerciseOpen ? 'new-exercise-dialog-description' : mergeSource ? 'merge-exercise-description' : undefined}
       onClose={handleDialogClose}
       restoreFocusRef={restoreFocusRef}
-      focusKey={isNewExerciseOpen ? 'new-exercise' : isCategoryManagerOpen ? 'category-manager' : 'exercise-picker'}
+      focusKey={isNewExerciseOpen ? 'new-exercise' : isCategoryManagerOpen ? 'category-manager' : mergeSource ? `merge-${mergeSource.id}` : 'exercise-picker'}
+      initialFocusRef={mergeSource ? mergeSearchInputRef : undefined}
       overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
       className="flex max-h-[calc(100dvh-3rem)] w-full max-w-lg flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
     >
@@ -526,7 +540,7 @@ export function ExercisePickerDialog({
           <div className="min-h-0 overflow-y-auto p-5">
             <label className="block">
               <span className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Keeper exercise</span>
-              <input type="search" aria-label="Search keeper exercises" value={mergeSearch} disabled={mergeMutation.isPending} onChange={(event) => setMergeSearch(event.target.value)} placeholder="Search custom exercises..." className="h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-slate-900" />
+              <input ref={mergeSearchInputRef} type="search" aria-label="Search keeper exercises" value={mergeSearch} disabled={mergeMutation.isPending} onChange={(event) => setMergeSearch(event.target.value)} placeholder="Search custom exercises..." className="h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-slate-900" />
             </label>
             <div className="mt-4 space-y-2">
               {mergeTargets.length ? mergeTargets.map((target) => (
@@ -542,7 +556,7 @@ export function ExercisePickerDialog({
             </div>
             {mergeTargetId ? (
               <div className="mt-4 rounded-[14px] border border-slate-200 px-4 py-3 text-sm leading-6 text-slate-700">
-                Merge <strong>{mergeSource.name}</strong> into <strong>{mergeTargets.find((target) => target.id === mergeTargetId)?.name}</strong>?
+                Merge <strong>{mergeSource.name}</strong> into <strong>{mergeTarget?.name}</strong>?
               </div>
             ) : null}
             {mergeMutation.isError ? <p role="alert" className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{getErrorMessage(mergeMutation.error, 'Unable to merge exercises. Please try again.')}</p> : null}
