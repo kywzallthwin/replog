@@ -12,6 +12,7 @@ const source = { id: 'source', name: 'Vague Pull', category, isCustom: true }
 const builtInSource = { id: 'built-in-source', name: 'Built-in Pull', category, isCustom: false }
 const keeper = { id: 'keeper', name: 'Chest Supported Row', category, isCustom: true }
 const otherKeeper = { id: 'other-keeper', name: 'One Arm Row', category, isCustom: true }
+const mergeExplanation = 'Your programs and progress move to the keeper. Logged names and sets stay. Built-in exercises remain.'
 
 beforeEach(() => {
   mockedMergeExercise.mockReset()
@@ -55,7 +56,8 @@ describe('exercise merge picker flow', () => {
     fireEvent.click(keeperButton)
     expect(keeperButton).toHaveAttribute('aria-pressed', 'true')
     expect(combineButton).toBeEnabled()
-    expect(screen.getByText(/Combine “Vague Pull” into “Chest Supported Row”\?/)).toBeInTheDocument()
+    const confirmation = screen.getByText(mergeExplanation).previousElementSibling
+    expect(confirmation?.textContent).toBe('Combine “Vague Pull” into “Chest Supported Row”?')
   })
 
   it('keeps merge errors in the keeper view', async () => {
@@ -64,21 +66,22 @@ describe('exercise merge picker flow', () => {
     openKeeperSelection()
     fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Combine' }))
-    expect(mockedMergeExercise).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(mockedMergeExercise).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unable to combine exercises. Please try again.'))
     expect(screen.getByRole('button', { name: 'Combine' })).toBeInTheDocument()
-    expect(screen.getByText(/Combine “Vague Pull” into “Chest Supported Row”\?/)).toBeInTheDocument()
+    const confirmation = screen.getByText(mergeExplanation).previousElementSibling
+    expect(confirmation?.textContent).toBe('Combine “Vague Pull” into “Chest Supported Row”?')
   })
 
-  it('keeps the Combine action pending while the request is in flight', () => {
+  it('keeps the Combine action pending while the request is in flight', async () => {
     mockedMergeExercise.mockReturnValueOnce(new Promise(() => {}))
     renderPicker()
     openKeeperSelection()
     fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Combine' }))
-    expect(screen.getByRole('button', { name: 'Combining...' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Combining...' })).toBeDisabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled())
   })
 
   it('removes a merged custom source and restores focus to All exercises', async () => {

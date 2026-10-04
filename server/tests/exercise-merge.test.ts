@@ -127,6 +127,22 @@ test('merges exercises while preserving completed workout entries and progress o
     assert.ok(await prisma.exercise.findUnique({ where: { id: builtInTargetSource.id } }))
 
     const validationSource = await prisma.exercise.create({ data: { name: `Validation Source ${suffix}`, categoryId: category.id, ownerId } })
+    const otherTarget = await prisma.exercise.create({ data: { name: `Other Target ${suffix}`, categoryId: category.id, ownerId: otherId } })
+    const validationProgram = await prisma.program.create({
+      data: {
+        ownerId,
+        name: `Validation Program ${suffix}`,
+        nameKey: `validation-program-${suffix}`,
+        days: {
+          create: [{ name: 'Validation day', badgeColor: 'bg-blue-100 text-blue-800', order: 1, dayExercises: { create: [{ exerciseId: validationSource.id, order: 1 }] } }],
+        },
+      },
+      include: { days: { include: { dayExercises: true } } },
+    })
+    const otherTargetResponse = await ownerAgent.post(`/api/exercises/${validationSource.id}/merge`).send({ targetExerciseId: otherTarget.id })
+    assert.equal(otherTargetResponse.status, 404, otherTargetResponse.text)
+    assert.ok(await prisma.exercise.findUnique({ where: { id: validationSource.id } }))
+    assert.deepEqual(await prisma.dayExercise.findMany({ where: { day: { programId: validationProgram.id } }, select: { exerciseId: true, order: true } }), [{ exerciseId: validationSource.id, order: 1 }])
     const sameIdResponse = await ownerAgent.post(`/api/exercises/${validationSource.id}/merge`).send({ targetExerciseId: validationSource.id })
     assert.equal(sameIdResponse.status, 400, sameIdResponse.text)
     const invalidInputResponse = await ownerAgent.post(`/api/exercises/${validationSource.id}/merge`).send({ targetExerciseId: '   ' })
@@ -137,22 +153,38 @@ test('merges exercises while preserving completed workout entries and progress o
   }
 })
 
-test('rejects a merge when either exercise is in an unfinished workout', async () => {
+test('rejects a merge when the source or keeper is in an unfinished workout', async () => {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const agent = request.agent(app)
+  const keeperAgent = request.agent(app)
   const registerResponse = await agent.post('/api/auth/register').send({ email: `merge-active-${suffix}@example.com`, username: 'Merge Active', password: 'password123' })
   assert.equal(registerResponse.status, 201, registerResponse.text)
   const userId = registerResponse.body.user.id as string
+  const keeperRegisterResponse = await keeperAgent.post('/api/auth/register').send({ email: `merge-keeper-active-${suffix}@example.com`, username: 'Merge Keeper Active', password: 'password123' })
+  assert.equal(keeperRegisterResponse.status, 201, keeperRegisterResponse.text)
+  const keeperUserId = keeperRegisterResponse.body.user.id as string
   const category = await prisma.exerciseCategory.findFirstOrThrow({ where: { ownerId: null } })
-  const target = await prisma.exercise.create({ data: { name: `Active Keeper ${suffix}`, categoryId: category.id, ownerId: userId } })
-  const source = await prisma.exercise.create({ data: { name: `Active Source ${suffix}`, categoryId: category.id, ownerId: userId } })
-  const program = await prisma.program.create({ data: { ownerId: userId, name: `Active Program ${suffix}`, nameKey: `active-program-${suffix}` } })
-  const day = await prisma.day.create({ data: { programId: program.id, name: 'Active day', badgeColor: 'bg-blue-100 text-blue-800', order: 1 } })
-  await prisma.session.create({ data: { userId, programId: program.id, dayId: day.id, dayNameSnapshot: day.name, badgeColorSnapshot: day.badgeColor, sessionExercises: { create: [{ exerciseId: target.id, nameSnapshot: target.name, order: 1 }] } } })
+  const sourceActiveTarget = await prisma.exercise.create({ data: { name: `Source Active Keeper ${suffix}`, categoryId: category.id, ownerId: userId } })
+  const sourceActive = await prisma.exercise.create({ data: { name: `Source Active ${suffix}`, categoryId: category.id, ownerId: userId } })
+  const sourceProgram = await prisma.program.create({ data: { ownerId: userId, name: `Source Active Program ${suffix}`, nameKey: `source-active-program-${suffix}` } })
+  const sourceDay = await prisma.day.create({ data: { programId: sourceProgram.id, name: 'Source active day', badgeColor: 'bg-blue-100 text-blue-800', order: 1 } })
+  const sourceSession = await prisma.session.create({ data: { userId, programId: sourceProgram.id, dayId: sourceDay.id, dayNameSnapshot: sourceDay.name, badgeColorSnapshot: sourceDay.badgeColor, sessionExercises: { create: [{ exerciseId: sourceActive.id, nameSnapshot: sourceActive.name, order: 1 }] } } })
 
-  const response = await agent.post(`/api/exercises/${source.id}/merge`).send({ targetExerciseId: target.id })
-  assert.equal(response.status, 409, response.text)
-  assert.ok(await prisma.exercise.findUnique({ where: { id: source.id } }))
-  assert.ok(await prisma.exercise.findUnique({ where: { id: target.id } }))
-  assert.ok(await prisma.sessionExercise.findFirst({ where: { exerciseId: target.id } }))
+  const sourceResponse = await agent.post(`/api/exercises/${sourceActive.id}/merge`).send({ targetExerciseId: sourceActiveTarget.id })
+  assert.equal(sourceResponse.status, 409, sourceResponse.text)
+  assert.ok(await prisma.exercise.findUnique({ where: { id: sourceActive.id } }))
+  assert.ok(await prisma.exercise.findUnique({ where: { id: sourceActiveTarget.id } }))
+  assert.deepEqual(await prisma.sessionExercise.findMany({ where: { sessionId: sourceSession.id }, select: { exerciseId: true, order: true } }), [{ exerciseId: sourceActive.id, order: 1 }])
+
+  const keeperActiveTarget = await prisma.exercise.create({ data: { name: `Keeper Active Keeper ${suffix}`, categoryId: category.id, ownerId: keeperUserId } })
+  const keeperActiveSource = await prisma.exercise.create({ data: { name: `Keeper Active Source ${suffix}`, categoryId: category.id, ownerId: keeperUserId } })
+  const keeperProgram = await prisma.program.create({ data: { ownerId: keeperUserId, name: `Keeper Active Program ${suffix}`, nameKey: `keeper-active-program-${suffix}` } })
+  const keeperDay = await prisma.day.create({ data: { programId: keeperProgram.id, name: 'Keeper active day', badgeColor: 'bg-blue-100 text-blue-800', order: 1 } })
+  const keeperSession = await prisma.session.create({ data: { userId: keeperUserId, programId: keeperProgram.id, dayId: keeperDay.id, dayNameSnapshot: keeperDay.name, badgeColorSnapshot: keeperDay.badgeColor, sessionExercises: { create: [{ exerciseId: keeperActiveTarget.id, nameSnapshot: keeperActiveTarget.name, order: 1 }] } } })
+
+  const keeperResponse = await keeperAgent.post(`/api/exercises/${keeperActiveSource.id}/merge`).send({ targetExerciseId: keeperActiveTarget.id })
+  assert.equal(keeperResponse.status, 409, keeperResponse.text)
+  assert.ok(await prisma.exercise.findUnique({ where: { id: keeperActiveSource.id } }))
+  assert.ok(await prisma.exercise.findUnique({ where: { id: keeperActiveTarget.id } }))
+  assert.deepEqual(await prisma.sessionExercise.findMany({ where: { sessionId: keeperSession.id }, select: { exerciseId: true, order: true } }), [{ exerciseId: keeperActiveTarget.id, order: 1 }])
 })
