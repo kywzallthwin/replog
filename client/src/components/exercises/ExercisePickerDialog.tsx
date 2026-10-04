@@ -235,7 +235,10 @@ export function ExercisePickerDialog({
   const mergeMutation = useMutation({
     mutationFn: ({ sourceId, targetId }: { sourceId: string; targetId: string }) => mergeExercise(sourceId, targetId),
     onSuccess: (_result, variables) => {
-      queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.filter((exercise) => exercise.id !== variables.sourceId))
+      const sourceExercise = exerciseOptions.find((exercise) => exercise.id === variables.sourceId)
+      if (sourceExercise?.isCustom) {
+        queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.filter((exercise) => exercise.id !== variables.sourceId))
+      }
       refreshLibrary()
       void queryClient.invalidateQueries({ queryKey: ['sessions'] })
       setMergeSourceId(null)

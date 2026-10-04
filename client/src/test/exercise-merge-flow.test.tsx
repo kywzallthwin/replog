@@ -13,20 +13,21 @@ vi.mock('../lib/exercises', async (importOriginal) => ({
 const mockedMergeExercise = vi.mocked(mergeExercise)
 
 const category = { id: 'category-back', name: 'Back', isCustom: false }
-const source = { id: 'source', name: 'Vague Pull', category, isCustom: false }
+const source = { id: 'source', name: 'Vague Pull', category, isCustom: true }
+const builtInSource = { id: 'built-in-source', name: 'Built-in Pull', category, isCustom: false }
 const keeper = { id: 'keeper', name: 'Chest Supported Row', category, isCustom: true }
 const otherKeeper = { id: 'other-keeper', name: 'One Arm Row', category, isCustom: true }
 
-function renderPicker() {
+function renderPicker(options = [source, keeper, otherKeeper]) {
   const queryClient = createTestQueryClient()
   queryClient.setQueryData(['exercise-categories'], [category])
-  queryClient.setQueryData(exercisesQueryKey, [source, keeper, otherKeeper])
+  queryClient.setQueryData(exercisesQueryKey, options)
 
   render(
     <QueryClientProvider client={queryClient}>
       <ExercisePickerDialog
         mode="add"
-        exerciseOptions={[source, keeper, otherKeeper]}
+        exerciseOptions={options}
         program={null}
         existingExerciseIds={[]}
         selectedExerciseId=""
@@ -82,5 +83,19 @@ describe('exercise merge picker flow', () => {
     await waitFor(() => expect(queryClient.getQueryData(exercisesQueryKey)).toEqual([keeper, otherKeeper]))
     expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus()
     expect(screen.queryByRole('dialog', { name: 'Merge Vague Pull' })).not.toBeInTheDocument()
+  })
+
+  it('keeps a merged built-in source in the cached library and visible in All exercises', async () => {
+    mockedMergeExercise.mockResolvedValueOnce({ changedProgramDayEntries: 1, changedWorkoutEntries: 1 })
+    const queryClient = renderPicker([builtInSource, keeper, otherKeeper])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Merge Built-in Pull' }))
+    fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
+
+    await waitFor(() => expect(mockedMergeExercise).toHaveBeenCalledWith('built-in-source', 'keeper'))
+    await waitFor(() => expect(queryClient.getQueryData(exercisesQueryKey)).toEqual([builtInSource, keeper, otherKeeper]))
+    expect(screen.getByRole('button', { name: 'Merge Built-in Pull' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus()
   })
 })
