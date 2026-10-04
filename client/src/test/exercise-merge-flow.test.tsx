@@ -23,9 +23,10 @@ function renderPicker(options = [source, keeper, otherKeeper]) {
 }
 
 function openKeeperSelection() {
-  fireEvent.click(screen.getByRole('button', { name: 'Merge exercises' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Combine exercises' }))
   const search = screen.getByRole('searchbox', { name: 'Search exercises' })
   expect(search).toHaveFocus()
+  expect(screen.getByText('Select the exercise to merge')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Vague Pull' }))
 }
 
@@ -38,7 +39,7 @@ describe('exercise merge picker flow', () => {
     await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Search exercises' })).toHaveFocus())
     expect(screen.getByRole('button', { name: 'Vague Pull' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel merge' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Merge exercises' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Combine exercises' })).toHaveFocus())
   })
 
   it('selects a keeper from the visible list and enables confirmation', () => {
@@ -75,7 +76,7 @@ describe('exercise merge picker flow', () => {
   it('keeps a merged built-in source visible in All exercises', async () => {
     mockedMergeExercise.mockResolvedValueOnce({ changedProgramDayEntries: 1, changedWorkoutEntries: 1 })
     const queryClient = renderPicker([builtInSource, keeper, otherKeeper])
-    fireEvent.click(screen.getByRole('button', { name: 'Merge exercises' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Combine exercises' }))
     fireEvent.click(screen.getByRole('button', { name: 'Built-in Pull' }))
     fireEvent.click(screen.getByRole('button', { name: /Chest Supported Row/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
