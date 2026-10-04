@@ -16,6 +16,7 @@ This file is the ticket index. Read only the active ticket named in `STATUS.md`.
 - [W2-11](tickets/W2-11.md): proposed - Wave 2 integration and mobile acceptance gate
 - [W2-12](tickets/W2-12.md): done - remove workout-level notes
 - [W2-13](tickets/W2-13.md): in progress - editable exercise categories
+- [W2-14](tickets/W2-14.md): in progress - merge exercises into owned custom exercises
 
 ## Implementation Order
 

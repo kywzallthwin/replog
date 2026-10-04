@@ -2,8 +2,8 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from '
 import { useEffect, useId, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
-import { createCategory, createExercise, deleteCategory, exercisesQueryKey, categoriesQueryKey, getCategories, recategorizeExercise, renameCategory, resetCategoryLabel, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
+import { Check, GitMerge, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
+import { createCategory, createExercise, deleteCategory, exercisesQueryKey, categoriesQueryKey, getCategories, mergeExercise, recategorizeExercise, renameCategory, resetCategoryLabel, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
 import { dashboardQueryKey } from '../../lib/dashboard'
 import { programsQueryKey } from '../../lib/programs'
 import type { Program } from '../../lib/programs'
@@ -169,6 +169,7 @@ export function ExercisePickerDialog({
   const programTabRef = useRef<HTMLButtonElement>(null)
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
   const exerciseEditButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const exerciseMergeButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [source, setSource] = useState<PickerSource>('program')
   const [search, setSearch] = useState('')
   const [isNewExerciseOpen, setIsNewExerciseOpen] = useState(false)
@@ -182,6 +183,9 @@ export function ExercisePickerDialog({
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null)
   const [categoryDraft, setCategoryDraft] = useState('')
   const [mutationError, setMutationError] = useState('')
+  const [mergeSourceId, setMergeSourceId] = useState<string | null>(null)
+  const [mergeTargetId, setMergeTargetId] = useState('')
+  const [mergeSearch, setMergeSearch] = useState('')
   const refreshLibrary = () => {
     void queryClient.invalidateQueries({ queryKey: categoriesQueryKey })
     void queryClient.invalidateQueries({ queryKey: exercisesQueryKey })
@@ -226,6 +230,18 @@ export function ExercisePickerDialog({
   const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement: string }) => deleteCategory(id, replacement), onSuccess: () => { setIsDeleteConfirmationOpen(false); setReplacementId(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
   const resetLabelMutation = useMutation({ mutationFn: resetCategoryLabel, onSuccess: (_data, categoryId) => { setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryRenameButtonRefs.current[categoryId]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to reset category name.')) })
   const recategorizeMutation = useMutation({ mutationFn: ({ exerciseId, categoryId }: { exerciseId: string; categoryId: string }) => recategorizeExercise(exerciseId, categoryId), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setCategoryDraft(''); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => exerciseEditButtonRefs.current[exercise.id]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to change category.')) })
+  const mergeMutation = useMutation({
+    mutationFn: ({ sourceId, targetId }: { sourceId: string; targetId: string }) => mergeExercise(sourceId, targetId),
+    onSuccess: () => {
+      refreshLibrary()
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] })
+      setMergeSourceId(null)
+      setMergeTargetId('')
+      setMergeSearch('')
+      onSelectedExercise('')
+      window.requestAnimationFrame(() => allExercisesTabRef.current?.focus())
+    },
+  })
 
   const existingIds = new Set(existingExerciseIds)
   const programGroups = [...(program?.days ?? [])]
@@ -273,7 +289,13 @@ export function ExercisePickerDialog({
   const isSourceError = source === 'program' ? programIsError : isOptionsError
   const hasSourceExercises = groups.some((group) => group.exercises.length > 0)
   const recategorizeIsPending = recategorizeMutation.isPending
-  const pickerIsBusy = isSaving || createMutation.isPending || recategorizeIsPending
+  const pickerIsBusy = isSaving || createMutation.isPending || recategorizeIsPending || mergeMutation.isPending
+
+  const mergeSource = mergeSourceId ? exerciseOptions.find((exercise) => exercise.id === mergeSourceId) ?? null : null
+  const normalizedMergeSearch = mergeSearch.trim().toLowerCase()
+  const mergeTargets = exerciseOptions.filter((exercise) =>
+    exercise.isCustom && exercise.id !== mergeSourceId && `${exercise.name} ${exercise.category.name}`.toLowerCase().includes(normalizedMergeSearch),
+  )
 
   function selectSource(nextSource: PickerSource) {
     if (pickerIsBusy) {
@@ -323,6 +345,27 @@ export function ExercisePickerDialog({
     onSelectedExercise(exerciseId)
   }
 
+  function openMerge(exercise: ExerciseOption) {
+    if (pickerIsBusy) return
+    setMergeSourceId(exercise.id)
+    setMergeTargetId('')
+    setMergeSearch('')
+    setEditingExerciseId(null)
+    setCategoryDraft('')
+    setMutationError('')
+    mergeMutation.reset()
+  }
+
+  function closeMerge() {
+    if (mergeMutation.isPending) return
+    const sourceId = mergeSourceId
+    setMergeSourceId(null)
+    setMergeTargetId('')
+    setMergeSearch('')
+    mergeMutation.reset()
+    window.requestAnimationFrame(() => (sourceId ? exerciseMergeButtonRefs.current[sourceId] : allExercisesTabRef.current)?.focus())
+  }
+
   function closeNewExercise() {
     if (createMutation.isPending) {
       return
@@ -348,6 +391,11 @@ export function ExercisePickerDialog({
       setCategoryManagerMode(null)
       setSelectedCategoryId(null)
       window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus())
+      return
+    }
+
+    if (mergeSourceId) {
+      closeMerge()
       return
     }
 
@@ -381,8 +429,8 @@ export function ExercisePickerDialog({
 
   return (
     <Dialog
-      labelledBy={isNewExerciseOpen ? 'new-exercise-dialog-title' : isCategoryManagerOpen ? 'category-manager-title' : 'exercise-picker-dialog-title'}
-      describedBy={isNewExerciseOpen ? 'new-exercise-dialog-description' : undefined}
+      labelledBy={isNewExerciseOpen ? 'new-exercise-dialog-title' : isCategoryManagerOpen ? 'category-manager-title' : mergeSource ? 'merge-exercise-title' : 'exercise-picker-dialog-title'}
+      describedBy={isNewExerciseOpen ? 'new-exercise-dialog-description' : mergeSource ? 'merge-exercise-description' : undefined}
       onClose={handleDialogClose}
       restoreFocusRef={restoreFocusRef}
       focusKey={isNewExerciseOpen ? 'new-exercise' : isCategoryManagerOpen ? 'category-manager' : 'exercise-picker'}
@@ -467,6 +515,42 @@ export function ExercisePickerDialog({
             </div>
           </div>
           <div className="border-t border-slate-100 p-4"><button className="min-h-11 w-full rounded-xl border border-slate-200 bg-white font-bold text-slate-500 transition hover:bg-slate-50" onClick={() => { setIsCategoryManagerOpen(false); setCategoryManagerMode(null); setSelectedCategoryId(null); setIsDeleteConfirmationOpen(false); setMutationError(''); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }}>Done</button></div>
+        </div>
+      ) : mergeSource ? (
+        <div className="flex max-h-[calc(100dvh-3rem)] min-h-0 w-full flex-col">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Exercise library</p>
+            <h2 id="merge-exercise-title" className="mt-1 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900">Merge {mergeSource.name}</h2>
+            <p id="merge-exercise-description" className="mt-2 text-sm leading-6 text-slate-500">Choose one of your custom exercises as the keeper.</p>
+          </div>
+          <div className="min-h-0 overflow-y-auto p-5">
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Keeper exercise</span>
+              <input type="search" aria-label="Search keeper exercises" value={mergeSearch} disabled={mergeMutation.isPending} onChange={(event) => setMergeSearch(event.target.value)} placeholder="Search custom exercises..." className="h-12 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-slate-900" />
+            </label>
+            <div className="mt-4 space-y-2">
+              {mergeTargets.length ? mergeTargets.map((target) => (
+                <button key={target.id} type="button" disabled={mergeMutation.isPending} aria-pressed={mergeTargetId === target.id} onClick={() => setMergeTargetId(target.id)} className={`flex min-h-11 w-full min-w-0 items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${mergeTargetId === target.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-100 bg-white text-slate-700 hover:bg-slate-50'}`}>
+                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${mergeTargetId === target.id ? 'border-white bg-white text-slate-900' : 'border-slate-300 text-transparent'}`}><span className="h-2 w-2 rounded-full bg-current" /></span>
+                  <span className="min-w-0 grow break-words [overflow-wrap:anywhere]">{target.name}</span>
+                  <span className={`shrink-0 text-xs ${mergeTargetId === target.id ? 'text-white/70' : 'text-slate-400'}`}>{target.category.name}</span>
+                </button>
+              )) : <p role="status" className="rounded-[12px] bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">{mergeSearch ? 'No custom exercises match your search.' : 'Create a custom exercise to use as the keeper.'}</p>}
+            </div>
+            <div className="mt-5 rounded-[14px] bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
+              Program uses and progress move to the keeper. Completed workout names and sets remain as logged. A built-in source stays in your library.
+            </div>
+            {mergeTargetId ? (
+              <div className="mt-4 rounded-[14px] border border-slate-200 px-4 py-3 text-sm leading-6 text-slate-700">
+                Merge <strong>{mergeSource.name}</strong> into <strong>{mergeTargets.find((target) => target.id === mergeTargetId)?.name}</strong>?
+              </div>
+            ) : null}
+            {mergeMutation.isError ? <p role="alert" className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{getErrorMessage(mergeMutation.error, 'Unable to merge exercises. Please try again.')}</p> : null}
+          </div>
+          <div className="flex gap-2 border-t border-slate-100 p-4">
+            <button type="button" onClick={closeMerge} disabled={mergeMutation.isPending} className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button>
+            <button type="button" onClick={() => { if (mergeSourceId && mergeTargetId) mergeMutation.mutate({ sourceId: mergeSourceId, targetId: mergeTargetId }) }} disabled={!mergeTargetId || mergeMutation.isPending} className="min-h-11 flex-1 rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500">{mergeMutation.isPending ? 'Merging...' : 'Confirm merge'}</button>
+          </div>
         </div>
       ) : (
         <>
@@ -569,7 +653,7 @@ export function ExercisePickerDialog({
                            disabled={isDisabled || pickerIsBusy}
                             aria-pressed={isSelected}
                             aria-label={isAdded ? `${exercise.name}, already in this workout` : undefined}
-                            className={`flex min-h-11 w-full min-w-0 items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${exercise.isCustom && source === 'all' && !isAdded ? 'pr-16' : ''} ${
+                            className={`flex min-h-11 w-full min-w-0 items-center gap-3 rounded-[14px] border px-4 py-3 text-left text-sm font-semibold transition ${source === 'all' ? 'pr-24' : ''} ${
                               isDisabled
                                 ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400'
                                 : isSelected
@@ -588,7 +672,8 @@ export function ExercisePickerDialog({
                              {isCurrent ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Current</span> : null}
                              {isAdded ? <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400"><Check size={14} aria-hidden="true" /> In use</span> : null}
                           </button>
-                          {exercise.isCustom && source === 'all' && !isAdded ? <button ref={(button) => { exerciseEditButtonRefs.current[exercise.id] = button }} type="button" data-press="icon" className={`absolute right-1 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center transition-[color,opacity] duration-150 motion-reduce:transition-none hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 ${isEditing && isSelected ? 'text-white' : isEditing ? 'text-slate-700' : isSelected ? 'text-white' : 'text-slate-400'} ${pickerIsBusy ? 'cursor-not-allowed opacity-50' : ''}`} aria-label={`Edit category for ${exercise.name}`} title={`Edit category for ${exercise.name}`} aria-expanded={isEditing} aria-controls={`${pickerId}-${exercise.id}-category-editor`} disabled={pickerIsBusy} onClick={(event) => { event.stopPropagation(); if (recategorizeIsPending) return; recategorizeMutation.reset(); setEditingExerciseId(isEditing ? null : exercise.id); setCategoryDraft(isEditing ? '' : exercise.category.id); setMutationError('') }}><span className={`inline-flex transition-[color,opacity,transform] duration-150 motion-reduce:transition-none active:scale-95 ${isEditing ? 'opacity-100' : 'opacity-90'}`}><Pencil size={16} aria-hidden="true" /></span></button> : null}
+                          {source === 'all' && exercise.isCustom && !isAdded ? <button ref={(button) => { exerciseEditButtonRefs.current[exercise.id] = button }} type="button" data-press="icon" className={`absolute right-12 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center transition-[color,opacity] duration-150 motion-reduce:transition-none hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 ${isEditing && isSelected ? 'text-white' : isEditing ? 'text-slate-700' : isSelected ? 'text-white' : 'text-slate-400'} ${pickerIsBusy ? 'cursor-not-allowed opacity-50' : ''}`} aria-label={`Edit category for ${exercise.name}`} title={`Edit category for ${exercise.name}`} aria-expanded={isEditing} aria-controls={`${pickerId}-${exercise.id}-category-editor`} disabled={pickerIsBusy} onClick={(event) => { event.stopPropagation(); if (recategorizeIsPending) return; recategorizeMutation.reset(); setEditingExerciseId(isEditing ? null : exercise.id); setCategoryDraft(isEditing ? '' : exercise.category.id); setMutationError('') }}><span className={`inline-flex transition-[color,opacity,transform] duration-150 motion-reduce:transition-none active:scale-95 ${isEditing ? 'opacity-100' : 'opacity-90'}`}><Pencil size={16} aria-hidden="true" /></span></button> : null}
+                          {source === 'all' ? <button ref={(button) => { exerciseMergeButtonRefs.current[exercise.id] = button }} type="button" data-press="icon" className={`absolute right-1 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center text-slate-400 transition hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 ${pickerIsBusy ? 'cursor-not-allowed opacity-50' : ''}`} aria-label={`Merge ${exercise.name}`} title={`Merge ${exercise.name}`} disabled={pickerIsBusy} onClick={(event) => { event.stopPropagation(); openMerge(exercise) }}><GitMerge size={16} aria-hidden="true" /></button> : null}
                           </div>
                           {isEditing ? <div id={`${pickerId}-${exercise.id}-category-editor`} className="mt-1 rounded-[14px] border border-slate-200 bg-slate-50 p-3" aria-label={`Category editor for ${exercise.name}`}><FluidSelect value={categoryDraft} options={categories.map((category) => ({ value: category.id, label: category.name }))} onValueChange={setCategoryDraft} ariaLabel={`Category for ${exercise.name}`} disabled={recategorizeMutation.isPending} /><div className="mt-3 flex gap-2"><button type="button" disabled={recategorizeMutation.isPending || !categoryDraft || categoryDraft === exercise.category.id} onClick={() => recategorizeMutation.mutate({ exerciseId: exercise.id, categoryId: categoryDraft })} className="min-h-11 flex-1 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300">{recategorizeMutation.isPending ? 'Saving…' : 'Save'}</button><button type="button" disabled={recategorizeMutation.isPending} onClick={() => { setEditingExerciseId(null); setCategoryDraft(''); recategorizeMutation.reset(); setMutationError(''); window.requestAnimationFrame(() => exerciseEditButtonRefs.current[exercise.id]?.focus()) }} className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300">Cancel</button></div>{recategorizeMutation.isError ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{getErrorMessage(recategorizeMutation.error, 'Unable to change category.')}</p> : null}</div> : null}</span>
                         )

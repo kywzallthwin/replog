@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
-import { categoryNameSchema, createExerciseSchema } from './exercises.schemas.js'
+import { categoryNameSchema, createExerciseSchema, mergeExerciseSchema } from './exercises.schemas.js'
 import { hasCategoryNameConflict, loadCategoryLabels, normalizeCategoryName } from './categoryLabels.js'
 
 export const exercisesRouter = Router()
@@ -100,6 +100,118 @@ exercisesRouter.patch('/:exerciseId/category', requireAuth, async (req, res) => 
   const updated = await prisma.exercise.update({ where: { id: exercise.id }, data: { categoryId: category.id }, include: { category: true } })
   const labels = await loadCategoryLabels(userId)
   res.json({ exercise: toExercisePayload(updated, labels) })
+})
+
+class MergeConflictError extends Error {}
+class MergeCleanupError extends Error {}
+
+exercisesRouter.post('/:sourceId/merge', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sourceId = typeof req.params.sourceId === 'string' ? req.params.sourceId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  const parsedBody = mergeExerciseSchema.safeParse(req.body)
+  if (!sourceId || !parsedBody.success) {
+    res.status(400).json({ error: 'Invalid request body' })
+    return
+  }
+
+  const targetId = parsedBody.data.targetExerciseId
+  if (sourceId === targetId) {
+    res.status(400).json({ error: 'Source and target exercises must differ' })
+    return
+  }
+
+  const [source, target] = await Promise.all([
+    prisma.exercise.findFirst({ where: { id: sourceId, OR: [{ ownerId: null }, { ownerId: userId }] } }),
+    prisma.exercise.findFirst({ where: { id: targetId, ownerId: userId } }),
+  ])
+
+  if (!source || !target) {
+    res.status(404).json({ error: 'Exercise not found' })
+    return
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const unfinishedReference = await tx.sessionExercise.findFirst({
+        where: {
+          exerciseId: { in: [source.id, target.id] },
+          session: { userId, endedAt: null },
+        },
+        select: { id: true },
+      })
+
+      if (unfinishedReference) {
+        throw new MergeConflictError('Finish or cancel the active workout before merging exercises')
+      }
+
+      const programDayReferences = await tx.dayExercise.findMany({
+        where: { exerciseId: source.id, day: { program: { ownerId: userId } } },
+        select: { id: true, dayId: true, order: true },
+        orderBy: [{ dayId: 'asc' }, { order: 'asc' }],
+      })
+      const dayIds = [...new Set(programDayReferences.map((reference) => reference.dayId))]
+
+      for (const dayId of dayIds) {
+        const sourceEntries = programDayReferences.filter((reference) => reference.dayId === dayId)
+        const targetEntry = await tx.dayExercise.findFirst({ where: { dayId, exerciseId: target.id } })
+
+        if (targetEntry) {
+          await tx.dayExercise.deleteMany({ where: { dayId, exerciseId: source.id } })
+          const remaining = await tx.dayExercise.findMany({ where: { dayId }, orderBy: { order: 'asc' }, select: { id: true } })
+          for (const [index, entry] of remaining.entries()) {
+            await tx.dayExercise.update({ where: { id: entry.id }, data: { order: -(index + 1) } })
+          }
+          for (const [index, entry] of remaining.entries()) {
+            await tx.dayExercise.update({ where: { id: entry.id }, data: { order: index + 1 } })
+          }
+        } else {
+          await tx.dayExercise.updateMany({ where: { id: { in: sourceEntries.map((entry) => entry.id) } }, data: { exerciseId: target.id } })
+        }
+      }
+
+      const sessionExerciseUpdate = await tx.sessionExercise.updateMany({
+        where: { exerciseId: source.id, session: { userId } },
+        data: { exerciseId: target.id },
+      })
+
+      const changedProgramDayEntries = programDayReferences.length
+      const remainingDayReferences = await tx.dayExercise.count({ where: { exerciseId: source.id } })
+      const remainingSessionReferences = await tx.sessionExercise.count({ where: { exerciseId: source.id } })
+
+      if (source.ownerId !== null && (remainingDayReferences > 0 || remainingSessionReferences > 0)) {
+        throw new MergeCleanupError('Exercise merge could not remove all source references')
+      }
+
+      if (source.ownerId !== null) {
+        await tx.exercise.delete({ where: { id: source.id } })
+      }
+
+      return {
+        changedProgramDayEntries,
+        changedWorkoutEntries: sessionExerciseUpdate.count,
+      }
+    })
+
+    res.json(result)
+  } catch (error) {
+    if (error instanceof MergeConflictError) {
+      res.status(409).json({ error: error.message })
+      return
+    }
+
+    if (error instanceof MergeCleanupError) {
+      res.status(500).json({ error: error.message })
+      return
+    }
+
+    throw error
+  }
 })
 
 exercisesRouter.get('/categories', requireAuth, async (req, res) => {

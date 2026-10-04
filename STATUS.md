@@ -1,10 +1,10 @@
 # RepLog Status
 
 - Active initiative: Cloudflare-only production cutover (CF-05 active by explicit user authorization).
-- Governing plan: `tickets/W2-13.md` and shared Cloudflare contract `tickets/CF-00.md`.
-- Wave 2 status: paused while CF-05 is active; later Wave 2 tickets remain paused.
-- Current branch: `feat/w2-13-category-editor-ui`.
-- Current ticket: W2-13 (`in progress`), tracked in `tickets/W2-13.md`.
+- Governing plan: `tickets/W2-14.md` and shared Cloudflare contract `tickets/CF-00.md`.
+- Wave 2 status: W2-13 is paused by explicit user direction; CF-05 production work remains outside this product implementation.
+- Current branch: `feat/w2-14-exercise-merge`.
+- Current ticket: W2-14 (`in progress`), tracked in `tickets/W2-14.md`.
 - CF-05 status: active by explicit user authorization on 2026-09-30; production cutover remains gated on shared-secret confirmation, independent review, and coordinated deployment evidence.
 - Final public URL: `https://replog-edge.kywzallthwin1.workers.dev`.
 - CF-05 deployment record: pre-cutover; old/intermediate URLs, Render revision/commit, Worker version, and rollback evidence remain to be recorded after coordinated deployment.
