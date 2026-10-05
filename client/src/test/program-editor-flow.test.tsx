@@ -123,24 +123,28 @@ describe('program editor page actions', () => {
     apiMocks.deleteProgram.mockResolvedValue(undefined)
   })
 
-  it('shows the editor heading and returns focus to Programs', async () => {
+  it('uses the program name as the page heading and returns focus to Programs', async () => {
     renderEditor()
 
-    expect(await screen.findByRole('heading', { name: 'Edit Program' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Upper / Lower' })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Program' }).every((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
     const programsLink = screen.getByRole('link', { name: 'Programs' })
     expect(programsLink).toHaveAttribute('href', '/program')
+    const navRow = programsLink.parentElement
+    const menuTrigger = screen.getByRole('button', { name: 'More actions for Upper / Lower' })
+    expect(navRow?.children[0]).toBe(programsLink)
+    expect(navRow?.children[1]).toBe(menuTrigger)
     fireEvent.click(programsLink)
     expect(await screen.findByRole('heading', { name: 'Programs' })).toHaveFocus()
   })
 
-  it('clamps long unbroken program names to two lines without horizontal overflow', async () => {
+  it('lets long unbroken program names wrap without clipping', async () => {
     apiMocks.currentProgram = makeProgram({ name: 'UpperLower'.repeat(16) })
     renderEditor()
 
-    const name = await screen.findByRole('heading', { level: 2, name: 'UpperLower'.repeat(16) })
-    expect(name).toHaveStyle({ display: '-webkit-box', WebkitLineClamp: '2', overflow: 'hidden' })
+    const name = await screen.findByRole('heading', { level: 1, name: 'UpperLower'.repeat(16) })
     expect(name).toHaveClass('[overflow-wrap:anywhere]')
+    expect(name).not.toHaveStyle({ overflow: 'hidden' })
   })
 
   it('shows active state and omits the action-row activation button for the active program', async () => {
@@ -150,7 +154,7 @@ describe('program editor page actions', () => {
     expect(await screen.findByText('Active')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Make active' })).not.toBeInTheDocument()
     const actionRow = screen.getByRole('button', { name: '+ Add Day' }).parentElement
-    expect(actionRow?.children).toHaveLength(2)
+    expect(actionRow?.children).toHaveLength(1)
     await openActions()
     expect(screen.queryByRole('menuitem', { name: 'Set as active' })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Rename program' })).toBeInTheDocument()
@@ -158,23 +162,25 @@ describe('program editor page actions', () => {
     expect(screen.getByRole('menuitem', { name: 'Delete program' })).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('opens Add Day from a full-width action button', async () => {
+  it('opens Add Day from a compact action button', async () => {
     renderEditor()
 
+    const activate = await screen.findByRole('button', { name: 'Make active' })
     const addDay = await screen.findByRole('button', { name: '+ Add Day' })
-    expect(addDay).toHaveClass('flex-1', 'text-left', 'min-h-11')
+    expect(addDay).toHaveClass('shrink-0', 'text-left', 'min-h-11')
     const actionRow = addDay.parentElement
-    const activate = screen.getByRole('button', { name: 'Make active' })
     expect(actionRow).toHaveClass('flex', 'flex-wrap')
     expect(actionRow?.children[0]).toBe(addDay)
     expect(actionRow?.children[1]).toBe(activate)
-    expect(actionRow?.children[2]).toBe(screen.getByRole('button', { name: 'More actions for Upper / Lower' }))
+    expect(actionRow?.children).toHaveLength(2)
+    const navRow = screen.getByRole('link', { name: 'Programs' }).parentElement
+    expect(navRow?.children[1]).toBe(screen.getByRole('button', { name: 'More actions for Upper / Lower' }))
     expect(activate).toHaveClass('shrink-0', 'min-h-11')
     fireEvent.click(addDay)
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Lower' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => expect(apiMocks.addDay).toHaveBeenCalledWith({
+    await waitFor(() => expect(apiMocks.addDay.mock.calls[0]?.[0]).toEqual({
       programId: 'program-1', name: 'Lower', badgeColor: 'bg-amber-100 text-amber-800',
     }))
   })
@@ -185,7 +191,7 @@ describe('program editor page actions', () => {
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Upper Body' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => expect(apiMocks.updateDay).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(apiMocks.updateDay.mock.calls[0]?.[0]).toEqual(expect.objectContaining({
       programId: 'program-1', dayId: 'day-1', name: 'Upper Body',
     })))
     expect(await screen.findByText('Upper Body')).toBeInTheDocument()
@@ -242,7 +248,10 @@ describe('program editor page actions', () => {
   it('shows Activating while the activation request is pending', async () => {
     let finishActivation!: () => void
     apiMocks.activateProgram.mockImplementation(() => new Promise<void>((resolve) => {
-      finishActivation = resolve
+      finishActivation = () => {
+        if (apiMocks.currentProgram) apiMocks.currentProgram = { ...apiMocks.currentProgram, isActive: true }
+        resolve()
+      }
     }))
     renderEditor()
     fireEvent.click(await screen.findByRole('button', { name: 'Make active' }))

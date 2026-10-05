@@ -53,7 +53,6 @@ import { getBadgeClass } from '../lib/badgeColors'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
-import { BrandLogo } from '../components/BrandLogo'
 import { ProgramActionsMenu } from '../components/programs/ProgramActionsMenu'
 import { ProgramDeleteDialog } from '../components/programs/ProgramDeleteDialog'
 import { Dialog } from '../components/ui/Dialog'
@@ -654,49 +653,48 @@ export function ProgramPage() {
     setDuplicateDialogOpen(true)
   }
 
-  const exerciseCount = program?.days.reduce((count, day) => count + day.exercises.length, 0) ?? 0
-
   return (
     <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto max-w-5xl">
-        <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-          <div className="min-w-0 sm:flex-1">
-            <Link
-              to="/program"
-              aria-label="Back to programs"
-              className="inline-flex min-h-11 items-center"
-            >
-              <BrandLogo className="h-6 w-auto" />
-            </Link>
-            <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Edit Program</h1>
+        <header className="mb-5 flex flex-col gap-3">
+          <div className="flex justify-end">
+            <TopNav />
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-3">
             <Link
               to="/program"
               state={{ focus: 'programs-heading' }}
-              className="mt-1 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900 focus-visible:rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 text-2xl font-bold tracking-[-0.03em] text-slate-950 transition hover:text-slate-700 focus-visible:rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
-              <span aria-hidden="true">←</span>
+              <span aria-hidden="true">‹</span>
               Programs
             </Link>
             {program ? (
-              <>
-                <div className="mt-1 flex min-w-0 items-start gap-2">
-                  <h2
-                    className="min-w-0 flex-1 text-xl font-bold tracking-[-0.02em] text-slate-900 [overflow-wrap:anywhere]"
-                    style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                  >
-                    {program.name}
-                  </h2>
-                  {program.isActive ? (
-                    <span className="mt-0.5 shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600">Active</span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm font-medium text-slate-500">
-                  {exerciseCount} {exerciseCount === 1 ? 'exercise' : 'exercises'}
-                </p>
-              </>
+              <ProgramActionsMenu
+                programName={program.name}
+                isOpen={programMenuOpen}
+                onToggle={() => setProgramMenuOpen((isOpen) => !isOpen)}
+                onCopy={openDuplicateDialog}
+                copyLabel="Duplicate program"
+                onRename={openRenameDialog}
+                renameLabel="Rename program"
+                onDelete={openProgramDeleteDialog}
+                deleteLabel="Delete program"
+                deleteDisabled={program.isActive || deleteProgramMutation.isPending}
+                disabled={editorMutationIsPending}
+              />
             ) : null}
           </div>
-          <TopNav />
+          {program ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <h1 className="min-w-0 flex-1 basis-[15rem] text-3xl font-bold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
+                {program.name}
+              </h1>
+              {program.isActive ? (
+                <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600">Active</span>
+              ) : null}
+            </div>
+          ) : null}
         </header>
 
         <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -705,7 +703,7 @@ export function ProgramPage() {
             type="button"
             onClick={(event) => openAddDayModal(event.currentTarget)}
             disabled={!program || editorMutationIsPending}
-            className="min-h-11 min-w-0 basis-48 flex-1 rounded-[13px] bg-slate-900 px-4 py-2.5 text-left text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="min-h-11 shrink-0 rounded-[13px] bg-slate-900 px-4 py-2.5 text-left text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             + Add Day
           </button>
@@ -718,21 +716,6 @@ export function ProgramPage() {
             >
               {activateProgramMutation.isPending ? 'Activating...' : 'Make active'}
             </button>
-          ) : null}
-          {program ? (
-            <ProgramActionsMenu
-              programName={program.name}
-              isOpen={programMenuOpen}
-              onToggle={() => setProgramMenuOpen((isOpen) => !isOpen)}
-              onCopy={openDuplicateDialog}
-              copyLabel="Duplicate program"
-              onRename={openRenameDialog}
-              renameLabel="Rename program"
-              onDelete={openProgramDeleteDialog}
-              deleteLabel="Delete program"
-              deleteDisabled={program.isActive || deleteProgramMutation.isPending}
-              disabled={editorMutationIsPending}
-            />
           ) : null}
         </div>
 
