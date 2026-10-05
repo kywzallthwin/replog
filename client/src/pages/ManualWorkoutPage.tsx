@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { createManualSession, getManualDraft, sessionQueryKey } from '../lib/sessions'
 import { getProgram, getPrograms } from '../lib/programs'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
@@ -41,7 +42,9 @@ export function ManualWorkoutPage() {
     <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8">
       <div className="mx-auto w-full min-w-0 max-w-3xl">
         <header className="mb-6 flex items-center justify-between gap-3">
-          <Link to="/history" aria-label="Back to History" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-xl font-bold text-slate-700 shadow-sm">‹</Link>
+          <Link to="/history" aria-label="Back to History" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2">
+            <ArrowLeft aria-hidden="true" size={20} strokeWidth={2.25} />
+          </Link>
           <BrandLogo className="h-6 w-auto" />
           <TopNav />
         </header>

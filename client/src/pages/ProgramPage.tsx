@@ -2,6 +2,7 @@ import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -663,11 +664,13 @@ export function ProgramPage() {
           <div className="flex min-w-0 items-center justify-between gap-3">
             <Link
               to="/program"
+              aria-label="Back to Programs"
               state={{ focus: 'programs-heading' }}
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 text-2xl font-bold tracking-[-0.03em] text-slate-950 transition hover:text-slate-700 focus-visible:rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              className="group inline-flex min-h-11 shrink-0 items-center gap-2 text-2xl font-bold tracking-[-0.03em] text-slate-950 transition hover:text-slate-700 focus-visible:rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
-              <span aria-hidden="true">‹</span>
-              Programs
+              <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-slate-700 shadow-sm transition group-hover:bg-slate-50">
+                <ArrowLeft size={20} strokeWidth={2.25} />
+              </span>
             </Link>
             {program ? (
               <ProgramActionsMenu

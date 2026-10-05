@@ -2,6 +2,7 @@ import type { FormEvent, MouseEvent, RefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import {
   addSessionExercise,
   addSet,
@@ -31,7 +32,6 @@ import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDial
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
 import { useRestTimer, type RestTimerSessionStatus } from '../lib/useRestTimer'
-import { BrandLogo } from '../components/BrandLogo'
 import { Dialog } from '../components/ui/Dialog'
 import { PageLoader } from '../components/ui/PageLoader'
 
@@ -1215,11 +1215,11 @@ export function WorkoutPage() {
           <div className="min-w-0">
             <Link
               to={headerLink}
+              aria-label={`Back to ${headerLinkLabel}`}
               onClick={(event) => void handleHeaderLinkClick(event)}
-              className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-900"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2"
             >
-              {source === 'manual' ? <span aria-hidden="true" className="text-2xl leading-none">‹</span> : <BrandLogo compact alt="" className="h-5 w-5" />}
-              {headerLinkLabel}
+              <ArrowLeft aria-hidden="true" size={17} strokeWidth={1.8} />
             </Link>
             <h1 className="min-w-0 break-words text-[15px] font-bold text-slate-900 [overflow-wrap:anywhere]">
               {isManual ? 'Log Past Workout' : session?.dayName ?? 'Workout'}

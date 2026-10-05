@@ -74,10 +74,10 @@ export function HistoryPage() {
     <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto w-full min-w-0 max-w-5xl">
         <header className="mb-8 flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
+          <div className="w-full min-w-0">
+            <div className="flex w-full items-center gap-3">
               <BrandLogo className="h-6 w-auto" />
-              <button type="button" onClick={() => navigate('/history/log')} className="min-h-11 rounded-[12px] bg-slate-900 px-3 text-sm font-bold text-white shadow-sm">+ Log Workout</button>
+              <button type="button" onClick={() => navigate('/history/log')} className="ml-auto min-h-11 shrink-0 rounded-[12px] bg-slate-900 px-3 text-sm font-bold text-white shadow-sm">+ Log Workout</button>
             </div>
             <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">
               Workout History
