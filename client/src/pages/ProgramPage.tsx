@@ -616,31 +616,29 @@ export function ProgramPage() {
   return (
     <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto max-w-5xl">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0 sm:flex-1">
-            <div className="flex min-h-11 items-center justify-between gap-3">
-              <Link
-                to="/program"
-                aria-label="Back to programs"
-                className="inline-flex min-h-11 shrink-0 items-center"
-              >
-                <BrandLogo className="h-6 w-auto" />
-              </Link>
-              <Link
-                to="/program"
-                state={{ focus: 'programs-heading' }}
-                className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                <span aria-hidden="true">←</span>
-                All programs
-              </Link>
-            </div>
+            <Link
+              to="/program"
+              aria-label="Back to programs"
+              className="inline-flex min-h-11 items-center"
+            >
+              <BrandLogo className="h-6 w-auto" />
+            </Link>
             <h1 className="mt-1 break-words text-3xl font-bold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
               {program?.name ?? 'Edit Program'}
             </h1>
           </div>
           <TopNav />
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/program"
+              state={{ focus: 'programs-heading' }}
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md text-sm font-semibold text-slate-600 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+              <span aria-hidden="true">←</span>
+              All programs
+            </Link>
             {program && !program.isActive ? (
               <button
                 type="button"
