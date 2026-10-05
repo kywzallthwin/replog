@@ -27,14 +27,17 @@ import {
   addDay,
   addDayExercise,
   activateProgram,
+  createProgram,
   deleteDay,
   deleteProgram,
+  getCopiedProgramName,
   programQueryKey,
   activeProgramQueryKey,
   programsQueryKey,
   removeDayExercise,
   reorderDayExercise,
   updateDay,
+  updateProgram,
   getProgram,
   getProgramMutationError,
   isProgramConflict,
@@ -199,6 +202,10 @@ export function ProgramPage() {
   const [activationError, setActivationError] = useState('')
   const [programDeleteDialogOpen, setProgramDeleteDialogOpen] = useState(false)
   const [programMenuOpen, setProgramMenuOpen] = useState(false)
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [renameName, setRenameName] = useState('')
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
+  const [duplicateName, setDuplicateName] = useState('')
   const [activeExercise, setActiveExercise] = useState<ActiveExercise>(null)
   const [displayedExercises, setDisplayedExercises] = useState<Record<string, DayExerciseItem[]>>({})
   const dayModalTriggerRef = useRef<HTMLElement | null>(null)
@@ -253,6 +260,23 @@ export function ProgramPage() {
       await invalidateProgramData()
       setProgramDeleteDialogOpen(false)
        navigate('/program', { state: { focus: 'programs-heading' } })
+    },
+  })
+  const renameProgramMutation = useMutation({
+    mutationFn: ({ name }: { name: string }) => updateProgram(programId, name),
+    onSuccess: async () => {
+      await invalidateProgramData()
+      setRenameDialogOpen(false)
+    },
+  })
+  const duplicateProgramMutation = useMutation({
+    mutationFn: (name: string) => createProgram({ name, source: 'copy', sourceProgramId: programId }),
+    onSuccess: async (createdProgram) => {
+      await invalidateProgramData()
+      setDuplicateDialogOpen(false)
+      if (createdProgram) {
+        navigate(`/program/${createdProgram.id}`)
+      }
     },
   })
 
@@ -366,6 +390,9 @@ export function ProgramPage() {
   const deleteConfirmationIsPending = deleteDayMutation.isPending || removeDayExerciseMutation.isPending
   const deleteConfirmationHasError = deleteDayMutation.isError || removeDayExerciseMutation.isError
   const editorMutationIsPending = activateProgramMutation.isPending
+    || deleteProgramMutation.isPending
+    || renameProgramMutation.isPending
+    || duplicateProgramMutation.isPending
     || dayFormIsSaving
     || deleteConfirmationIsPending
     || addDayExerciseMutation.isPending
@@ -613,10 +640,26 @@ export function ProgramPage() {
     setProgramDeleteDialogOpen(true)
   }
 
+  function openRenameDialog() {
+    if (!program || editorMutationIsPending) return
+    renameProgramMutation.reset()
+    setRenameName(program.name)
+    setRenameDialogOpen(true)
+  }
+
+  function openDuplicateDialog() {
+    if (!program || editorMutationIsPending) return
+    duplicateProgramMutation.reset()
+    setDuplicateName(getCopiedProgramName(program.name))
+    setDuplicateDialogOpen(true)
+  }
+
+  const exerciseCount = program?.days.reduce((count, day) => count + day.exercises.length, 0) ?? 0
+
   return (
     <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto max-w-5xl">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0 sm:flex-1">
             <Link
               to="/program"
@@ -625,51 +668,73 @@ export function ProgramPage() {
             >
               <BrandLogo className="h-6 w-auto" />
             </Link>
-            <h1 className="mt-1 break-words text-3xl font-bold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
-              {program?.name ?? 'Edit Program'}
-            </h1>
-          </div>
-          <TopNav />
-          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-slate-900">Edit Program</h1>
             <Link
               to="/program"
               state={{ focus: 'programs-heading' }}
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md text-sm font-semibold text-slate-600 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              className="mt-1 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900 focus-visible:rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
               <span aria-hidden="true">←</span>
-              All programs
+              Programs
             </Link>
-            {program && !program.isActive ? (
-              <button
-                type="button"
-                onClick={handleActivateProgram}
-                 disabled={activateProgramMutation.isPending || editorMutationIsPending}
-                className="min-h-11 rounded-[13px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-              >
-                {activateProgramMutation.isPending ? 'Activating...' : 'Make active'}
-              </button>
-            ) : null}
             {program ? (
-              <ProgramActionsMenu
-                programName={program.name}
-                isOpen={programMenuOpen}
-                onToggle={() => setProgramMenuOpen((isOpen) => !isOpen)}
-                onDelete={openProgramDeleteDialog}
-                deleteDisabled={program.isActive || deleteProgramMutation.isPending}
-                disabled={editorMutationIsPending || activateProgramMutation.isPending || deleteProgramMutation.isPending}
-              />
+              <>
+                <div className="mt-1 flex min-w-0 items-start gap-2">
+                  <h2
+                    className="min-w-0 flex-1 text-xl font-bold tracking-[-0.02em] text-slate-900 [overflow-wrap:anywhere]"
+                    style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                  >
+                    {program.name}
+                  </h2>
+                  {program.isActive ? (
+                    <span className="mt-0.5 shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600">Active</span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-sm font-medium text-slate-500">
+                  {exerciseCount} {exerciseCount === 1 ? 'exercise' : 'exercises'}
+                </p>
+              </>
             ) : null}
-              <button
-                ref={addDayButtonRef}
-                type="button"
-                onClick={(event) => openAddDayModal(event.currentTarget)}
-                disabled={!program || editorMutationIsPending}
-              className="min-h-11 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              + Add Day
-            </button>
           </div>
+          <TopNav />
         </header>
+
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <button
+            ref={addDayButtonRef}
+            type="button"
+            onClick={(event) => openAddDayModal(event.currentTarget)}
+            disabled={!program || editorMutationIsPending}
+            className="min-h-11 min-w-0 basis-48 flex-1 rounded-[13px] bg-slate-900 px-4 py-2.5 text-left text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(15,23,42,0.16)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            + Add Day
+          </button>
+          {program && !program.isActive ? (
+            <button
+              type="button"
+              onClick={handleActivateProgram}
+              disabled={activateProgramMutation.isPending || editorMutationIsPending}
+              className="min-h-11 shrink-0 rounded-[13px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {activateProgramMutation.isPending ? 'Activating...' : 'Make active'}
+            </button>
+          ) : null}
+          {program ? (
+            <ProgramActionsMenu
+              programName={program.name}
+              isOpen={programMenuOpen}
+              onToggle={() => setProgramMenuOpen((isOpen) => !isOpen)}
+              onCopy={openDuplicateDialog}
+              copyLabel="Duplicate program"
+              onRename={openRenameDialog}
+              renameLabel="Rename program"
+              onDelete={openProgramDeleteDialog}
+              deleteLabel="Delete program"
+              deleteDisabled={program.isActive || deleteProgramMutation.isPending}
+              disabled={editorMutationIsPending}
+            />
+          ) : null}
+        </div>
 
         {activationBlocked || activateProgramMutation.isError ? (
           <p role="alert" className="mb-4 rounded-[10px] border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600">
@@ -1004,6 +1069,124 @@ export function ProgramPage() {
           }}
           onConfirm={() => deleteProgramMutation.mutate()}
         />
+      ) : null}
+
+      {renameDialogOpen && program ? (
+        <Dialog
+          labelledBy="rename-program-dialog-title"
+          onClose={() => {
+            if (!renameProgramMutation.isPending) setRenameDialogOpen(false)
+          }}
+          closeOnEscape={!renameProgramMutation.isPending}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-3rem)] w-full max-w-md overflow-y-auto rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (renameName.trim()) renameProgramMutation.mutate({ name: renameName.trim() })
+            }}
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Program settings</p>
+            <h2 id="rename-program-dialog-title" className="mt-1 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
+              Rename program
+            </h2>
+            <label htmlFor="editor-rename-program-name" className="mt-5 block">
+              <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
+              <input
+                id="editor-rename-program-name"
+                autoFocus
+                value={renameName}
+                disabled={renameProgramMutation.isPending}
+                aria-describedby={renameProgramMutation.isError ? 'editor-rename-program-error' : undefined}
+                maxLength={80}
+                onChange={(event) => setRenameName(event.target.value)}
+                className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+              />
+            </label>
+            {renameProgramMutation.isError ? (
+              <p id="editor-rename-program-error" role="alert" className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">
+                {getProgramMutationError(renameProgramMutation.error, 'A program with this name already exists.', 'Unable to rename the program. Please try again.')}
+              </p>
+            ) : null}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRenameDialogOpen(false)}
+                disabled={renameProgramMutation.isPending}
+                className="min-h-11 flex-1 rounded-[13px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={renameProgramMutation.isPending || !renameName.trim()}
+                className="min-h-11 flex-1 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+              >
+                {renameProgramMutation.isPending ? 'Saving...' : 'Save name'}
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      ) : null}
+
+      {duplicateDialogOpen && program ? (
+        <Dialog
+          labelledBy="duplicate-program-dialog-title"
+          onClose={() => {
+            if (!duplicateProgramMutation.isPending) setDuplicateDialogOpen(false)
+          }}
+          closeOnEscape={!duplicateProgramMutation.isPending}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-3rem)] w-full max-w-md overflow-y-auto rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (duplicateName.trim()) duplicateProgramMutation.mutate(duplicateName.trim())
+            }}
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Program settings</p>
+            <h2 id="duplicate-program-dialog-title" className="mt-1 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
+              Duplicate program
+            </h2>
+            <label htmlFor="editor-duplicate-program-name" className="mt-5 block">
+              <span className="mb-1.5 block text-sm font-semibold text-slate-700">Program name</span>
+              <input
+                id="editor-duplicate-program-name"
+                autoFocus
+                value={duplicateName}
+                disabled={duplicateProgramMutation.isPending}
+                aria-describedby={duplicateProgramMutation.isError ? 'editor-duplicate-program-error' : undefined}
+                maxLength={80}
+                onChange={(event) => setDuplicateName(event.target.value)}
+                className="h-11 w-full rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+              />
+            </label>
+            {duplicateProgramMutation.isError ? (
+              <p id="editor-duplicate-program-error" role="alert" className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">
+                {getProgramMutationError(duplicateProgramMutation.error, 'A program with this name already exists.', 'Unable to duplicate the program. Please try again.')}
+              </p>
+            ) : null}
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDuplicateDialogOpen(false)}
+                disabled={duplicateProgramMutation.isPending}
+                className="min-h-11 flex-1 rounded-[13px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={duplicateProgramMutation.isPending || !duplicateName.trim()}
+                className="min-h-11 flex-1 rounded-[13px] bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+              >
+                {duplicateProgramMutation.isPending ? 'Creating...' : 'Create copy'}
+              </button>
+            </div>
+          </form>
+        </Dialog>
       ) : null}
     </main>
   )
