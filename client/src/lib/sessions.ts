@@ -46,6 +46,9 @@ export type WorkoutSession = {
   startedAt: string
   endedAt: string | null
   durationSec: number | null
+  source?: 'LIVE' | 'MANUAL'
+  workoutDate?: string | null
+  notes?: string | null
   exercises: WorkoutExercise[]
 }
 
@@ -59,6 +62,10 @@ export type WorkoutHistorySession = {
   durationSec: number | null
   exerciseCount: number
   setCount: number
+  source?: 'LIVE' | 'MANUAL'
+  workoutDate?: string | null
+  notes?: string | null
+  exercisePreview?: string[]
 }
 
 type SessionResponse = {
@@ -143,6 +150,27 @@ export const sessionHistoryQueryKey = ['sessions', 'history'] as const
 export async function startSession(dayId: string) {
   const response = await api.post<SessionResponse>('/sessions', { dayId })
 
+  return response.data.session
+}
+
+export async function createManualSession(input: { dayId?: string; workoutDate: string }) {
+  const response = await api.post<SessionResponse>('/sessions/manual', {
+    ...input,
+    timezoneOffset: new Date().getTimezoneOffset(),
+  })
+  return response.data.session
+}
+
+export async function getManualDraft() {
+  const response = await api.get<{ session: WorkoutSession | null }>('/sessions/manual/draft')
+  return response.data.session
+}
+
+export async function updateManualMetadata(sessionId: string, input: { workoutDate?: string; durationMinutes?: number | ''; notes?: string }) {
+  const response = await api.patch<SessionResponse>(`/sessions/manual/${sessionId}`, {
+    ...input,
+    timezoneOffset: new Date().getTimezoneOffset(),
+  })
   return response.data.session
 }
 

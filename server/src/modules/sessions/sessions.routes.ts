@@ -5,6 +5,8 @@ import { requireAuth } from '../auth/auth.middleware.js'
 import {
   addSetSchema,
   addSetChainSchema,
+  createManualSessionSchema,
+  manualMetadataSchema,
   sessionExerciseSchema,
   startSessionSchema,
   updateSetSchema,
@@ -71,6 +73,9 @@ function toSessionPayload(session: {
   startedAt: Date
   endedAt: Date | null
   durationSec: number | null
+  source: 'LIVE' | 'MANUAL'
+  workoutDate: Date | null
+  notes: string | null
   sessionExercises: Array<{
     id: string
     exerciseId: string
@@ -91,6 +96,9 @@ previousWorkoutReferences = new Map<string, PreviousWorkoutReference>()) {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     durationSec: session.durationSec,
+    source: session.source,
+    workoutDate: session.workoutDate,
+    notes: session.notes,
     exercises: session.sessionExercises.map((sessionExercise) => ({
       id: sessionExercise.id,
       exerciseId: sessionExercise.exerciseId,
@@ -101,6 +109,13 @@ previousWorkoutReferences = new Map<string, PreviousWorkoutReference>()) {
       previousWorkout: previousWorkoutReferences.get(sessionExercise.exerciseId) ?? null,
     })),
   }
+}
+
+function parseWorkoutDate(value: string, timezoneOffset: number) {
+  const date = new Date(`${value}T12:00:00.000Z`)
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null
+  const localToday = new Date(Date.now() - timezoneOffset * 60_000).toISOString().slice(0, 10)
+  return value <= localToday ? date : null
 }
 
 function toSessionExercisePayload(sessionExercise: {
@@ -121,7 +136,7 @@ function toSessionExercisePayload(sessionExercise: {
   }
 }
 
-async function getPreviousPerformanceReferences(userId: string, currentStartedAt: Date, exerciseIds: string[]) {
+async function getPreviousPerformanceReferences(userId: string, currentStartedAt: Date, exerciseIds: string[], currentWorkoutDate: Date | null = null) {
   const lastTimeReferences = new Map<string, LastTimeReference>()
   const previousWorkoutReferences = new Map<string, PreviousWorkoutReference>()
 
@@ -133,7 +148,6 @@ async function getPreviousPerformanceReferences(userId: string, currentStartedAt
     where: {
       userId,
       endedAt: { not: null },
-      startedAt: { lt: currentStartedAt },
       sessionExercises: {
         some: {
           exerciseId: { in: exerciseIds },
@@ -154,7 +168,13 @@ async function getPreviousPerformanceReferences(userId: string, currentStartedAt
     },
   })
 
-  for (const previousSession of previousSessions) {
+  const eligiblePreviousSessions = previousSessions
+    .filter((previousSession) => currentWorkoutDate
+      ? (previousSession.workoutDate ? previousSession.workoutDate.getTime() < currentWorkoutDate.getTime() : previousSession.startedAt.getTime() < currentWorkoutDate.getTime())
+      : (previousSession.workoutDate ? previousSession.workoutDate.getTime() < currentStartedAt.getTime() : previousSession.startedAt.getTime() < currentStartedAt.getTime()))
+    .sort((a, b) => (b.workoutDate?.getTime() ?? b.startedAt.getTime()) - (a.workoutDate?.getTime() ?? a.startedAt.getTime()) || b.startedAt.getTime() - a.startedAt.getTime() || b.id.localeCompare(a.id))
+
+  for (const previousSession of eligiblePreviousSessions) {
     for (const previousExercise of previousSession.sessionExercises) {
       if (!previousExercise.setLogs.length) {
         continue
@@ -209,7 +229,7 @@ sessionsRouter.post('/', requireAuth, async (req, res) => {
   }
 
   const activeSession = await prisma.session.findFirst({
-    where: { userId, endedAt: null },
+    where: { userId, endedAt: null, source: 'LIVE' },
     select: { id: true },
   })
 
@@ -281,7 +301,7 @@ sessionsRouter.post('/', requireAuth, async (req, res) => {
     }
 
     const activeSessionAfterRace = await prisma.session.findFirst({
-      where: { userId, endedAt: null },
+      where: { userId, endedAt: null, source: 'LIVE' },
       select: { id: true },
     })
 
@@ -293,6 +313,75 @@ sessionsRouter.post('/', requireAuth, async (req, res) => {
   }
 
   res.status(201).json({ session: toSessionPayload(session) })
+})
+
+sessionsRouter.get('/manual/draft', requireAuth, async (req, res) => {
+  const userId = req.userId
+  if (!userId) { res.status(401).json({ error: 'Authentication required' }); return }
+  const session = await prisma.session.findFirst({
+    where: { userId, source: 'MANUAL', endedAt: null },
+    include: { sessionExercises: { orderBy: { order: 'asc' }, include: { setLogs: { orderBy: { order: 'asc' } } } } },
+  })
+  res.json({ session: session ? toSessionPayload(session) : null })
+})
+
+sessionsRouter.post('/manual', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const parsed = createManualSessionSchema.safeParse(req.body)
+  if (!userId) { res.status(401).json({ error: 'Authentication required' }); return }
+  if (!parsed.success) { res.status(400).json({ error: 'Invalid request body' }); return }
+  const workoutDate = parseWorkoutDate(parsed.data.workoutDate, parsed.data.timezoneOffset)
+  if (!workoutDate) { res.status(400).json({ error: 'Workout date cannot be in the future' }); return }
+  const day = parsed.data.dayId ? await prisma.day.findFirst({
+    where: { id: parsed.data.dayId, program: { ownerId: userId } },
+    include: { program: true, dayExercises: { orderBy: { order: 'asc' }, include: { exercise: true } } },
+  }) : null
+  if (parsed.data.dayId && !day) { res.status(404).json({ error: 'Workout day not found' }); return }
+  const startedAt = workoutDate
+  try {
+    const session = await prisma.session.create({
+      data: {
+        userId, source: 'MANUAL', workoutDate, startedAt,
+        programId: day?.program.id ?? null,
+        programNameSnapshot: day?.program.name ?? null,
+        dayId: day?.id ?? null,
+        dayNameSnapshot: day?.name ?? 'Workout',
+        badgeColorSnapshot: day?.badgeColor ?? 'bg-slate-100 text-slate-700',
+        sessionExercises: { create: (day?.dayExercises ?? []).map((item) => ({ exerciseId: item.exerciseId, nameSnapshot: item.exercise.name, order: item.order })) },
+      },
+      include: { sessionExercises: { orderBy: { order: 'asc' }, include: { setLogs: true } } },
+    })
+    res.status(201).json({ session: toSessionPayload(session) })
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error
+    const existing = await prisma.session.findFirst({ where: { userId, source: 'MANUAL', endedAt: null }, include: { sessionExercises: { orderBy: { order: 'asc' }, include: { setLogs: { orderBy: { order: 'asc' } } } } } })
+    if (existing) { res.status(409).json({ error: 'Resume or discard the existing manual draft', sessionId: existing.id }); return }
+    throw error
+  }
+})
+
+sessionsRouter.patch('/manual/:sessionId', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+  const parsed = manualMetadataSchema.safeParse(req.body)
+  if (!userId) { res.status(401).json({ error: 'Authentication required' }); return }
+  if (!sessionId || !parsed.success) { res.status(400).json({ error: 'Invalid request body' }); return }
+  const session = await prisma.session.findFirst({ where: { id: sessionId, userId, source: 'MANUAL' } })
+  if (!session) { res.status(404).json({ error: 'Manual session not found' }); return }
+  if (session.endedAt) { res.status(409).json({ error: 'Finished workouts cannot be edited' }); return }
+  const dateValue = parsed.data.workoutDate ?? session.workoutDate?.toISOString().slice(0, 10)
+  if (!dateValue) { res.status(400).json({ error: 'Workout date is required' }); return }
+  const workoutDate = parseWorkoutDate(dateValue, parsed.data.timezoneOffset)
+  if (!workoutDate) { res.status(400).json({ error: 'Workout date cannot be in the future' }); return }
+  const durationMinutes = parsed.data.durationMinutes
+  const saved = await prisma.session.updateMany({ where: { id: sessionId, userId, source: 'MANUAL', endedAt: null }, data: {
+    workoutDate, startedAt: workoutDate,
+    ...(durationMinutes !== undefined ? { durationSec: durationMinutes === '' ? null : durationMinutes * 60 } : {}),
+    ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes?.trim() || null } : {}),
+  } })
+  if (!saved.count) { res.status(409).json({ error: 'Finished workouts cannot be edited' }); return }
+  const updated = await prisma.session.findUniqueOrThrow({ where: { id: sessionId }, include: { sessionExercises: { orderBy: { order: 'asc' }, include: { setLogs: { orderBy: { order: 'asc' } } } } } })
+  res.json({ session: toSessionPayload(updated) })
 })
 
 sessionsRouter.get('/history', requireAuth, async (req, res) => {
@@ -308,7 +397,7 @@ sessionsRouter.get('/history', requireAuth, async (req, res) => {
       userId,
       endedAt: { not: null },
     },
-    orderBy: { startedAt: 'desc' },
+    orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
     include: {
       sessionExercises: {
         include: {
@@ -319,8 +408,15 @@ sessionsRouter.get('/history', requireAuth, async (req, res) => {
   })
 
   res.json({
-    sessions: sessions.map((session) => ({
+    sessions: sessions.sort((a, b) => {
+      const aDate = a.source === 'MANUAL' && a.workoutDate ? a.workoutDate.getTime() : a.startedAt.getTime()
+      const bDate = b.source === 'MANUAL' && b.workoutDate ? b.workoutDate.getTime() : b.startedAt.getTime()
+      return bDate - aDate || b.startedAt.getTime() - a.startedAt.getTime() || b.id.localeCompare(a.id)
+    }).map((session) => ({
       id: session.id,
+      source: session.source,
+      workoutDate: session.workoutDate,
+      notes: session.notes,
       programName: session.programNameSnapshot,
       dayName: session.dayNameSnapshot,
       badgeColor: session.badgeColorSnapshot,
@@ -332,6 +428,7 @@ sessionsRouter.get('/history', requireAuth, async (req, res) => {
         (total, sessionExercise) => total + sessionExercise.setLogs.length,
         0,
       ),
+      exercisePreview: session.sessionExercises.map((item) => item.nameSnapshot).slice(0, 3),
     })),
   })
 })
@@ -376,6 +473,7 @@ sessionsRouter.get('/:sessionId', requireAuth, async (req, res) => {
     userId,
     session.startedAt,
     session.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
+    session.source === 'MANUAL' ? session.workoutDate : null,
   )
 
   res.json({
@@ -1057,10 +1155,41 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
   }
 
   if (session.endedAt) {
-    res.status(409).json({ error: 'Workout has already been finished' })
+    if (session.source !== 'MANUAL') { res.status(409).json({ error: 'Workout has already been finished' }); return }
+    const completed = await prisma.session.findUniqueOrThrow({ where: { id: sessionId }, include: { sessionExercises: { orderBy: { order: 'asc' }, include: { setLogs: { orderBy: { order: 'asc' } } } } } })
+    res.json({ session: toSessionPayload(completed) })
     return
   }
 
+  if (session.source === 'MANUAL') {
+    const result = await prisma.$transaction(async (tx) => {
+      const current = await tx.session.findFirst({ where: { id: sessionId, userId, source: 'MANUAL' } })
+      if (!current) return 'missing' as const
+      if (current.endedAt) return 'finished' as const
+      const savedSetCount = await tx.setLog.count({ where: { sessionExercise: { sessionId } } })
+      if (!current.workoutDate || savedSetCount < 1) return 'invalid' as const
+      const endedAt = new Date(current.startedAt.getTime() + (current.durationSec ?? 0) * 1000)
+      const completed = await tx.session.updateMany({
+        where: { id: sessionId, userId, source: 'MANUAL', endedAt: null },
+        data: { endedAt, durationSec: current.durationSec },
+      })
+      return completed.count ? 'finished' as const : 'raced' as const
+    })
+    if (result === 'missing') { res.status(404).json({ error: 'Session not found' }); return }
+    if (result === 'invalid') { res.status(400).json({ error: 'A date and at least one saved set are required' }); return }
+    const completed = await prisma.session.findUniqueOrThrow({
+      where: { id: sessionId },
+      include: {
+        sessionExercises: {
+          orderBy: { order: 'asc' },
+          include: { setLogs: { orderBy: { order: 'asc' } } },
+        },
+      },
+    })
+    const previous = await getPreviousPerformanceReferences(userId, completed.startedAt, completed.sessionExercises.map((exercise) => exercise.exerciseId), completed.workoutDate)
+    res.json({ session: toSessionPayload(completed, previous.lastTimeReferences, previous.previousWorkoutReferences) })
+    return
+  }
   const endedAt = new Date()
   const durationSec = Math.floor((endedAt.getTime() - session.startedAt.getTime()) / 1000)
 
@@ -1079,7 +1208,7 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
   if (finished.count === 0) {
     const currentSession = await prisma.session.findFirst({
       where: { id: sessionId, userId },
-      select: { endedAt: true },
+      include: { sessionExercises: { orderBy: { order: 'asc' }, include: { setLogs: { orderBy: { order: 'asc' } } } } },
     })
 
     if (!currentSession) {
@@ -1087,6 +1216,10 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
       return
     }
 
+    if (currentSession.source === 'MANUAL' && currentSession.endedAt) {
+      res.json({ session: toSessionPayload(currentSession) })
+      return
+    }
     res.status(409).json({ error: 'Workout has already been finished' })
     return
   }
@@ -1109,6 +1242,7 @@ sessionsRouter.patch('/:sessionId/finish', requireAuth, async (req, res) => {
     userId,
     updatedSession.startedAt,
     updatedSession.sessionExercises.map((sessionExercise) => sessionExercise.exerciseId),
+    updatedSession.source === 'MANUAL' ? updatedSession.workoutDate : null,
   )
 
   res.json({

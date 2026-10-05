@@ -174,7 +174,7 @@ test('last-time references use the latest owned earlier workout and the Progress
 
     const detailsResponse = await ownerAgent.get(`/api/sessions/${viewedSession.id}`)
     assert.equal(detailsResponse.status, 200, detailsResponse.text)
-    assert.equal(Object.hasOwn(detailsResponse.body.session, 'notes'), false)
+    assert.equal(detailsResponse.body.session.notes, null)
     const detailsByExerciseId = new Map(
       detailsResponse.body.session.exercises.map((exercise: { exerciseId: string; lastTime: unknown }) => [
         exercise.exerciseId,

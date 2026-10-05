@@ -4,6 +4,19 @@ export const startSessionSchema = z.object({
   dayId: z.string().min(1),
 })
 
+export const createManualSessionSchema = z.object({
+  dayId: z.string().min(1).optional(),
+  workoutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  timezoneOffset: z.number().int().min(-840).max(840),
+})
+
+export const manualMetadataSchema = z.object({
+  workoutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  durationMinutes: z.union([z.literal(''), z.coerce.number().int().min(1).max(1440)]).optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  timezoneOffset: z.number().int().min(-840).max(840),
+})
+
 export const addSetSchema = z.object({
   kind: z.enum(['WARMUP', 'NORMAL', 'DROP']).default('NORMAL'),
   notes: z.string().trim().max(300).nullable().optional(),

@@ -1,10 +1,10 @@
 # RepLog Status
 
-- Active initiatives: Cloudflare-only production cutover (CF-05 active by explicit user authorization) and bounded Program Editor Page work (W2-15 active by explicit user direction).
-- Governing plan: `tickets/W2-15.md`; Cloudflare architecture and security work remains governed by `tickets/CF-00.md`.
-- Wave 2 status: W2-15 Program Editor Page is active by explicit user direction; W2-13 remains paused. CF-05 production gates remain unchanged and outside this product implementation.
-- Current branch: `feat/w2-14-exercise-merge`.
-- Current ticket: W2-15 (`active`), tracked in `tickets/W2-15.md`.
+- Active initiatives: Cloudflare-only production cutover (CF-05 active by explicit user authorization) and bounded Log Past Workout work (W2-16 active by explicit user direction).
+- Governing plan: `tickets/W2-16.md`; Cloudflare architecture and security work remains governed by `tickets/CF-00.md`.
+- Wave 2 status: W2-16 Log Past Workout is active by explicit user direction; W2-15 Program Editor Page work is preserved and paused. CF-05 production gates remain unchanged and outside this product implementation.
+- Current branch: `feat/logPastWorkout`.
+- Current ticket: W2-16 (`active`), tracked in `tickets/W2-16.md`.
 - CF-05 status: active by explicit user authorization on 2026-09-30; production cutover remains gated on shared-secret confirmation, independent review, and coordinated deployment evidence.
 - Final public URL: `https://replog-edge.kywzallthwin1.workers.dev`.
 - CF-05 deployment record: pre-cutover; old/intermediate URLs, Render revision/commit, Worker version, and rollback evidence remain to be recorded after coordinated deployment.
@@ -21,3 +21,4 @@
 - W2-13 follow-up (unverified): removed the pencil's visible circular surface while retaining its 44px target, keyboard focus ring, stacking, and icon feedback; no verification was run by user direction.
 - W2-14 exercise combine flow is complete. Focused client tests pass (7), focused server merge tests pass (24), and the complete `npm run check` passes (134 client, 24 server, 6 edge tests plus lint, typecheck, builds, Worker dry-run packaging, health smoke, and diff check). Manual 375px and keyboard review passed; no commit, push, or deployment was performed.
 - W2-15 Program Editor Page implementation is active by explicit user direction. The editor header omits the RepLog logo and uses the program name as its heading; a prominent dark Programs link and options menu share a navigation row. Compact Add Day and inactive-only Make active controls remain together in the action row. The focused editor flow test passes (12 tests), and `npm run check` passes (146 client, 24 server, 6 edge tests plus lint, typecheck, builds, Worker dry-run packaging, health smoke, and `git diff --check`). Manual mobile review remains.
+- W2-16 Log Past Workout implementation is active on `feat/logPastWorkout`. Manual completion query syntax is corrected; metadata uses session-keyed editable overrides that survive refetches and failed saves, and successful responses clear only submitted values that remain unchanged. Prisma client types were generated without applying the migration. Repository lint and typecheck pass. Focused metadata/workout/timer tests pass (51); `npm run check` passes (150 client, 24 server, 6 edge tests, Prisma validation, lint, typecheck, builds, Worker dry-run packaging, health smoke, and diff check). The server test runner applied the migration only to its temporary test schema. User manual 375px/live regression verification and independent database/ownership/isolation review remain before review status; production migration remains unapplied.

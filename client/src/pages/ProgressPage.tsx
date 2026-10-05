@@ -7,20 +7,20 @@ import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
 import { PageLoader } from '../components/ui/PageLoader'
 
-function formatFullDate(startedAt: string) {
+function formatFullDate(startedAt: string, workoutDate?: string | null) {
   return new Intl.DateTimeFormat('en', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(startedAt))
+  }).format(workoutDate ? new Date(`${workoutDate.slice(0, 10)}T12:00:00`) : new Date(startedAt))
 }
 
-function formatShortDate(startedAt: string) {
+function formatShortDate(startedAt: string, workoutDate?: string | null) {
   return new Intl.DateTimeFormat('en', {
     day: 'numeric',
     month: 'short',
-  }).format(new Date(startedAt))
+  }).format(workoutDate ? new Date(`${workoutDate.slice(0, 10)}T12:00:00`) : new Date(startedAt))
 }
 
 function formatWeight(weightKg: number) {
@@ -138,7 +138,7 @@ export function ProgressPage() {
                       to={`/workout/${progress.personalBest.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
                       className="mt-1 inline-flex min-h-11 max-w-full min-w-0 items-center break-words text-sm text-slate-500 [overflow-wrap:anywhere] transition hover:text-slate-900"
                     >
-                      From {formatWeight(progress.personalBest.weightKg)} x {progress.personalBest.reps} reps · {formatFullDate(progress.personalBest.startedAt)}
+                      From {formatWeight(progress.personalBest.weightKg)} x {progress.personalBest.reps} reps · {formatFullDate(progress.personalBest.startedAt, progress.personalBest.workoutDate)}
                     </Link>
                   </>
                 ) : (
@@ -180,12 +180,12 @@ export function ProgressPage() {
                       <Link
                         key={session.sessionId}
                         to={`/workout/${session.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
-                        aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
+                        aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt, session.workoutDate)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
                         className="block min-w-0 rounded-[14px] border border-slate-100 bg-slate-50 p-3 transition hover:bg-slate-100"
                       >
                         <div className="flex min-w-0 items-center justify-between gap-3">
                           <time dateTime={session.startedAt} className="inline-flex min-h-11 min-w-11 max-w-full items-center break-words font-semibold text-slate-900 [overflow-wrap:anywhere]">
-                            {formatShortDate(session.startedAt)}
+                            {formatShortDate(session.startedAt, session.workoutDate)}
                           </time>
                           <span aria-hidden="true" className="shrink-0 text-lg text-slate-300">{String.fromCharCode(0x203a)}</span>
                         </div>
@@ -219,10 +219,10 @@ export function ProgressPage() {
                             <td className="min-w-0 px-4 py-3 font-semibold text-slate-900">
                               <Link
                                 to={`/workout/${session.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
-                                aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
+                                aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt, session.workoutDate)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
                                 className="flex min-h-11 min-w-11 max-w-full items-center break-words transition hover:text-slate-500 [overflow-wrap:anywhere]"
                               >
-                                <time dateTime={session.startedAt}>{formatShortDate(session.startedAt)}</time>
+                                <time dateTime={session.workoutDate ?? session.startedAt}>{formatShortDate(session.startedAt, session.workoutDate)}</time>
                               </Link>
                             </td>
                             <td className="min-w-0 break-words px-4 py-3 font-bold text-slate-900 [overflow-wrap:anywhere]">

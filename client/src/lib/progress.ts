@@ -9,6 +9,7 @@ export type ProgressExercise = {
 export type ProgressPersonalBest = {
   sessionId: string
   startedAt: string
+  workoutDate?: string | null
   estimatedOneRepMaxKg: number
   weightKg: number
   reps: number
@@ -17,6 +18,7 @@ export type ProgressPersonalBest = {
 export type ProgressSessionHistory = {
   sessionId: string
   startedAt: string
+  workoutDate?: string | null
   dayName: string
   topSet: {
     estimatedOneRepMaxKg: number

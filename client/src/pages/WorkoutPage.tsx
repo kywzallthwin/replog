@@ -1,4 +1,4 @@
-import type { FormEvent, RefObject } from 'react'
+import type { FormEvent, MouseEvent, RefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -15,12 +15,14 @@ import {
   sessionQueryKey,
   swapSessionExercise,
   updateSet,
+  updateManualMetadata,
   type SetKind,
   type WorkoutExercise,
   type WorkoutSession,
   type WorkoutSet,
   type PreviousWorkoutReference,
 } from '../lib/sessions'
+import { clearSavedManualMetadata, sessionManualMetadata, type ManualMetadataOverrides } from '../lib/manual-workout-metadata'
 import { dashboardQueryKey } from '../lib/dashboard'
 import { getBadgeClass } from '../lib/badgeColors'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
@@ -70,6 +72,17 @@ function formatCompletedDuration(durationSec: number | null) {
   }
 
   return `${Math.max(1, Math.round(durationSec / 60))} min`
+}
+
+function formatManualDate(value: string | null | undefined) {
+  if (!value) return 'Choose a date'
+  return new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    .format(new Date(`${value.slice(0, 10)}T12:00:00`))
+}
+
+function getLocalCalendarDate() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
 function formatCompactPreviousDate(date: string) {
@@ -268,6 +281,7 @@ function CompletedWorkoutSummary({
           <p className="mt-1 min-w-0 break-words text-sm leading-5 text-slate-500 [overflow-wrap:anywhere]">
             {session.programName ? `${session.programName} · ` : ''}Completed workout
           </p>
+          {session.source === 'MANUAL' ? <p className="mt-1 text-xs font-semibold text-slate-400">Manually logged · {formatManualDate(session.workoutDate)}</p> : null}
         </div>
         <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] text-slate-600">
           Read only
@@ -296,6 +310,7 @@ function CompletedWorkoutSummary({
           <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Total volume</span>
         </div>
       </div>
+      {session.source === 'MANUAL' && session.notes ? <div className="mt-3 rounded-[13px] bg-slate-50 p-3"><span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Workout note</span><p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-700">{session.notes}</p></div> : null}
 
       {summary.exerciseCount === 0 ? (
         <div className="mt-3 rounded-[13px] border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
@@ -641,6 +656,8 @@ export function WorkoutPage() {
   const [weightKg, setWeightKg] = useState('')
   const [reps, setReps] = useState('')
   const [dropDrafts, setDropDrafts] = useState<DropDraft[]>([])
+  const [manualMetadataOverrides, setManualMetadataOverrides] = useState<ManualMetadataOverrides>({})
+  const [changingManualDate, setChangingManualDate] = useState(false)
   const [formError, setFormError] = useState('')
   const [addFieldError, setAddFieldError] = useState<string | null>(null)
   const [exercisePicker, setExercisePicker] = useState<ExercisePickerState | null>(null)
@@ -687,23 +704,33 @@ export function WorkoutPage() {
   const progressLink = progressExerciseId
     ? `/progress?exerciseId=${encodeURIComponent(progressExerciseId)}`
     : '/progress'
-  const headerLink = source === 'history' ? '/history' : source === 'progress' ? progressLink : '/dashboard'
-  const headerLinkLabel = source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
+  const manualReturnLink = source === 'manual' ? '/history/log' : '/dashboard'
+  const headerLink = source === 'manual' ? manualReturnLink : source === 'history' ? '/history' : source === 'progress' ? progressLink : '/dashboard'
+  const headerLinkLabel = source === 'manual' ? 'Log Workout' : source === 'history' ? 'History' : source === 'progress' ? 'Progress' : 'Dashboard'
   const summaryReturnLink = source === 'progress' ? progressLink : '/history'
   const summaryReturnLabel = source === 'progress' ? 'Progress' : 'History'
   const hasCachedSession = session !== undefined
   const isInitialError = isError && !hasCachedSession
   const isRefreshError = isError && hasCachedSession
+  const isManual = session?.source === 'MANUAL'
+  const manualMetadata = session ? sessionManualMetadata(session, manualMetadataOverrides) : null
+  const manualDate = manualMetadata?.workoutDate ?? ''
+  const manualDuration = manualMetadata?.durationMinutes ?? ''
+  const manualNotes = manualMetadata?.notes ?? ''
+  function setManualMetadata<K extends 'workoutDate' | 'durationMinutes' | 'notes'>(key: K, value: ManualMetadataOverrides[string][K]) {
+    if (!sessionId) return
+    setManualMetadataOverrides((current) => ({ ...current, [sessionId]: { ...current[sessionId], [key]: value } }))
+  }
   const restTimerSessionStatus: RestTimerSessionStatus = isPending || !session
     ? 'loading'
-    : session.endedAt
+    : session.endedAt || isManual
       ? 'completed'
       : 'active'
-  const restTimer = useRestTimer(sessionId, restTimerSessionStatus)
+  const restTimer = useRestTimer(!session || isManual ? undefined : sessionId, restTimerSessionStatus)
   const addSetMutation = useMutation({
     mutationFn: addSet,
     onSuccess: async (_set, variables) => {
-      restTimer.start()
+      if (!isManual) restTimer.start()
 
       if (sessionId) {
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
@@ -720,7 +747,7 @@ export function WorkoutPage() {
   const addSetChainMutation = useMutation({
     mutationFn: addSetChain,
     onSuccess: async (_sets, variables) => {
-      restTimer.start()
+      if (!isManual) restTimer.start()
 
       if (sessionId) {
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
@@ -776,7 +803,7 @@ export function WorkoutPage() {
   const updateSetMutation = useMutation({
     mutationFn: updateSet,
     onSuccess: async () => {
-      restTimer.start()
+      if (!isManual) restTimer.start()
       if (sessionId) {
         await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
@@ -808,7 +835,7 @@ export function WorkoutPage() {
   const finishSessionMutation = useMutation({
     mutationFn: finishSession,
     onSuccess: async (updatedSession) => {
-      restTimer.clear()
+      if (updatedSession.source === 'LIVE') restTimer.clear()
 
       if (sessionId) {
         queryClient.setQueryData(sessionQueryKey(sessionId), updatedSession)
@@ -817,12 +844,13 @@ export function WorkoutPage() {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
       await queryClient.invalidateQueries({ queryKey: ['progress'] })
+      if (updatedSession.source === 'MANUAL') navigate('/history')
     },
   })
   const cancelSessionMutation = useMutation({
     mutationFn: cancelSession,
     onSuccess: async () => {
-      restTimer.clear()
+      if (!isManual) restTimer.clear()
 
       if (sessionId) {
         queryClient.removeQueries({ queryKey: sessionQueryKey(sessionId) })
@@ -832,10 +860,52 @@ export function WorkoutPage() {
       await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
       await queryClient.invalidateQueries({ queryKey: ['progress'] })
       setCancelConfirmation(false)
-      navigate('/dashboard')
+      navigate(isManual ? '/history/log' : '/dashboard')
     },
   })
+  const manualMetadataMutation = useMutation({
+    mutationFn: (metadata: { workoutDate?: string; durationMinutes?: number | ''; notes?: string }) =>
+      updateManualMetadata(sessionId ?? '', metadata),
+    onSuccess: (updated, submitted) => {
+      if (sessionId) {
+        const normalized = {
+          ...(submitted.workoutDate === undefined ? {} : { workoutDate: submitted.workoutDate }),
+          ...(submitted.durationMinutes === undefined ? {} : { durationMinutes: submitted.durationMinutes === '' ? '' : String(submitted.durationMinutes) }),
+          ...(submitted.notes === undefined ? {} : { notes: submitted.notes }),
+        }
+        setManualMetadataOverrides((current) => clearSavedManualMetadata(current, sessionId, normalized))
+      }
+      if (sessionId) queryClient.setQueryData(sessionQueryKey(sessionId), updated)
+    },
+  })
+  async function handleHeaderLinkClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (!isManual || session?.endedAt || !sessionId) return
+    event.preventDefault()
+    try {
+      await manualMetadataMutation.mutateAsync({
+        workoutDate: manualDate,
+        durationMinutes: manualDuration === '' ? '' : Number(manualDuration),
+        notes: manualNotes,
+      })
+      navigate(headerLink)
+    } catch {
+      // Keep the draft open so the visible metadata error can be retried.
+    }
+  }
   const workoutMutationIsPending = workoutWriteIsPending || finishSessionMutation.isPending || cancelSessionMutation.isPending
+  async function saveManualWorkout() {
+    if (!sessionId || !manualDate) return
+    try {
+      await manualMetadataMutation.mutateAsync({
+        workoutDate: manualDate,
+        durationMinutes: manualDuration === '' ? '' : Number(manualDuration),
+        notes: manualNotes,
+      })
+      finishSessionMutation.mutate(sessionId)
+    } catch {
+      // The visible metadata error lets the user retry without losing the draft.
+    }
+  }
   const wasCompletedRef = useRef(Boolean(session?.endedAt))
 
   useEffect(() => {
@@ -1145,23 +1215,24 @@ export function WorkoutPage() {
           <div className="min-w-0">
             <Link
               to={headerLink}
+              onClick={(event) => void handleHeaderLinkClick(event)}
               className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-900"
             >
-              <BrandLogo compact alt="" className="h-5 w-5" />
+              {source === 'manual' ? <span aria-hidden="true" className="text-2xl leading-none">‹</span> : <BrandLogo compact alt="" className="h-5 w-5" />}
               {headerLinkLabel}
             </Link>
             <h1 className="min-w-0 break-words text-[15px] font-bold text-slate-900 [overflow-wrap:anywhere]">
-              {session?.dayName ?? 'Workout'}
+              {isManual ? 'Log Past Workout' : session?.dayName ?? 'Workout'}
             </h1>
             {session ? (
               <p className="min-w-0 break-words text-xs text-slate-500 [overflow-wrap:anywhere]">
-                {session.programName ? `${session.programName} · ` : ''}Started {formatStartedAt(session.startedAt)}
+                {session.programName ? `${session.programName} · ` : ''}{isManual ? formatManualDate(session.workoutDate) : `Started ${formatStartedAt(session.startedAt)}`}
               </p>
             ) : null}
           </div>
-          {session && !session.endedAt ? (
+          {session && !session.endedAt && !isManual ? (
             <WorkoutDuration startedAt={session.startedAt} />
-          ) : session ? (
+          ) : session?.endedAt ? (
             <div className="flex shrink-0 flex-col items-end gap-1 py-1 text-right">
               <span className="text-[9px] font-extrabold uppercase tracking-[0.07em] text-slate-500">Workout duration</span>
               <span className="text-sm font-black text-slate-900">{formatCompletedDuration(session.durationSec)}</span>
@@ -1193,21 +1264,27 @@ export function WorkoutPage() {
           <section className="min-w-0 p-4 sm:p-6">
             <div className="mb-5 rounded-[20px] bg-slate-50 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                {session.endedAt ? 'Completed workout' : 'Active workout'}
+                {session.endedAt ? 'Completed workout' : isManual ? 'Manual entry' : 'Active workout'}
               </p>
               <span className={`mt-2 inline-flex max-w-full whitespace-normal break-words rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] [overflow-wrap:anywhere] ${getBadgeClass(session.badgeColor)}`}>
                 {session.dayName}
               </span>
               <h2 className="mt-2 min-w-0 break-words text-3xl font-extrabold tracking-[-0.04em] text-slate-900 [overflow-wrap:anywhere]">
-                {session.dayName}
+                {isManual ? 'Log Past Workout' : session.dayName}
               </h2>
                <p className="mt-1 min-w-0 break-words text-sm text-slate-500 [overflow-wrap:anywhere]">
                 {session.programName ? `${session.programName} · ` : ''}
-                {session.endedAt ? `Finished in ${formatCompletedDuration(session.durationSec)}` : `Started ${formatStartedAt(session.startedAt)}`} · {session.exercises.length} exercises
+                {session.endedAt ? `Finished in ${formatCompletedDuration(session.durationSec)}` : isManual ? formatManualDate(session.workoutDate) : `Started ${formatStartedAt(session.startedAt)}`} · {session.exercises.length} exercises
                </p>
+               {isManual && !session.endedAt ? <div className="mt-2">
+                 {changingManualDate ? <div className="flex flex-wrap items-center gap-2">
+                   <input aria-label="Workout date" type="date" max={getLocalCalendarDate()} value={manualDate} onChange={(event) => setManualMetadata('workoutDate', event.target.value)} onBlur={() => manualMetadataMutation.mutate({ workoutDate: manualDate })} className="min-h-11 min-w-0 flex-1 rounded-[11px] border border-slate-200 bg-white px-3 text-sm font-semibold" />
+                   <button type="button" onClick={() => setChangingManualDate(false)} className="min-h-11 rounded-[11px] px-3 text-sm font-bold text-slate-700">Done</button>
+                 </div> : <button type="button" onClick={() => setChangingManualDate(true)} className="min-h-11 text-sm font-bold text-blue-700">Change</button>}
+               </div> : null}
              </div>
 
-            {!session.endedAt ? (
+            {!session.endedAt && !isManual ? (
               <RestTimer
                 state={restTimer.state}
                 formatted={restTimer.formatted ?? '0:00'}
@@ -1538,7 +1615,7 @@ export function WorkoutPage() {
                 >
                   + Add Exercise
                 </button>
-                <button
+                {!isManual ? <button
                   type="button"
                   onClick={() => finishSessionMutation.mutate(session.id)}
                   disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending || workoutWriteIsPending}
@@ -1558,8 +1635,9 @@ export function WorkoutPage() {
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                   <span>{finishSessionMutation.isPending ? 'Finishing...' : 'Finish Workout'}</span>
-                </button>
-                <button
+                </button> : null}
+                {isManual ? <button type="button" ref={cancelTriggerRef} onClick={() => { cancelSessionMutation.reset(); setCancelConfirmation(true) }} disabled={workoutMutationIsPending} className="min-h-11 w-full rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600">Discard draft</button> : null}
+                {!isManual ? <button
                   type="button"
                     ref={cancelTriggerRef}
                   onClick={() => {
@@ -1570,13 +1648,24 @@ export function WorkoutPage() {
                   className="min-h-11 w-full rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
                 >
                   {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Workout'}
-                </button>
-                {finishSessionMutation.isError ? (
+                </button> : null}
+                {isManual ? <section className="space-y-3 rounded-[18px] bg-white p-4 shadow-sm">
+                  <label className="block text-sm font-bold text-slate-700">Duration <span className="font-medium text-slate-400">(optional)</span>
+                    <div className="mt-1 flex items-center gap-2"><input aria-label="Duration in minutes" type="number" min="1" max="1440" step="1" value={manualDuration} onChange={(event) => setManualMetadata('durationMinutes', event.target.value)} onBlur={() => manualMetadataMutation.mutate({ durationMinutes: manualDuration === '' ? '' : Number(manualDuration) })} className="min-h-11 min-w-0 flex-1 rounded-[11px] border border-slate-200 px-3" /><span className="font-semibold text-slate-500">min</span></div>
+                  </label>
+                  <label className="block text-sm font-bold text-slate-700">Workout note <span className="font-medium text-slate-400">(optional)</span>
+                    <textarea aria-label="Workout note" maxLength={2000} value={manualNotes} onChange={(event) => setManualMetadata('notes', event.target.value)} onBlur={() => manualMetadataMutation.mutate({ notes: manualNotes })} rows={3} className="mt-1 w-full rounded-[11px] border border-slate-200 p-3 font-normal" />
+                  </label>
+                  {manualMetadataMutation.isError ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Unable to save changes. Your entries are still here; edit a field and retry.</p> : null}
+                  {finishSessionMutation.isError ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Unable to save workout. Please try again.</p> : null}
+                  <button type="button" onClick={() => void saveManualWorkout()} disabled={!session.exercises.some((exercise) => exercise.sets.length) || workoutMutationIsPending || manualMetadataMutation.isPending} className="min-h-11 w-full rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{finishSessionMutation.isPending ? 'Saving…' : 'Save Workout'}</button>
+                </section> : null}
+                {!isManual && finishSessionMutation.isError ? (
                    <p role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                     Unable to finish workout. Please try again.
                   </p>
                 ) : null}
-                 {cancelSessionMutation.isError && !cancelConfirmation ? (
+                 {!isManual && cancelSessionMutation.isError && !cancelConfirmation ? (
                    <p role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                     Unable to cancel workout. Please try again.
                   </p>
@@ -1685,10 +1774,10 @@ export function WorkoutPage() {
           className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >
             <h2 id="workout-cancel-dialog-title" className="min-w-0 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
-              Cancel this workout?
+              {isManual ? 'Discard this draft?' : 'Cancel this workout?'}
             </h2>
             <p id="workout-cancel-dialog-description" className="mt-2 min-w-0 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
-              This will permanently delete the active {session?.dayName ?? 'workout'} session and any sets you have logged. This cannot be undone.
+              {isManual ? 'This permanently deletes this manual draft and its saved sets.' : `This will permanently delete the active ${session?.dayName ?? 'workout'} session and any sets you have logged. This cannot be undone.`}
             </p>
             {cancelSessionMutation.isError ? (
               <p role="alert" className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -1714,7 +1803,7 @@ export function WorkoutPage() {
                 disabled={cancelSessionMutation.isPending}
                 className="min-h-11 flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
               >
-                {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Workout'}
+                {cancelSessionMutation.isPending ? (isManual ? 'Discarding...' : 'Cancelling...') : (isManual ? 'Discard Draft' : 'Cancel Workout')}
               </button>
             </div>
         </Dialog>
