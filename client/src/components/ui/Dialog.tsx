@@ -29,6 +29,7 @@ type DialogProps = {
   restoreFocusRef?: RefObject<HTMLElement | null>
   fallbackFocusRef?: RefObject<HTMLElement | null>
   initialFocusRef?: RefObject<HTMLElement | null>
+  getInitialFocusTarget?: () => HTMLElement | null
   focusKey?: string | number | boolean
 }
 
@@ -44,6 +45,7 @@ export function Dialog({
   restoreFocusRef,
   fallbackFocusRef,
   initialFocusRef,
+  getInitialFocusTarget,
   focusKey,
 }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -59,13 +61,14 @@ export function Dialog({
     const dialog = dialogRef.current
     if (!dialog) return
 
-    const target = initialFocusRef?.current
+    const target = getInitialFocusTarget?.()
+      ?? initialFocusRef?.current
       ?? dialog.querySelector<HTMLElement>('[autofocus]')
       ?? getFocusableElements(dialog)[0]
       ?? dialog
 
     target.focus()
-  }, [focusKey, initialFocusRef])
+  }, [focusKey, getInitialFocusTarget, initialFocusRef])
 
   useLayoutEffect(() => () => {
     const explicitTarget = restoreFocusRef?.current
