@@ -88,24 +88,29 @@ async function proxy(request: Request, env: Env): Promise<Response> {
   const pathname = new URL(request.url).pathname
   if (!allowedOrigin(request, env)) return json(503, { error: 'This preview cannot access the API', code: 'PREVIEW_API_DISABLED', retryable: false })
   const origin = parseOrigin(env.API_UPSTREAM_ORIGIN)
-  if (!origin || !env.EDGE_PROXY_SECRET) return unavailable(503)
+  const id = requestId(request)
+  const startedAt = Date.now()
+  const report = (status: number, category: string) => console.warn(JSON.stringify({ event: 'upstream_failure', requestId: id, durationMs: Date.now() - startedAt, status, category }))
+  if (!origin || !env.EDGE_PROXY_SECRET) { report(503, 'configuration'); return unavailable(503) }
   const timeout = new AbortController()
   const timer = setTimeout(() => timeout.abort(), new URL(request.url).pathname === '/ready' ? 12000 : 30000)
   try {
     const upstream = await fetch(upstreamRequest(request, origin, env), { signal: timeout.signal, redirect: 'manual' })
     const contentType = upstream.headers.get('content-type')?.toLowerCase() ?? ''
-    if (contentType.includes('text/html')) return pathname === '/ready' ? readinessFailure() : unavailable(503)
+    if (contentType.includes('text/html')) { report(503, 'unexpected_html'); return pathname === '/ready' ? readinessFailure() : unavailable(503) }
     if (pathname === '/ready') {
-      if (!upstream.ok) return readinessFailure()
+      if (!upstream.ok) { report(upstream.status, 'upstream_not_ready'); return readinessFailure() }
       let payload: unknown
-      try { payload = await upstream.clone().json() } catch { return readinessFailure() }
-      if (JSON.stringify(payload) !== '{"ok":true}') return readinessFailure()
+      try { payload = await upstream.clone().json() } catch { report(503, 'invalid_readiness_json'); return readinessFailure() }
+      if (!payload || typeof payload !== 'object' || !('ok' in payload) || payload.ok !== true) { report(503, 'invalid_readiness_payload'); return readinessFailure() }
     }
     return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: copyResponseHeaders(upstream.headers) })
   } catch (error) {
-    if (pathname === '/ready') return readinessFailure(error instanceof Error && error.name === 'AbortError' ? 504 : 503)
-    if (error instanceof Error && error.name === 'AbortError') return unavailable(504)
-    return unavailable(502)
+    const timedOut = error instanceof Error && error.name === 'AbortError'
+    const status = timedOut ? 504 : 502
+    report(status, timedOut ? 'timeout' : 'network_error')
+    if (pathname === '/ready') return readinessFailure(timedOut ? 504 : 503)
+    return unavailable(status)
   } finally { clearTimeout(timer) }
 }
 

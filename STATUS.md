@@ -1,10 +1,12 @@
 # RepLog Status
 
-- Active initiatives: Cloudflare-only production cutover (CF-05 active by explicit user authorization) and bounded Log Past Workout work (W2-16 active by explicit user direction).
-- Governing plan: `tickets/W2-16.md`; Cloudflare architecture and security work remains governed by `tickets/CF-00.md`.
-- Wave 2 status: W2-16 Log Past Workout is active by explicit user direction; W2-15 Program Editor Page work is preserved and paused. CF-05 production gates remain unchanged and outside this product implementation.
+- Active initiatives: AV-01 free-hosting startup reliability (active by explicit user direction); W2-16 Log Past Workout and CF-05 production cutover are preserved and paused while AV-01 is active.
+- Governing plan: `tickets/AV-01.md`; Cloudflare architecture and security work remains governed by `tickets/CF-00.md`.
+- Wave 2 status: W2-16 Log Past Workout and W2-15 Program Editor Page are preserved and paused during AV-01; CF-05 deployment gates remain unchanged and deployment is prohibited until AV-01 review and explicit deployment authorization.
 - Current branch: `feat/logPastWorkout`.
-- Current ticket: W2-16 (`active`), tracked in `tickets/W2-16.md`.
+- Current ticket: AV-01 (`active`), tracked in `tickets/AV-01.md`.
+- Preserved paused ticket: W2-16 (`active` before AV-01), tracked in `tickets/W2-16.md`.
+- AV-01 implementation: startup/recovery now labels current attempt and total wait separately, resets attempt progress for each new readiness sequence, preserves total wait through retry/offline periods, keeps the recovery screen mounted during automatic retries, and announces only state transitions. Focused regressions pass, including W2-15 “Back to Programs” accessible-name assertions (45 tests). One full `npm run check` passed: 177 client, 25 server, and 8 Worker tests; all workspace lint/typechecks, client/server builds, Worker dry-run packaging, health smoke, and `git diff --check`. The 375px visual review could not run because the computer-use surface reports no available browser. Public endpoint probe remains inconclusive: direct Render timed out at 20.012s; Worker hostname DNS failed. Deployed version/revisions, genuine idle wake-up evidence, independent deployment review, rollback capture, and explicit authorization remain pending; no production changes were made.
 - CF-05 status: active by explicit user authorization on 2026-09-30; production cutover remains gated on shared-secret confirmation, independent review, and coordinated deployment evidence.
 - Final public URL: `https://replog-edge.kywzallthwin1.workers.dev`.
 - CF-05 deployment record: pre-cutover; old/intermediate URLs, Render revision/commit, Worker version, and rollback evidence remain to be recorded after coordinated deployment.

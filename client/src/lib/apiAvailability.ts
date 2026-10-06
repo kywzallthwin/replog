@@ -62,6 +62,11 @@ function waitWithCancellation(promise: Promise<void>, signal?: GenericAbortSigna
 
 export function ensureApiAvailable(getApiBaseUrl: () => string, signal?: GenericAbortSignal) {
   if (!isApiAvailabilityStale()) return Promise.resolve()
+  if (readinessFlight && (readinessFlight.controller.signal.aborted || readinessFlight.waiters === 0)) {
+    const abandonedFlight = readinessFlight
+    readinessFlight = null
+    abandonedFlight.controller.abort()
+  }
   if (!readinessFlight) {
     const controller = new AbortController()
     const flight = {

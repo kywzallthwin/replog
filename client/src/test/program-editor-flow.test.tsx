@@ -123,12 +123,12 @@ describe('program editor page actions', () => {
     apiMocks.deleteProgram.mockResolvedValue(undefined)
   })
 
-  it('uses the program name as the page heading and returns focus to Programs', async () => {
+  it('uses the program name as the page heading and returns focus to Back to Programs', async () => {
     renderEditor()
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Upper / Lower' })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Program' }).every((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
-    const programsLink = screen.getByRole('link', { name: 'Programs' })
+    const programsLink = screen.getByRole('link', { name: 'Back to Programs' })
     expect(programsLink).toHaveAttribute('href', '/program')
     const navRow = programsLink.parentElement
     const menuTrigger = screen.getByRole('button', { name: 'More actions for Upper / Lower' })
@@ -173,7 +173,7 @@ describe('program editor page actions', () => {
     expect(actionRow?.children[0]).toBe(addDay)
     expect(actionRow?.children[1]).toBe(activate)
     expect(actionRow?.children).toHaveLength(2)
-    const navRow = screen.getByRole('link', { name: 'Programs' }).parentElement
+    const navRow = screen.getByRole('link', { name: 'Back to Programs' }).parentElement
     expect(navRow?.children[1]).toBe(screen.getByRole('button', { name: 'More actions for Upper / Lower' }))
     expect(activate).toHaveClass('shrink-0', 'min-h-11')
     fireEvent.click(addDay)

@@ -19,6 +19,16 @@ describe('API readiness', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
+  it('retries repeated edge 504 responses until readiness succeeds', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 504 })
+      .mockResolvedValueOnce({ ok: false, status: 504 })
+      .mockResolvedValueOnce(readyResponse())
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    await waitForApiReadiness({ apiBaseUrl: '/api', fetchImpl, sleep, delayMs: 5 })
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+  })
+
   it('continues retrying rapid failures until the deadline', async () => {
     let clock = 0
     const fetchImpl = vi.fn().mockRejectedValue(new Error('not ready'))

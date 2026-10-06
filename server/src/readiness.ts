@@ -1,10 +1,12 @@
 export const READINESS_TIMEOUT_MS = 5000
 
 type ReadinessQuery = () => Promise<unknown>
+export type ReadinessFailure = { category: 'timeout' | 'database_error' }
 
 export async function isDatabaseReady(
   query: ReadinessQuery,
   timeoutMs = READINESS_TIMEOUT_MS,
+  onFailure?: (failure: ReadinessFailure) => void,
 ) {
   let timeout: ReturnType<typeof setTimeout> | undefined
 
@@ -16,7 +18,8 @@ export async function isDatabaseReady(
       }),
     ])
     return true
-  } catch {
+  } catch (error) {
+    onFailure?.({ category: error instanceof Error && error.message === 'Database readiness check timed out' ? 'timeout' : 'database_error' })
     return false
   } finally {
     if (timeout !== undefined) {
