@@ -1,40 +1,20 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CalendarDays, ChevronRight, Dumbbell, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Dumbbell, Plus, Trash2 } from 'lucide-react'
 import { cancelSession, createManualSession, getManualDraft, manualDraftQueryKey, sessionQueryKey } from '../lib/sessions'
 import { ManualProgramPickerDialog } from '../components/programs/ManualProgramPickerDialog'
+import { getLocalCalendarDate, isValidCalendarDate, ManualWorkoutDateField } from '../components/sessions/ManualWorkoutDateField'
 import { Dialog } from '../components/ui/Dialog'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
 
-function localDate() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
-
-function parseCalendarDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (!match) return null
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const parsed = new Date(0)
-  parsed.setFullYear(year, month - 1, day)
-  if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return null
-  return parsed
-}
-
-function formatWorkoutDate(value: string, today: string) {
-  const parsed = parseCalendarDate(value)
-  if (!parsed) return 'Choose a valid date'
-  if (value === today) return `Today, ${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(parsed)}`
-  const format = new Intl.DateTimeFormat(undefined, {
-    weekday: 'short', month: 'short', day: 'numeric',
-    ...(parsed.getFullYear() !== parseCalendarDate(today)?.getFullYear() ? { year: 'numeric' as const } : {}),
-  })
-  return format.format(parsed)
+function getErrorStatus(error: unknown) {
+  if (!error || typeof error !== 'object' || !('response' in error)) return undefined
+  const response = error.response
+  if (!response || typeof response !== 'object' || !('status' in response)) return undefined
+  return response.status
 }
 
 export function ManualWorkoutPage() {
@@ -44,18 +24,19 @@ export function ManualWorkoutPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const fromProgramButtonRef = useRef<HTMLButtonElement>(null)
-  const dateInputRef = useRef<HTMLInputElement>(null)
   const discardButtonRef = useRef<HTMLButtonElement>(null)
   const keepDraftButtonRef = useRef<HTMLButtonElement>(null)
   const hasDateParam = params.has('date')
-  const today = localDate()
+  const today = getLocalCalendarDate()
   const date = hasDateParam ? (params.get('date') ?? '') : today
-  const parsedDate = parseCalendarDate(date)
-  const isDateValid = Boolean(parsedDate && date <= today)
+  const isDateValid = isValidCalendarDate(date, today)
   const draftQuery = useQuery({ queryKey: manualDraftQueryKey, queryFn: getManualDraft, retry: false })
 
   const createMutation = useMutation({
     mutationFn: (dayId?: string) => createManualSession({ dayId, workoutDate: date }),
+    onError: async (error) => {
+      if (getErrorStatus(error) === 409) await draftQuery.refetch()
+    },
     onSuccess: async (session) => {
       queryClient.setQueryData(sessionQueryKey(session.id), session)
       await queryClient.invalidateQueries({ queryKey: manualDraftQueryKey })
@@ -98,9 +79,18 @@ export function ManualWorkoutPage() {
   }
 
   function startManualWorkout(dayId?: string) {
-    if (!isDateValid || createMutation.isPending) return
+    if (!isDateValid || !draftQuery.isSuccess || draftQuery.isFetching || createMutation.isPending) return
+    createMutation.reset()
     createMutation.mutate(dayId)
   }
+
+  function openProgramPicker() {
+    if (!isDateValid || !draftQuery.isSuccess || draftQuery.isFetching || createMutation.isPending) return
+    createMutation.reset()
+    setProgramPickerOpen(true)
+  }
+
+  const createErrorKind = createMutation.isError ? (getErrorStatus(createMutation.error) === 409 ? 'conflict' : 'request') : null
 
   return (
     <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8">
@@ -117,25 +107,9 @@ export function ManualWorkoutPage() {
         <h1 className="mb-5 min-w-0 break-words text-3xl font-extrabold tracking-[-0.04em] text-slate-900 [overflow-wrap:anywhere]">Log Workout</h1>
 
         <>
-          <div className="mb-5 min-w-0">
-            <label htmlFor="manual-workout-date" className="mb-2 block text-sm font-bold text-slate-700">Workout date</label>
-            <div onClick={(event) => {
-              const input = dateInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null
-              if (typeof input?.showPicker !== 'function') return
-              try {
-                input.showPicker()
-                event.preventDefault()
-              } catch {
-                // Keep the native input's default activation as the fallback.
-              }
-            }} className="relative flex min-h-14 min-w-0 cursor-pointer items-center gap-3 rounded-[16px] border border-slate-200 bg-white px-4 shadow-sm transition hover:border-slate-300 hover:shadow-md active:scale-[0.995] active:bg-slate-50 focus-within:ring-2 focus-within:ring-slate-900/20">
-              <CalendarDays aria-hidden="true" size={19} className="shrink-0 text-slate-400" />
-              <span aria-hidden="true" className={`min-w-0 flex-1 truncate font-semibold ${isDateValid ? 'text-slate-800' : 'text-red-600'}`}>{formatWorkoutDate(date, today)}</span>
-              <span aria-hidden="true" className="shrink-0 text-sm font-bold text-slate-900">Change</span>
-              <input ref={dateInputRef} id="manual-workout-date" aria-label="Workout date" aria-describedby={!isDateValid ? 'manual-workout-date-error' : undefined} type="date" max={today} value={parsedDate && date <= today ? date : ''} onChange={(event) => updateDate(event.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
-            </div>
-            {!isDateValid ? <p id="manual-workout-date-error" role="alert" className="mt-2 text-sm font-medium text-red-700">Choose a valid date no later than today.</p> : null}
-          </div>
+          <div className="mb-5"><ManualWorkoutDateField id="manual-workout-date" value={date} maxDate={today} error={!isDateValid ? 'Choose a valid date no later than today.' : undefined} onChange={updateDate} /></div>
+          {draftQuery.isPending ? <p role="status" className="mb-3 rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">Checking for a saved draft…</p> : null}
+          {draftQuery.isError ? <div className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900"><p role="alert">Unable to check for a saved draft. Retry before starting another workout.</p><button type="button" onClick={() => void draftQuery.refetch()} disabled={draftQuery.isFetching} className="mt-2 min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-slate-800 disabled:opacity-60">{draftQuery.isFetching ? 'Retrying…' : 'Retry draft check'}</button></div> : null}
           {draftQuery.data ? <div className="mb-3 flex min-h-[68px] min-w-0 items-center gap-2 rounded-[18px] bg-white px-3 py-2 shadow-sm transition hover:shadow-md focus-within:ring-2 focus-within:ring-slate-900/20 sm:px-4">
             <Link to={`/workout/${draftQuery.data.id}?from=manual`} className="flex min-h-11 min-w-0 flex-1 items-center rounded-[12px] px-2 text-left font-bold text-slate-900 focus-visible:outline-none">
               <span className="min-w-0 line-clamp-2 break-words [overflow-wrap:anywhere]">Resume draft</span>
@@ -144,17 +118,19 @@ export function ManualWorkoutPage() {
               <Trash2 aria-hidden="true" size={16} />
             </button>
           </div> : null}
-          <button ref={fromProgramButtonRef} type="button" onClick={() => setProgramPickerOpen(true)} className="mb-3 flex min-h-[76px] w-full min-w-0 items-center gap-4 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-left font-extrabold text-slate-900 shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-slate-100 text-slate-800"><Dumbbell aria-hidden="true" size={20} /></span><span className="min-w-0 flex-1">From Program</span><ChevronRight aria-hidden="true" size={20} className="shrink-0 text-slate-500" /></button>
-          <button type="button" onClick={() => startManualWorkout()} disabled={!isDateValid || createMutation.isPending} className="flex min-h-14 w-full min-w-0 items-center gap-3 rounded-[16px] border border-slate-200/80 bg-slate-50 px-5 py-3 text-left text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-wait disabled:opacity-60"><Plus aria-hidden="true" size={18} className="shrink-0 text-slate-400" /><span className="min-w-0 flex-1">Blank Workout</span><ChevronRight aria-hidden="true" size={18} className="shrink-0 text-slate-400" /></button>
+          <button ref={fromProgramButtonRef} type="button" onClick={openProgramPicker} disabled={!isDateValid || !draftQuery.isSuccess || draftQuery.isFetching || createMutation.isPending} className="mb-3 flex min-h-[76px] w-full min-w-0 items-center gap-4 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-left font-extrabold text-slate-900 shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-not-allowed disabled:opacity-50"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-slate-100 text-slate-800"><Dumbbell aria-hidden="true" size={20} /></span><span className="min-w-0 flex-1">From Program</span><ChevronRight aria-hidden="true" size={20} className="shrink-0 text-slate-500" /></button>
+          <button type="button" onClick={() => startManualWorkout()} disabled={!isDateValid || !draftQuery.isSuccess || draftQuery.isFetching || createMutation.isPending} className="flex min-h-14 w-full min-w-0 items-center gap-3 rounded-[16px] border border-slate-200/80 bg-slate-50 px-5 py-3 text-left text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 disabled:cursor-not-allowed disabled:opacity-60"><Plus aria-hidden="true" size={18} className="shrink-0 text-slate-400" /><span className="min-w-0 flex-1">Blank Workout</span><ChevronRight aria-hidden="true" size={18} className="shrink-0 text-slate-400" /></button>
         </>
 
-        {createMutation.isError && !isProgramPickerOpen ? <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">Unable to start a manual workout. Resume or discard the existing draft, then try again.</p> : null}
+        {createMutation.isError && !isProgramPickerOpen ? <div className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700"><p role="alert">{createErrorKind === 'conflict' ? 'A manual draft already exists. Resume or discard it before starting another workout.' : 'Unable to start the workout. Check your connection and try again.'}</p>{createErrorKind === 'conflict' ? <button type="button" onClick={() => void draftQuery.refetch()} disabled={draftQuery.isFetching} className="mt-2 min-h-11 rounded-xl bg-white px-4 text-sm font-bold text-slate-800 disabled:opacity-60">{draftQuery.isFetching ? 'Refreshing…' : 'Refresh draft status'}</button> : null}</div> : null}
       </div>
       {isProgramPickerOpen ? <ManualProgramPickerDialog
         onClose={() => setProgramPickerOpen(false)}
         onSelectWorkout={(dayId) => startManualWorkout(dayId)}
         isCreating={createMutation.isPending}
-        createError={createMutation.isError}
+        createError={createErrorKind}
+        onRefreshDraft={() => void draftQuery.refetch()}
+        isRefreshingDraft={draftQuery.isFetching}
         triggerRef={fromProgramButtonRef}
       /> : null}
       {isDiscardDialogOpen ? <Dialog

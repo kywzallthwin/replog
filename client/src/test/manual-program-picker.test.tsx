@@ -52,7 +52,9 @@ function PickerHarness() {
       onClose={() => { setOpen(false); setCreating(false) }}
       onSelectWorkout={(dayId) => { selectedWorkout(dayId); setCreating(true) }}
       isCreating={isCreating}
-      createError={false}
+      createError={null}
+      onRefreshDraft={() => undefined}
+      isRefreshingDraft={false}
       triggerRef={triggerRef}
     /> : null}
   </>
@@ -61,6 +63,13 @@ function PickerHarness() {
 function renderPicker() {
   const queryClient = createTestQueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
   return render(<QueryClientProvider client={queryClient}><PickerHarness /></QueryClientProvider>)
+}
+
+async function openSetupPicker() {
+  const button = screen.getByRole('button', { name: /From Program/ })
+  await waitFor(() => expect(button).toBeEnabled())
+  fireEvent.click(button)
+  return screen.findByRole('dialog')
 }
 
 beforeEach(() => {
@@ -82,8 +91,7 @@ beforeEach(() => {
 describe('manual program picker dialog', () => {
   it('filters zero-day programs, keeps active first and preserves the remaining API order', async () => {
     renderPicker()
-    fireEvent.click(screen.getByRole('button', { name: 'From Program' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await openSetupPicker()
     expect(await within(dialog).findByText('PHUL')).toBeInTheDocument()
     expect(within(dialog).queryByText('Empty plan')).not.toBeInTheDocument()
     const cardButtons = within(dialog).getAllByRole('button').filter((button) => button.textContent?.includes('workout day'))
@@ -93,10 +101,9 @@ describe('manual program picker dialog', () => {
 
   it('loads only the selected program, preserves stored day order, and prevents duplicate selection while creating', async () => {
     renderPicker()
-    fireEvent.click(screen.getByRole('button', { name: 'From Program' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await openSetupPicker()
     fireEvent.click(await within(dialog).findByRole('button', { name: /PPL \(Push Pull Legs\)/ }))
-    expect(await within(dialog).findByRole('heading', { name: 'Choose Workout' })).toHaveFocus()
+    expect(await within(dialog).findByRole('heading', { name: 'Choose a workout' })).toHaveFocus()
     expect(mockedGetProgram).toHaveBeenCalledTimes(1)
     expect(mockedGetProgram).toHaveBeenCalledWith('inactive')
     const dayButtons = await within(dialog).findAllByRole('button', { name: /Day [12]/ })
@@ -114,7 +121,7 @@ describe('manual program picker dialog', () => {
     fireEvent.click(trigger)
     const dialog = await screen.findByRole('dialog')
     fireEvent.click(await within(dialog).findByRole('button', { name: /PHUL/ }))
-    expect(await within(dialog).findByRole('heading', { name: 'Choose Workout' })).toHaveFocus()
+    expect(await within(dialog).findByRole('heading', { name: 'Choose a workout' })).toHaveFocus()
     const footerBack = within(dialog).getByRole('button', { name: /^Back$/ })
     expect(footerBack).not.toHaveTextContent('PHUL')
     expect(within(dialog).queryByRole('button', { name: 'Back to Choose Program' })).not.toBeInTheDocument()
@@ -125,13 +132,12 @@ describe('manual program picker dialog', () => {
     fireEvent.keyDown(dialog, { key: 'Escape' })
     await waitFor(() => expect(trigger).toHaveFocus())
     fireEvent.click(trigger)
-    expect(await screen.findByRole('heading', { name: 'Choose Program' })).toHaveFocus()
+    expect(await screen.findByRole('heading', { name: 'Choose a program' })).toHaveFocus()
   })
 
   it('traps Tab focus and disables Escape dismissal while a workout is opening', async () => {
     renderPicker()
-    fireEvent.click(screen.getByRole('button', { name: 'From Program' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await openSetupPicker()
     fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true })
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
     fireEvent.click(await within(dialog).findByRole('button', { name: /PHUL/ }))
@@ -145,8 +151,7 @@ describe('manual program picker dialog', () => {
   it('offers retry after a program-list request fails', async () => {
     mockedGetPrograms.mockRejectedValueOnce(new Error('temporary failure')).mockResolvedValueOnce(programs)
     renderPicker()
-    fireEvent.click(screen.getByRole('button', { name: 'From Program' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await openSetupPicker()
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to load programs')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Retry' }))
     expect(await within(dialog).findByText('PHUL')).toBeInTheDocument()
@@ -165,8 +170,7 @@ describe('manual program picker dialog', () => {
       <Route path="/workout/:sessionId" element={<p>Shared manual editor</p>} />
     </Routes></MemoryRouter></QueryClientProvider>)
 
-    fireEvent.click(screen.getByRole('button', { name: 'From Program' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await openSetupPicker()
     fireEvent.click(await within(dialog).findByRole('button', { name: /PHUL/ }))
     fireEvent.click(await within(dialog).findByRole('button', { name: 'PHUL Day 1' }))
     expect(await screen.findByText('Shared manual editor')).toBeInTheDocument()
@@ -189,7 +193,9 @@ describe('manual program picker dialog', () => {
 
     const resumeLink = await screen.findByRole('link', { name: /Resume draft/ })
     expect(resumeLink).toHaveAttribute('href', '/workout/existing-draft?from=manual')
-    fireEvent.click(screen.getByRole('button', { name: /Blank Workout/ }))
+    const blankWorkout = screen.getByRole('button', { name: /Blank Workout/ })
+    await waitFor(() => expect(blankWorkout).toBeEnabled())
+    fireEvent.click(blankWorkout)
     expect(await screen.findByText('Shared manual editor')).toBeInTheDocument()
     expect(mockedCreateManualSession).toHaveBeenCalledWith({ dayId: undefined, workoutDate: '2025-12-25' })
   })
@@ -206,16 +212,69 @@ describe('manual program picker dialog', () => {
       <Route path="/workout/:sessionId" element={<p>Shared manual editor</p>} />
     </Routes></MemoryRouter></QueryClientProvider>)
 
-    fireEvent.click(screen.getByRole('button', { name: 'From Program' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await openSetupPicker()
     fireEvent.click(await within(dialog).findByRole('button', { name: /PHUL/ }))
     const day = await within(dialog).findByRole('button', { name: 'PHUL Day 1' })
     fireEvent.click(day)
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to start a manual workout')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to open the workout')
     expect(await screen.findByLabelText('Workout date')).toHaveValue('2025-12-25')
-    expect(within(dialog).getByRole('heading', { name: 'Choose Workout' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('heading', { name: 'Choose a workout' })).toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: 'PHUL Day 1' }))
     expect(await screen.findByText('Shared manual editor')).toBeInTheDocument()
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
     expect(mockedCreateManualSession).toHaveBeenCalledTimes(2)
+  })
+
+  it('blocks both new-workout paths for an invalid date while keeping Resume Draft available', async () => {
+    const draft: WorkoutSession = {
+      id: 'existing-draft', programId: null, programName: null, dayId: null, dayName: '', badgeColor: '',
+      startedAt: '2025-12-25T12:00:00.000Z', endedAt: null, durationSec: null,
+      source: 'MANUAL', workoutDate: '2025-12-25', notes: null, exercises: [],
+    }
+    mockedGetManualDraft.mockResolvedValue(draft)
+    render(<QueryClientProvider client={createTestQueryClient()}><MemoryRouter initialEntries={['/history/log?date=not-a-date']}><Routes>
+      <Route path="/history/log" element={<ManualWorkoutPage />} />
+    </Routes></MemoryRouter></QueryClientProvider>)
+
+    expect(await screen.findByRole('link', { name: /Resume draft/ })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose a valid date')
+    expect(screen.getByRole('button', { name: /From Program/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Blank Workout/ })).toBeDisabled()
+    expect(mockedCreateManualSession).not.toHaveBeenCalled()
+  })
+
+  it('blocks creation after a draft-check error until Retry succeeds', async () => {
+    mockedGetManualDraft.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(null)
+    render(<QueryClientProvider client={createTestQueryClient()}><MemoryRouter initialEntries={['/history/log']}><Routes>
+      <Route path="/history/log" element={<ManualWorkoutPage />} />
+    </Routes></MemoryRouter></QueryClientProvider>)
+
+    const retry = await screen.findByRole('button', { name: 'Retry draft check' })
+    expect(screen.getByRole('button', { name: /From Program/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Blank Workout/ })).toBeDisabled()
+    fireEvent.click(retry)
+    await waitFor(() => expect(screen.getByRole('button', { name: /From Program/ })).toBeEnabled())
+    expect(screen.getByRole('button', { name: /Blank Workout/ })).toBeEnabled()
+  })
+
+  it('distinguishes an existing-draft conflict and refreshes the draft query', async () => {
+    const draft: WorkoutSession = {
+      id: 'existing-draft', programId: null, programName: null, dayId: null, dayName: '', badgeColor: '',
+      startedAt: '2025-12-25T12:00:00.000Z', endedAt: null, durationSec: null,
+      source: 'MANUAL', workoutDate: '2025-12-25', notes: null, exercises: [],
+    }
+    mockedGetManualDraft.mockResolvedValueOnce(null).mockResolvedValueOnce(draft)
+    mockedCreateManualSession.mockRejectedValueOnce({ response: { status: 409 } })
+    render(<QueryClientProvider client={createTestQueryClient()}><MemoryRouter initialEntries={['/history/log?date=2025-12-25']}><Routes>
+      <Route path="/history/log" element={<ManualWorkoutPage />} />
+    </Routes></MemoryRouter></QueryClientProvider>)
+
+    const dialog = await openSetupPicker()
+    fireEvent.click(await within(dialog).findByRole('button', { name: /PHUL/ }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'PHUL Day 1' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('A manual draft already exists')
+    expect(mockedGetManualDraft).toHaveBeenCalledTimes(2)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close to manage draft' }))
+    expect(await screen.findByRole('link', { name: /Resume draft/ })).toHaveAttribute('href', '/workout/existing-draft?from=manual')
   })
 })

@@ -8,7 +8,9 @@ type ManualProgramPickerDialogProps = {
   onClose: () => void
   onSelectWorkout: (dayId: string) => void
   isCreating: boolean
-  createError: boolean
+  createError: 'conflict' | 'request' | null
+  onRefreshDraft: () => void
+  isRefreshingDraft: boolean
   triggerRef: RefObject<HTMLButtonElement | null>
 }
 
@@ -38,6 +40,8 @@ export function ManualProgramPickerDialog({
   onSelectWorkout,
   isCreating,
   createError,
+  onRefreshDraft,
+  isRefreshingDraft,
   triggerRef,
 }: ManualProgramPickerDialogProps) {
   const [step, setStep] = useState<'programs' | 'workouts'>('programs')
@@ -162,7 +166,10 @@ export function ManualProgramPickerDialog({
         </> : null}
       </div>
 
-      {createError ? <p role="alert" className="mx-4 mb-3 shrink-0 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700 sm:mx-5">Unable to start a manual workout. Resume or discard the existing draft, then try again.</p> : null}
+      {createError ? <div className="mx-4 mb-3 shrink-0 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700 sm:mx-5">
+        <p role="alert">{createError === 'conflict' ? 'A manual draft already exists. Refresh its status, then resume or discard it before starting another workout.' : 'Unable to open the workout. Check your connection and try again.'}</p>
+        {createError === 'conflict' ? <div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={onRefreshDraft} disabled={isRefreshingDraft || isCreating} className="min-h-11 rounded-xl bg-white px-3 text-sm font-bold text-slate-800 disabled:opacity-60">{isRefreshingDraft ? 'Refreshing…' : 'Refresh draft status'}</button><button type="button" onClick={close} disabled={isCreating} className="min-h-11 rounded-xl bg-white px-3 text-sm font-bold text-slate-800 disabled:opacity-60">Close to manage draft</button></div> : null}
+      </div> : null}
       <footer className="shrink-0 border-t border-slate-100 bg-white p-4 sm:px-5">
         {step === 'workouts' ? <div className="flex gap-3">
           <button type="button" onClick={backToPrograms} disabled={isCreating} className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 disabled:opacity-50">Back</button>

@@ -15,6 +15,7 @@ import {
   removeSessionExercise,
   swapSessionExercise,
   updateSet,
+  updateManualMetadata,
   type WorkoutExercise,
   type WorkoutSession,
   type WorkoutSet,
@@ -38,6 +39,7 @@ vi.mock('../lib/sessions', async (importOriginal) => {
     removeSessionExercise: vi.fn(),
     finishSession: vi.fn(),
     cancelSession: vi.fn(),
+    updateManualMetadata: vi.fn(),
   }
 })
 
@@ -61,6 +63,7 @@ const mockedSwapSessionExercise = vi.mocked(swapSessionExercise)
 const mockedRemoveSessionExercise = vi.mocked(removeSessionExercise)
 const mockedFinishSession = vi.mocked(finishSession)
 const mockedCancelSession = vi.mocked(cancelSession)
+const mockedUpdateManualMetadata = vi.mocked(updateManualMetadata)
 const mockedGetExercises = vi.mocked(getExercises)
 const mockedGetActiveProgram = vi.mocked(getActiveProgram)
 const restTimerKey = (sessionId = 'session-1') => `replog:rest-timer:${sessionId}`
@@ -199,6 +202,12 @@ beforeEach(() => {
   mockedRemoveSessionExercise.mockResolvedValue(undefined)
   mockedFinishSession.mockResolvedValue(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
   mockedCancelSession.mockResolvedValue(undefined)
+  mockedUpdateManualMetadata.mockImplementation(async (_sessionId, metadata) => workoutSession({
+    source: 'MANUAL',
+    workoutDate: metadata.workoutDate ?? '2026-09-06',
+    durationSec: metadata.durationMinutes === undefined || metadata.durationMinutes === '' ? null : Number(metadata.durationMinutes) * 60,
+    notes: metadata.notes ?? null,
+  }))
 })
 
 describe('WorkoutPage regression coverage', () => {
@@ -532,6 +541,106 @@ describe('WorkoutPage regression coverage', () => {
     await waitFor(() => expect(mockedFinishSession.mock.calls.at(-1)?.[0]).toBe('session-1'))
     expect(await screen.findByText('Read only')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
+  })
+
+  it('reuses the full-row date control and blocks invalid duration metadata saves', async () => {
+    const draft = workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06', notes: 'Saved note' })
+    renderWorkout(draft)
+    const date = await screen.findByLabelText('Workout date')
+    expect(date).toHaveAttribute('type', 'date')
+    expect(date.parentElement).toHaveClass('min-h-14', 'px-4')
+    expect(date).toHaveAttribute('max')
+
+    const duration = screen.getByRole('spinbutton', { name: 'Duration in minutes' })
+    fireEvent.change(duration, { target: { value: '1441' } })
+    fireEvent.blur(duration)
+    expect(await screen.findByText('Enter a whole number from 1 to 1,440 minutes, or leave it blank.')).toBeInTheDocument()
+    expect(mockedUpdateManualMetadata).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Save Workout' })).toBeDisabled()
+  })
+
+  it('retries a failed metadata save using the current edited values', async () => {
+    const draft = workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06', notes: 'Original' })
+    mockedUpdateManualMetadata.mockRejectedValueOnce(new Error('offline'))
+    renderWorkout(draft)
+    const notes = await screen.findByRole('textbox', { name: 'Workout note' })
+    fireEvent.change(notes, { target: { value: 'Edited note' } })
+    fireEvent.blur(notes)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to save changes')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry metadata save' }))
+    await waitFor(() => expect(mockedUpdateManualMetadata).toHaveBeenCalledTimes(2))
+    expect(mockedUpdateManualMetadata.mock.calls[1]?.[1]).toEqual({ workoutDate: '2026-09-06', durationMinutes: '', notes: 'Edited note' })
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry metadata save' })).not.toBeInTheDocument())
+    expect(notes).toHaveValue('Edited note')
+  })
+
+  it('serializes overlapping metadata autosaves and keeps edits made during an earlier save', async () => {
+    const draft = workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06', notes: 'Original' })
+    const firstSave = deferred<WorkoutSession>()
+    const secondSave = deferred<WorkoutSession>()
+    mockedUpdateManualMetadata.mockReturnValueOnce(firstSave.promise).mockReturnValueOnce(secondSave.promise)
+    renderWorkout(draft)
+    const notes = await screen.findByRole('textbox', { name: 'Workout note' })
+    const duration = screen.getByRole('spinbutton', { name: 'Duration in minutes' })
+    fireEvent.change(notes, { target: { value: 'New note' } })
+    fireEvent.blur(notes)
+    await waitFor(() => expect(mockedUpdateManualMetadata).toHaveBeenCalledTimes(1))
+    fireEvent.change(duration, { target: { value: '45' } })
+    fireEvent.blur(duration)
+    expect(mockedUpdateManualMetadata).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('status')).toHaveTextContent('Saving…')
+
+    firstSave.resolve(workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06', notes: 'New note' }))
+    await waitFor(() => expect(mockedUpdateManualMetadata).toHaveBeenCalledTimes(2))
+    expect(mockedUpdateManualMetadata.mock.calls[1]?.[1]).toEqual({ workoutDate: '2026-09-06', durationMinutes: 45, notes: 'New note' })
+    expect(notes).toHaveValue('New note')
+    secondSave.resolve(workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06', durationSec: 2700, notes: 'New note' }))
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+  })
+
+  it('shows Saving and prevents duplicate completion across metadata save and workout completion', async () => {
+    const draft = workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06' })
+    const metadataRequest = deferred<WorkoutSession>()
+    const completionRequest = deferred<WorkoutSession>()
+    mockedUpdateManualMetadata.mockReturnValueOnce(metadataRequest.promise)
+    mockedFinishSession.mockReturnValueOnce(completionRequest.promise)
+    mockedGetSession.mockResolvedValue(draft)
+    const queryClient = createTestQueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/workout/session-1?from=manual']}><Routes>
+      <Route path="/workout/:sessionId" element={<WorkoutPage />} />
+      <Route path="/history" element={<h1>History after save</h1>} />
+    </Routes></MemoryRouter></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Save Workout' }))
+    let saving = await screen.findByRole('button', { name: 'Saving…' })
+    expect(saving).toBeDisabled()
+    await waitFor(() => expect(mockedUpdateManualMetadata).toHaveBeenCalledTimes(1))
+
+    metadataRequest.resolve(draft)
+    await waitFor(() => expect(mockedFinishSession.mock.calls[0]?.[0]).toBe('session-1'))
+    saving = screen.getByRole('button', { name: 'Saving…' })
+    expect(saving).toBeDisabled()
+    completionRequest.resolve(workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06', endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
+    expect(await screen.findByRole('heading', { name: 'History after save' })).toBeInTheDocument()
+  })
+
+  it('keeps the manual editor open and shows a recoverable error when navigation save fails', async () => {
+    const draft = workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06', notes: 'Keep me' })
+    const metadataRequest = deferred<WorkoutSession>()
+    mockedUpdateManualMetadata.mockReturnValueOnce(metadataRequest.promise)
+    const queryClient = createTestQueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    mockedGetSession.mockResolvedValue(draft)
+    render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/workout/session-1?from=manual']}><Routes>
+      <Route path="/workout/:sessionId" element={<WorkoutPage />} />
+      <Route path="/history/log" element={<h1>Log Workout setup</h1>} />
+    </Routes></MemoryRouter></QueryClientProvider>)
+    await screen.findByText('Manual entry')
+    fireEvent.click(await screen.findByRole('button', { name: 'Back to Log Workout' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Saving…')
+    expect(screen.queryByRole('heading', { name: 'Log Workout setup' })).not.toBeInTheDocument()
+    metadataRequest.reject(new Error('offline'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to save changes')
+    expect(screen.queryByRole('heading', { name: 'Log Workout setup' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Workout note' })).toHaveValue('Keep me')
   })
 
   it('restores focus when cancel is declined and sends the session id when confirmed', async () => {

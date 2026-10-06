@@ -1,4 +1,4 @@
-import type { FormEvent, MouseEvent, RefObject } from 'react'
+import type { FormEvent, RefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -35,6 +35,7 @@ import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
 import { useRestTimer, type RestTimerSessionStatus } from '../lib/useRestTimer'
 import { Dialog } from '../components/ui/Dialog'
 import { PageLoader } from '../components/ui/PageLoader'
+import { getLocalCalendarDate, isValidCalendarDate, ManualWorkoutDateField } from '../components/sessions/ManualWorkoutDateField'
 
 type ExercisePickerState =
   | { mode: 'add' }
@@ -75,15 +76,26 @@ function formatCompletedDuration(durationSec: number | null) {
   return `${Math.max(1, Math.round(durationSec / 60))} min`
 }
 
+type ManualMetadataValues = { workoutDate: string; durationMinutes: string; notes: string }
+type ManualMetadataErrors = Partial<Record<keyof ManualMetadataValues, string>>
+
+function validateManualMetadata(values: ManualMetadataValues, today: string): ManualMetadataErrors {
+  const errors: ManualMetadataErrors = {}
+  if (!isValidCalendarDate(values.workoutDate, today)) errors.workoutDate = 'Choose a valid workout date no later than today.'
+  if (values.durationMinutes !== '') {
+    const duration = Number(values.durationMinutes)
+    if (!/^\d+$/.test(values.durationMinutes) || !Number.isInteger(duration) || duration < 1 || duration > 1440) {
+      errors.durationMinutes = 'Enter a whole number from 1 to 1,440 minutes, or leave it blank.'
+    }
+  }
+  if (values.notes.length > 2000) errors.notes = 'Workout notes must be 2,000 characters or fewer.'
+  return errors
+}
+
 function formatManualDate(value: string | null | undefined) {
   if (!value) return 'Choose a date'
   return new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     .format(new Date(`${value.slice(0, 10)}T12:00:00`))
-}
-
-function getLocalCalendarDate() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
 function formatCompactPreviousDate(date: string) {
@@ -658,7 +670,8 @@ export function WorkoutPage() {
   const [reps, setReps] = useState('')
   const [dropDrafts, setDropDrafts] = useState<DropDraft[]>([])
   const [manualMetadataOverrides, setManualMetadataOverrides] = useState<ManualMetadataOverrides>({})
-  const [changingManualDate, setChangingManualDate] = useState(false)
+  const [pendingMetadataSaves, setPendingMetadataSaves] = useState(0)
+  const [manualCompletionSaving, setManualCompletionSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [addFieldError, setAddFieldError] = useState<string | null>(null)
   const [exercisePicker, setExercisePicker] = useState<ExercisePickerState | null>(null)
@@ -675,6 +688,8 @@ export function WorkoutPage() {
   const newDropIdRef = useRef<number | null>(null)
   const completedSummaryRef = useRef<HTMLHeadingElement>(null)
   const dropIdRef = useRef(0)
+  const metadataSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const manualCompletionPendingRef = useRef(false)
   const { data: session, isError, isPending } = useQuery({
     queryKey: sessionQueryKey(sessionId ?? ''),
     queryFn: () => getSession(sessionId ?? ''),
@@ -718,6 +733,9 @@ export function WorkoutPage() {
   const manualDate = manualMetadata?.workoutDate ?? ''
   const manualDuration = manualMetadata?.durationMinutes ?? ''
   const manualNotes = manualMetadata?.notes ?? ''
+  const manualMetadataValues = { workoutDate: manualDate, durationMinutes: manualDuration, notes: manualNotes }
+  const manualMetadataErrors = validateManualMetadata(manualMetadataValues, getLocalCalendarDate())
+  const hasManualMetadataErrors = Object.keys(manualMetadataErrors).length > 0
   function setManualMetadata<K extends 'workoutDate' | 'durationMinutes' | 'notes'>(key: K, value: ManualMetadataOverrides[string][K]) {
     if (!sessionId) return
     setManualMetadataOverrides((current) => ({ ...current, [sessionId]: { ...current[sessionId], [key]: value } }))
@@ -881,32 +899,52 @@ export function WorkoutPage() {
       if (sessionId) queryClient.setQueryData(sessionQueryKey(sessionId), updated)
     },
   })
-  async function handleHeaderLinkClick(event: MouseEvent<HTMLAnchorElement>) {
-    if (!isManual || session?.endedAt || !sessionId) return
-    event.preventDefault()
-    try {
-      await manualMetadataMutation.mutateAsync({
-        workoutDate: manualDate,
-        durationMinutes: manualDuration === '' ? '' : Number(manualDuration),
-        notes: manualNotes,
-      })
-      navigate(headerLink)
-    } catch {
-      // Keep the draft open so the visible metadata error can be retried.
-    }
+  const manualMetadataSaving = pendingMetadataSaves > 0 || manualMetadataMutation.isPending
+
+  function saveCurrentManualMetadata(): Promise<boolean> {
+    if (!sessionId || hasManualMetadataErrors) return Promise.resolve(false)
+    const snapshot = { ...manualMetadataValues }
+    setPendingMetadataSaves((count) => count + 1)
+    const queuedSave = metadataSaveQueueRef.current.catch(() => undefined).then(async () => {
+      try {
+        await manualMetadataMutation.mutateAsync({
+          workoutDate: snapshot.workoutDate,
+          durationMinutes: snapshot.durationMinutes === '' ? '' : Number(snapshot.durationMinutes),
+          notes: snapshot.notes,
+        })
+      } finally {
+        setPendingMetadataSaves((count) => Math.max(0, count - 1))
+      }
+    })
+    metadataSaveQueueRef.current = queuedSave.then(() => undefined, () => undefined)
+    return queuedSave.then(() => true, () => false)
   }
+
+  function handleHeaderLinkClick() {
+    if (source === 'manual') {
+      if (isPending || !session) return
+      if (isManual && !session.endedAt && sessionId) {
+        if (hasManualMetadataErrors) return
+        void saveCurrentManualMetadata().then((saved) => { if (saved) navigate(headerLink) })
+        return
+      }
+    }
+    navigate(headerLink)
+  }
+
   const workoutMutationIsPending = workoutWriteIsPending || finishSessionMutation.isPending || cancelSessionMutation.isPending
   async function saveManualWorkout() {
-    if (!sessionId || !manualDate) return
+    if (!sessionId || !session || hasManualMetadataErrors || manualCompletionPendingRef.current || !session.exercises.some((exercise) => exercise.sets.length)) return
+    manualCompletionPendingRef.current = true
+    setManualCompletionSaving(true)
     try {
-      await manualMetadataMutation.mutateAsync({
-        workoutDate: manualDate,
-        durationMinutes: manualDuration === '' ? '' : Number(manualDuration),
-        notes: manualNotes,
-      })
-      finishSessionMutation.mutate(sessionId)
+      if (!await saveCurrentManualMetadata()) return
+      await finishSessionMutation.mutateAsync(sessionId)
     } catch {
       // The visible metadata error lets the user retry without losing the draft.
+    } finally {
+      manualCompletionPendingRef.current = false
+      setManualCompletionSaving(false)
     }
   }
   const wasCompletedRef = useRef(Boolean(session?.endedAt))
@@ -1216,14 +1254,15 @@ export function WorkoutPage() {
       <div className="mx-auto w-full min-w-0 max-w-4xl rounded-[28px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
           <div className="min-w-0">
-            <Link
-              to={headerLink}
+            <button
+              type="button"
               aria-label={`Back to ${headerLinkLabel}`}
-              onClick={(event) => void handleHeaderLinkClick(event)}
+              onClick={handleHeaderLinkClick}
+              disabled={source === 'manual' && isPending}
               className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20 focus-visible:ring-offset-2"
             >
               <ArrowLeft aria-hidden="true" size={17} strokeWidth={1.8} />
-            </Link>
+            </button>
             <h1 className="min-w-0 break-words text-[15px] font-bold text-slate-900 [overflow-wrap:anywhere]">
               {isManual ? 'Log Past Workout' : session?.dayName ?? 'Workout'}
             </h1>
@@ -1279,13 +1318,16 @@ export function WorkoutPage() {
                 {session.programName ? `${session.programName} · ` : ''}
                 {session.endedAt ? `Finished in ${formatCompletedDuration(session.durationSec)}` : isManual ? formatManualDate(session.workoutDate) : `Started ${formatStartedAt(session.startedAt)}`} · {session.exercises.length} exercises
                </p>
-               {isManual && !session.endedAt ? <div className="mt-2">
-                 {changingManualDate ? <div className="flex flex-wrap items-center gap-2">
-                   <input aria-label="Workout date" type="date" max={getLocalCalendarDate()} value={manualDate} onChange={(event) => setManualMetadata('workoutDate', event.target.value)} onBlur={() => manualMetadataMutation.mutate({ workoutDate: manualDate })} className="min-h-11 min-w-0 flex-1 rounded-[11px] border border-slate-200 bg-white px-3 text-sm font-semibold" />
-                   <button type="button" onClick={() => setChangingManualDate(false)} className="min-h-11 rounded-[11px] px-3 text-sm font-bold text-slate-700">Done</button>
-                 </div> : <button type="button" onClick={() => setChangingManualDate(true)} className="min-h-11 text-sm font-bold text-blue-700">Change</button>}
-               </div> : null}
              </div>
+
+             {isManual && !session.endedAt ? <div className="mt-4"><ManualWorkoutDateField
+               id="manual-workout-editor-date"
+               value={manualDate}
+               maxDate={getLocalCalendarDate()}
+               error={manualMetadataErrors.workoutDate}
+               onChange={(value) => setManualMetadata('workoutDate', value)}
+               onBlur={() => void saveCurrentManualMetadata()}
+             /></div> : null}
 
             {!session.endedAt && !isManual ? (
               <RestTimer
@@ -1653,15 +1695,18 @@ export function WorkoutPage() {
                   {cancelSessionMutation.isPending ? 'Cancelling...' : 'Cancel Workout'}
                 </button> : null}
                 {isManual ? <section className="space-y-3 rounded-[18px] bg-white p-4 shadow-sm">
-                  <label className="block text-sm font-bold text-slate-700">Duration <span className="font-medium text-slate-400">(optional)</span>
-                    <div className="mt-1 flex items-center gap-2"><input aria-label="Duration in minutes" type="number" min="1" max="1440" step="1" value={manualDuration} onChange={(event) => setManualMetadata('durationMinutes', event.target.value)} onBlur={() => manualMetadataMutation.mutate({ durationMinutes: manualDuration === '' ? '' : Number(manualDuration) })} className="min-h-11 min-w-0 flex-1 rounded-[11px] border border-slate-200 px-3" /><span className="font-semibold text-slate-500">min</span></div>
+                  <label htmlFor="manual-duration-minutes" className="block text-sm font-bold text-slate-700">Duration <span className="font-medium text-slate-400">(optional)</span>
+                    <div className="mt-1 flex items-center gap-2"><input id="manual-duration-minutes" aria-label="Duration in minutes" aria-invalid={Boolean(manualMetadataErrors.durationMinutes) || undefined} aria-describedby={manualMetadataErrors.durationMinutes ? 'manual-duration-error' : undefined} type="number" min="1" max="1440" step="1" value={manualDuration} onChange={(event) => setManualMetadata('durationMinutes', event.target.value)} onBlur={() => void saveCurrentManualMetadata()} className="min-h-11 min-w-0 flex-1 rounded-[11px] border border-slate-200 px-3" /><span className="font-semibold text-slate-500">min</span></div>
                   </label>
-                  <label className="block text-sm font-bold text-slate-700">Workout note <span className="font-medium text-slate-400">(optional)</span>
-                    <textarea aria-label="Workout note" maxLength={2000} value={manualNotes} onChange={(event) => setManualMetadata('notes', event.target.value)} onBlur={() => manualMetadataMutation.mutate({ notes: manualNotes })} rows={3} className="mt-1 w-full rounded-[11px] border border-slate-200 p-3 font-normal" />
+                  {manualMetadataErrors.durationMinutes ? <p id="manual-duration-error" role="alert" className="text-sm font-medium text-red-700">{manualMetadataErrors.durationMinutes}</p> : null}
+                  <label htmlFor="manual-workout-notes" className="block text-sm font-bold text-slate-700">Workout note <span className="font-medium text-slate-400">(optional)</span>
+                    <textarea id="manual-workout-notes" aria-label="Workout note" aria-invalid={Boolean(manualMetadataErrors.notes) || undefined} aria-describedby={manualMetadataErrors.notes ? 'manual-notes-error' : undefined} maxLength={2000} value={manualNotes} onChange={(event) => setManualMetadata('notes', event.target.value)} onBlur={() => void saveCurrentManualMetadata()} rows={3} className="mt-1 w-full rounded-[11px] border border-slate-200 p-3 font-normal" />
                   </label>
-                  {manualMetadataMutation.isError ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Unable to save changes. Your entries are still here; edit a field and retry.</p> : null}
+                  {manualMetadataErrors.notes ? <p id="manual-notes-error" role="alert" className="text-sm font-medium text-red-700">{manualMetadataErrors.notes}</p> : null}
+                  {manualMetadataSaving || manualCompletionSaving ? <p role="status" aria-live="polite" className="text-sm font-medium text-slate-500">Saving…</p> : null}
+                  {manualMetadataMutation.isError ? <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700"><p role="alert">Unable to save changes. Your entries are still here.</p><button type="button" onClick={() => void saveCurrentManualMetadata()} disabled={manualMetadataSaving || hasManualMetadataErrors} className="mt-2 min-h-11 rounded-lg bg-white px-3 font-bold text-slate-800 disabled:opacity-50">Retry metadata save</button></div> : null}
                   {finishSessionMutation.isError ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Unable to save workout. Please try again.</p> : null}
-                  <button type="button" onClick={() => void saveManualWorkout()} disabled={!session.exercises.some((exercise) => exercise.sets.length) || workoutMutationIsPending || manualMetadataMutation.isPending} className="min-h-11 w-full rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{finishSessionMutation.isPending ? 'Saving…' : 'Save Workout'}</button>
+                  <button type="button" onClick={() => void saveManualWorkout()} disabled={!session.exercises.some((exercise) => exercise.sets.length) || hasManualMetadataErrors || workoutMutationIsPending || manualMetadataSaving || manualCompletionSaving} className="min-h-11 w-full rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{manualMetadataSaving || manualCompletionSaving || finishSessionMutation.isPending ? 'Saving…' : 'Save Workout'}</button>
                 </section> : null}
                 {!isManual && finishSessionMutation.isError ? (
                    <p role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
