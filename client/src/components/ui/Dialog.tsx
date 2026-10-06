@@ -31,6 +31,7 @@ type DialogProps = {
   initialFocusRef?: RefObject<HTMLElement | null>
   getInitialFocusTarget?: () => HTMLElement | null
   focusKey?: string | number | boolean
+  preventScrollFocus?: boolean
 }
 
 export function Dialog({
@@ -47,6 +48,7 @@ export function Dialog({
   initialFocusRef,
   getInitialFocusTarget,
   focusKey,
+  preventScrollFocus = false,
 }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const [restoreTarget] = useState<HTMLElement | null>(() => (
@@ -67,26 +69,26 @@ export function Dialog({
       ?? getFocusableElements(dialog)[0]
       ?? dialog
 
-    target.focus()
-  }, [focusKey, getInitialFocusTarget, initialFocusRef])
+    target.focus(preventScrollFocus ? { preventScroll: true } : undefined)
+  }, [focusKey, getInitialFocusTarget, initialFocusRef, preventScrollFocus])
 
   useLayoutEffect(() => () => {
     const explicitTarget = restoreFocusRef?.current
     if (explicitTarget && document.contains(explicitTarget)) {
-      explicitTarget.focus()
+      explicitTarget.focus(preventScrollFocus ? { preventScroll: true } : undefined)
       return
     }
 
     if (restoreTarget && document.contains(restoreTarget)) {
-      restoreTarget.focus()
+      restoreTarget.focus(preventScrollFocus ? { preventScroll: true } : undefined)
       return
     }
 
     const fallbackTarget = fallbackFocusRef?.current
     if (fallbackTarget && document.contains(fallbackTarget)) {
-      fallbackTarget.focus()
+      fallbackTarget.focus(preventScrollFocus ? { preventScroll: true } : undefined)
     }
-  }, [fallbackFocusRef, restoreFocusRef, restoreTarget])
+  }, [fallbackFocusRef, preventScrollFocus, restoreFocusRef, restoreTarget])
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape') {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useLayoutEffect } from 'react'
 
 type BodyStyleSnapshot = {
   position: string
@@ -52,7 +52,7 @@ function unlockBodyScroll() {
 }
 
 export function useBodyScrollLock(isLocked: boolean) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isLocked) {
       return
     }

@@ -11,6 +11,7 @@ import {
   deleteSet,
   finishSession,
   getSession,
+  manualDraftQueryKey,
   removeSessionExercise,
   swapSessionExercise,
   updateSet,
@@ -549,6 +550,33 @@ describe('WorkoutPage regression coverage', () => {
 
     await waitFor(() => expect(mockedCancelSession.mock.calls[0]?.[0]).toBe('session-1'))
     expect(await screen.findByRole('heading', { name: 'Dashboard destination' })).toBeInTheDocument()
+  })
+
+  it('invalidates Resume Draft data after a manual draft is discarded', async () => {
+    const draft = workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06' })
+    const queryClient = createTestQueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(manualDraftQueryKey, draft)
+    mockedGetSession.mockResolvedValue(draft)
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/workout/session-1?from=manual']}>
+          <Routes>
+            <Route path="/workout/:sessionId" element={<WorkoutPage />} />
+            <Route path="/history/log" element={<h1>Log Workout setup</h1>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /Discard draft/i }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Discard this draft?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Discard Draft' }))
+
+    expect(await screen.findByRole('heading', { name: 'Log Workout setup' })).toBeInTheDocument()
+    expect(queryClient.getQueryState(manualDraftQueryKey)?.isInvalidated).toBe(true)
   })
 })
 

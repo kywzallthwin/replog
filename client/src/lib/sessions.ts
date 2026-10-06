@@ -146,6 +146,7 @@ export function sessionQueryKey(sessionId: string) {
 }
 
 export const sessionHistoryQueryKey = ['sessions', 'history'] as const
+export const manualDraftQueryKey = ['sessions', 'manual-draft'] as const
 
 export async function startSession(dayId: string) {
   const response = await api.post<SessionResponse>('/sessions', { dayId })

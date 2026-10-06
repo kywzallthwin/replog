@@ -10,6 +10,7 @@ import {
   cancelSession,
   deleteSet,
   finishSession,
+  manualDraftQueryKey,
   getSession,
   removeSessionExercise,
   sessionHistoryQueryKey,
@@ -842,6 +843,7 @@ export function WorkoutPage() {
       }
 
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+      if (isManual) await queryClient.invalidateQueries({ queryKey: manualDraftQueryKey })
       await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
       await queryClient.invalidateQueries({ queryKey: ['progress'] })
       if (updatedSession.source === 'MANUAL') navigate('/history')
@@ -857,6 +859,7 @@ export function WorkoutPage() {
       }
 
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+      if (isManual) await queryClient.invalidateQueries({ queryKey: manualDraftQueryKey })
       await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
       await queryClient.invalidateQueries({ queryKey: ['progress'] })
       setCancelConfirmation(false)
