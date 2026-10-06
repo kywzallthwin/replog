@@ -372,7 +372,7 @@ programsRouter.post('/:programId/activate', requireAuth, async (req, res) => {
   }
 
   const activeSession = await prisma.session.findFirst({
-    where: { userId, endedAt: null },
+    where: { userId, endedAt: null, source: 'LIVE' },
     select: { id: true },
   })
 

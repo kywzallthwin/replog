@@ -33,12 +33,12 @@ function formatDate(date: Date) {
   }).format(date)
 }
 
-function formatSessionDate(startedAt: string) {
+function formatSessionDate(startedAt: string, workoutDate?: string | null, source?: 'LIVE' | 'MANUAL') {
   return new Intl.DateTimeFormat('en', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-  }).format(new Date(startedAt))
+  }).format(source === 'MANUAL' && workoutDate ? new Date(`${workoutDate.slice(0, 10)}T12:00:00`) : new Date(startedAt))
 }
 
 function formatDuration(durationSec: number | null, endedAt: string | null) {
@@ -164,7 +164,7 @@ export function DashboardPage() {
                     {dashboard.activeSession.dayName}
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Started {formatSessionDate(dashboard.activeSession.startedAt)} · {dashboard.activeSession.exerciseCount} exercises
+                    Started {formatSessionDate(dashboard.activeSession.startedAt, dashboard.activeSession.workoutDate, dashboard.activeSession.source)} · {dashboard.activeSession.exerciseCount} exercises
                   </p>
                   <Link
                     to={`/workout/${dashboard.activeSession.id}?from=dashboard`}
@@ -279,7 +279,7 @@ export function DashboardPage() {
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-slate-900">
-                            {formatSessionDate(session.startedAt)}{' '}
+                            {formatSessionDate(session.startedAt, session.workoutDate, session.source)}{' '}
                            <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${getBadgeClass(session.badgeColor)}`}>
                               {session.dayName}
                             </span>

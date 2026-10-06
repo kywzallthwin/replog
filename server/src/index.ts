@@ -71,14 +71,19 @@ export function createApp({
   app.use(requireExpectedOrigin)
 
   app.get('/ready', async (_req, res) => {
-    if (await isDatabaseReady(() => prisma.$transaction(async (tx) => {
+    const startedAt = performance.now()
+    const requestId = (_req.get('x-request-id') ?? 'local').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 100) || 'local'
+    let failureCategory: 'timeout' | 'database_error' | undefined
+    const ready = await isDatabaseReady(() => prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = '${READINESS_TIMEOUT_MS}ms'`)
       await tx.$queryRaw`SELECT 1`
-    }, { maxWait: READINESS_TIMEOUT_MS, timeout: READINESS_TIMEOUT_MS }))) {
+    }, { maxWait: READINESS_TIMEOUT_MS, timeout: READINESS_TIMEOUT_MS }), READINESS_TIMEOUT_MS, (failure) => { failureCategory = failure.category })
+    if (ready) {
       res.json(process.env.E2E_RUN_ID ? { ok: true, runId: process.env.E2E_RUN_ID } : { ok: true })
       return
     }
 
+    console.warn(JSON.stringify({ event: 'readiness_failed', requestId, durationMs: Math.round(performance.now() - startedAt), status: 503, category: failureCategory ?? 'database_error' }))
     res.status(503).set('Retry-After', '5').json({ ok: false, code: 'API_STARTING' })
   })
 

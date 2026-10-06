@@ -79,7 +79,8 @@ describe('startup and authentication flow', () => {
     mockedReadiness.mockReturnValue(new Promise<void>(() => undefined))
     renderProtected()
 
-    expect(screen.getByRole('status')).toHaveTextContent('Starting RepLog...')
+    expect(screen.getByRole('status')).toHaveTextContent('Starting RepLog')
+    expect(screen.getByRole('status')).not.toHaveTextContent(/seconds elapsed|\d+s/)
     expect(mockedGetCurrentUser).not.toHaveBeenCalled()
     expect(screen.queryByText('Protected dashboard')).not.toBeInTheDocument()
   })

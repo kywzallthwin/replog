@@ -18,6 +18,8 @@ export type DashboardSession = {
   endedAt: string | null
   durationSec: number | null
   exerciseCount: number
+  source?: 'LIVE' | 'MANUAL'
+  workoutDate?: string | null
 }
 
 export type DashboardData = {

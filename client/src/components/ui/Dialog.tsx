@@ -29,7 +29,9 @@ type DialogProps = {
   restoreFocusRef?: RefObject<HTMLElement | null>
   fallbackFocusRef?: RefObject<HTMLElement | null>
   initialFocusRef?: RefObject<HTMLElement | null>
+  getInitialFocusTarget?: () => HTMLElement | null
   focusKey?: string | number | boolean
+  preventScrollFocus?: boolean
 }
 
 export function Dialog({
@@ -44,7 +46,9 @@ export function Dialog({
   restoreFocusRef,
   fallbackFocusRef,
   initialFocusRef,
+  getInitialFocusTarget,
   focusKey,
+  preventScrollFocus = false,
 }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const [restoreTarget] = useState<HTMLElement | null>(() => (
@@ -59,31 +63,32 @@ export function Dialog({
     const dialog = dialogRef.current
     if (!dialog) return
 
-    const target = initialFocusRef?.current
+    const target = getInitialFocusTarget?.()
+      ?? initialFocusRef?.current
       ?? dialog.querySelector<HTMLElement>('[autofocus]')
       ?? getFocusableElements(dialog)[0]
       ?? dialog
 
-    target.focus()
-  }, [focusKey, initialFocusRef])
+    target.focus(preventScrollFocus ? { preventScroll: true } : undefined)
+  }, [focusKey, getInitialFocusTarget, initialFocusRef, preventScrollFocus])
 
   useLayoutEffect(() => () => {
     const explicitTarget = restoreFocusRef?.current
     if (explicitTarget && document.contains(explicitTarget)) {
-      explicitTarget.focus()
+      explicitTarget.focus(preventScrollFocus ? { preventScroll: true } : undefined)
       return
     }
 
     if (restoreTarget && document.contains(restoreTarget)) {
-      restoreTarget.focus()
+      restoreTarget.focus(preventScrollFocus ? { preventScroll: true } : undefined)
       return
     }
 
     const fallbackTarget = fallbackFocusRef?.current
     if (fallbackTarget && document.contains(fallbackTarget)) {
-      fallbackTarget.focus()
+      fallbackTarget.focus(preventScrollFocus ? { preventScroll: true } : undefined)
     }
-  }, [fallbackFocusRef, restoreFocusRef, restoreTarget])
+  }, [fallbackFocusRef, preventScrollFocus, restoreFocusRef, restoreTarget])
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape') {

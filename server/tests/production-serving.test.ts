@@ -27,6 +27,34 @@ test('API routes use the /api namespace and readiness checks the database', asyn
   assert.deepEqual(readinessResponse.body, { ok: true })
 })
 
+test('health stays independent of database failures and readiness logs sanitized diagnostics', async () => {
+  const transactionDescriptor = Object.getOwnPropertyDescriptor(prisma, '$transaction')
+  Object.defineProperty(prisma, '$transaction', { configurable: true, value: async () => { throw new Error('postgres://user:password@host/db') } })
+  const records: string[] = []
+  const originalWarn = console.warn
+  console.warn = (record?: unknown) => { records.push(String(record)) }
+  try {
+    const health = await request(app).get('/health')
+    assert.equal(health.status, 200)
+    assert.deepEqual(health.body, { ok: true })
+    const ready = await request(app).get('/ready').set('X-Request-ID', 'trace/id-1')
+    assert.equal(ready.status, 503)
+    assert.deepEqual(ready.body, { ok: false, code: 'API_STARTING' })
+    assert.equal(ready.headers['retry-after'], '5')
+    const record = records[0]
+    assert.ok(record)
+    assert.match(record, /"requestId":"traceid-1"/)
+    assert.match(record, /"category":"database_error"/)
+    assert.match(record, /"durationMs":\d+/)
+    assert.match(record, /"status":503/)
+    assert.doesNotMatch(record, /password|postgres|host\/db/)
+  } finally {
+    console.warn = originalWarn
+    if (transactionDescriptor) Object.defineProperty(prisma, '$transaction', transactionDescriptor)
+    else Reflect.deleteProperty(prisma, '$transaction')
+  }
+})
+
 test('production serving returns assets and SPA routes without masking API 404s', async () => {
   const clientDistPath = mkdtempSync(join(tmpdir(), 'replog-client-dist-'))
   writeFileSync(join(clientDistPath, 'index.html'), '<!doctype html><p>SPA fixture</p>')

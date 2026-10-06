@@ -38,6 +38,26 @@ describe('API availability coordination', () => {
     await Promise.all([first, second])
   })
 
+  it('starts a fresh run instead of joining an aborted flight that has not settled', async () => {
+    let oldSignal: AbortSignal | undefined
+    mockedReadiness
+      .mockImplementationOnce(({ signal }) => {
+        oldSignal = signal
+        return new Promise<void>(() => undefined)
+      })
+      .mockResolvedValueOnce(undefined)
+    const abandonedController = new AbortController()
+    const abandoned = ensureApiAvailable(() => '/api', abandonedController.signal)
+
+    abandonedController.abort()
+    await expect(abandoned).rejects.toMatchObject({ code: axios.AxiosError.ERR_CANCELED })
+    await Promise.resolve()
+    expect(oldSignal?.aborted).toBe(true)
+
+    await ensureApiAvailable(() => '/api')
+    expect(mockedReadiness).toHaveBeenCalledTimes(2)
+  })
+
   it('preflights stale mutations and never replays them', async () => {
     const instance = axios.create({ adapter: async (config) => {
       throw new axios.AxiosError('upstream unavailable', 'ERR_NETWORK', config)

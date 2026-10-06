@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import worker, { isProxyPath, parseOrigin } from './index'
+const workerModulePath = './index.ts'
+const { default: worker, isProxyPath, parseOrigin } = await import(workerModulePath)
 
 const env = { API_UPSTREAM_ORIGIN: 'https://api.example.com', PUBLIC_APP_ORIGINS: 'https://app.example.com', EDGE_PROXY_SECRET: 'secret', ASSETS: { fetch: async () => new Response('asset') } }
 
@@ -35,11 +36,28 @@ describe('edge routing and validation', () => {
     fetcher.mockRestore()
   })
   it('rejects invalid readiness responses', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"ok":true,"extra":1}', { headers: { 'Content-Type': 'application/json' } }))
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"ok":false,"extra":1}', { headers: { 'Content-Type': 'application/json' } }))
     const response = await worker.fetch(new Request('https://app.example.com/ready'), env)
     expect(response.status).toBe(503)
     expect(response.headers.get('Retry-After')).toBe('5')
     expect(await response.json()).toEqual({ ok: false, code: 'API_STARTING' })
+    vi.restoreAllMocks()
+  })
+  it('accepts compatible readiness responses with optional fields', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"ok":true,"runId":"test-run"}', { headers: { 'Content-Type': 'application/json' } }))
+    const response = await worker.fetch(new Request('https://app.example.com/ready'), env)
+    expect(response.status).toBe(200)
+    vi.restoreAllMocks()
+  })
+  it('logs sanitized upstream diagnostics for a timeout', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new DOMException('aborted', 'AbortError'))
+    const response = await worker.fetch(new Request('https://app.example.com/ready', { headers: { 'CF-Ray': 'safe-id', Cookie: 'session=secret' } }), env)
+    expect(response.status).toBe(504)
+    const record = JSON.parse(String(warn.mock.calls[0][0])) as Record<string, unknown>
+    expect(record).toMatchObject({ event: 'upstream_failure', requestId: 'cf-safe-id', status: 504, category: 'timeout' })
+    expect(record).toHaveProperty('durationMs')
+    expect(JSON.stringify(record)).not.toMatch(/secret|cookie|database/i)
     vi.restoreAllMocks()
   })
 })

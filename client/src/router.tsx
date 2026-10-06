@@ -6,6 +6,7 @@ import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { EditProfilePage } from './pages/EditProfilePage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { HistoryPage } from './pages/HistoryPage'
+import { ManualWorkoutPage } from './pages/ManualWorkoutPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProgressPage } from './pages/ProgressPage'
@@ -50,6 +51,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <DashboardPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/history/log',
+    element: (
+      <RequireAuth>
+        <ManualWorkoutPage />
       </RequireAuth>
     ),
   },

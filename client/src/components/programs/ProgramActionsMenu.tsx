@@ -13,18 +13,24 @@ export function ProgramActionsMenu({
   isOpen,
   onToggle,
   onCopy,
+  copyLabel = 'Copy',
   onRename,
+  renameLabel = 'Rename',
   onDelete,
   deleteDisabled = false,
+  deleteLabel = 'Delete',
   disabled = false,
 }: {
   programName: string
   isOpen: boolean
   onToggle: () => void
   onCopy?: () => void
+  copyLabel?: string
   onRename?: () => void
+  renameLabel?: string
   onDelete?: () => void
   deleteDisabled?: boolean
+  deleteLabel?: string
   disabled?: boolean
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -170,7 +176,7 @@ export function ProgramActionsMenu({
     action?.()
   }
 
-  const menu = isOpen && menuPosition ? (
+  const menu = isOpen ? (
     <div
       ref={menuRef}
       id={menuId}
@@ -179,12 +185,13 @@ export function ProgramActionsMenu({
       onKeyDown={handleMenuKeyDown}
       className="fixed z-[70] w-40 rounded-[12px] border border-slate-200 bg-white p-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.14)]"
       style={{
-        left: menuPosition.left,
-        ...(menuPosition.top !== undefined ? { top: menuPosition.top } : { bottom: menuPosition.bottom }),
+        left: menuPosition?.left ?? 0,
+        ...(menuPosition?.top !== undefined ? { top: menuPosition.top } : { bottom: menuPosition?.bottom ?? 0 }),
+        visibility: menuPosition ? 'visible' : 'hidden',
       }}
     >
-      {onCopy ? <button type="button" role="menuitem" onClick={() => closeAndRun(onCopy)} className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">Copy</button> : null}
-      {onRename ? <button type="button" role="menuitem" onClick={() => closeAndRun(onRename)} className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">Rename</button> : null}
+      {onCopy ? <button type="button" role="menuitem" onClick={() => closeAndRun(onCopy)} className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">{copyLabel}</button> : null}
+      {onRename ? <button type="button" role="menuitem" onClick={() => closeAndRun(onRename)} className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">{renameLabel}</button> : null}
       {onDelete ? (
         <button
           type="button"
@@ -194,9 +201,9 @@ export function ProgramActionsMenu({
             if (!deleteDisabled) closeAndRun(onDelete)
           }}
           title={deleteDisabled ? 'Activate another program before deleting this one' : 'Delete program'}
-          className={`flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold ${deleteDisabled ? 'cursor-not-allowed text-slate-400' : 'text-red-600 hover:bg-red-50'}`}
+          className={`flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${deleteDisabled ? 'cursor-not-allowed text-slate-400' : 'text-red-600 hover:bg-red-50'}`}
         >
-          Delete
+          {deleteLabel}
         </button>
       ) : null}
     </div>
@@ -215,7 +222,7 @@ export function ProgramActionsMenu({
         onClick={() => {
           if (!disabled) onToggle()
         }}
-        className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+        className="grid min-h-11 min-w-11 place-items-center rounded-[10px] border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:text-slate-300"
       >
         <MoreHorizontal size={18} strokeWidth={2} aria-hidden="true" />
       </button>

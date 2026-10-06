@@ -35,7 +35,7 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
 
   const [activeSession, recentSessions, workoutCount, latestSession, setLogs] = await Promise.all([
     prisma.session.findFirst({
-      where: { userId, endedAt: null },
+      where: { userId, endedAt: null, source: 'LIVE' },
       orderBy: { startedAt: 'desc' },
       include: {
         sessionExercises: true,
@@ -44,7 +44,6 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
     prisma.session.findMany({
       where: { userId, endedAt: { not: null } },
       orderBy: { startedAt: 'desc' },
-      take: 3,
       include: {
         sessionExercises: true,
       },
@@ -70,6 +69,9 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
     }),
   ])
   const totalVolumeKg = setLogs.reduce((total, set) => total + set.weightKg * set.reps, 0)
+  const effectiveDate = (session: (typeof recentSessions)[number]) =>
+    session.source === 'MANUAL' && session.workoutDate ? session.workoutDate.getTime() : session.startedAt.getTime()
+  recentSessions.sort((a, b) => effectiveDate(b) - effectiveDate(a) || b.startedAt.getTime() - a.startedAt.getTime() || b.id.localeCompare(a.id))
   const days = activeProgram?.days ?? []
   const labels = new Map((await prisma.userCategoryLabel.findMany({ where: { userId }, select: { categoryId: true, displayName: true } })).map((label) => [label.categoryId, label.displayName]))
   const nonEmptyDays = days.filter((day) => day.dayExercises.length > 0)
@@ -131,8 +133,10 @@ dashboardRouter.get('/', requireAuth, async (req, res) => {
       startedAt: session.startedAt,
       endedAt: session.endedAt,
       durationSec: session.durationSec,
+      source: session.source,
+      workoutDate: session.workoutDate,
       exerciseCount: session.sessionExercises.length,
-    })),
+    })).slice(0, 3),
     stats: {
       workoutCount,
       setCount: setLogs.length,

@@ -79,6 +79,7 @@ progressRouter.get('/', requireAuth, async (req, res) => {
     {
       sessionId: string
       startedAt: Date
+      workoutDate: Date | null
       dayName: string
       topSet: { estimatedOneRepMaxKg: number; weightKg: number; reps: number }
     }
@@ -97,6 +98,7 @@ progressRouter.get('/', requireAuth, async (req, res) => {
       sessionsById.set(session.id, {
         sessionId: session.id,
         startedAt: session.startedAt,
+        workoutDate: session.workoutDate,
         dayName: session.dayNameSnapshot,
         topSet: candidateSet,
       })
@@ -109,12 +111,13 @@ progressRouter.get('/', requireAuth, async (req, res) => {
   }
 
   const sessionHistory = [...sessionsById.values()].sort(
-    (a, b) => b.startedAt.getTime() - a.startedAt.getTime(),
+    (a, b) => (b.workoutDate?.getTime() ?? b.startedAt.getTime()) - (a.workoutDate?.getTime() ?? a.startedAt.getTime()) || b.startedAt.getTime() - a.startedAt.getTime() || b.sessionId.localeCompare(a.sessionId),
   )
   const chronologicalHistory = [...sessionHistory].reverse()
   const personalBest = sessionHistory.reduce<{
     sessionId: string
     startedAt: Date
+    workoutDate: Date | null
     estimatedOneRepMaxKg: number
     weightKg: number
     reps: number
@@ -122,6 +125,7 @@ progressRouter.get('/', requireAuth, async (req, res) => {
     const candidate = {
       sessionId: session.sessionId,
       startedAt: session.startedAt,
+      workoutDate: session.workoutDate,
       estimatedOneRepMaxKg: session.topSet.estimatedOneRepMaxKg,
       weightKg: session.topSet.weightKg,
       reps: session.topSet.reps,
@@ -148,6 +152,7 @@ progressRouter.get('/', requireAuth, async (req, res) => {
     sessionHistory: sessionHistory.map((session) => ({
       sessionId: session.sessionId,
       startedAt: session.startedAt,
+      workoutDate: session.workoutDate,
       dayName: session.dayName,
       topSet: session.topSet,
     })),
