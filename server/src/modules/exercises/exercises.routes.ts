@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
-import { categoryNameSchema, createExerciseSchema, mergeExerciseSchema } from './exercises.schemas.js'
+import { categoryNameSchema, createExerciseSchema, mergeExerciseSchema, updateExerciseSchema } from './exercises.schemas.js'
 import { hasCategoryNameConflict, loadCategoryLabels, normalizeCategoryName } from './categoryLabels.js'
 
 export const exercisesRouter = Router()
@@ -98,6 +98,46 @@ exercisesRouter.patch('/:exerciseId/category', requireAuth, async (req, res) => 
   const category = await prisma.exerciseCategory.findFirst({ where: { id: parsed.data, OR: [{ ownerId: null }, { ownerId: userId }] } })
   if (!category) { res.status(400).json({ error: 'Invalid category' }); return }
   const updated = await prisma.exercise.update({ where: { id: exercise.id }, data: { categoryId: category.id }, include: { category: true } })
+  const labels = await loadCategoryLabels(userId)
+  res.json({ exercise: toExercisePayload(updated, labels) })
+})
+
+exercisesRouter.patch('/:exerciseId', requireAuth, async (req, res) => {
+  const userId = req.userId
+  if (!userId) { res.status(401).json({ error: 'Authentication required' }); return }
+  const exerciseId = Array.isArray(req.params.exerciseId) ? req.params.exerciseId[0] : req.params.exerciseId
+  if (!exerciseId) { res.status(400).json({ error: 'Invalid exercise' }); return }
+  const parsed = updateExerciseSchema.safeParse(req.body)
+  if (!parsed.success) { res.status(400).json({ error: 'Invalid request body', fields: parsed.error.flatten().fieldErrors }); return }
+  const exercise = await prisma.exercise.findFirst({ where: { id: exerciseId, ownerId: userId } })
+  if (!exercise) { res.status(404).json({ error: 'Exercise not found' }); return }
+  const data: { name?: string; categoryId?: string } = {}
+
+  if (parsed.data.name !== undefined) {
+    const normalizedName = normalizeExerciseName(parsed.data.name)
+    const visibleExercises = await prisma.exercise.findMany({
+      where: {
+        id: { not: exercise.id },
+        OR: [{ ownerId: null }, { ownerId: userId }],
+      },
+      select: { name: true },
+    })
+
+    if (visibleExercises.some((visible) => normalizeExerciseName(visible.name) === normalizedName)) {
+      res.status(409).json({ error: 'An exercise with this name already exists' })
+      return
+    }
+
+    data.name = parsed.data.name
+  }
+
+  if (parsed.data.categoryId !== undefined) {
+    const category = await prisma.exerciseCategory.findFirst({ where: { id: parsed.data.categoryId, OR: [{ ownerId: null }, { ownerId: userId }] } })
+    if (!category) { res.status(400).json({ error: 'Invalid category' }); return }
+    data.categoryId = category.id
+  }
+
+  const updated = await prisma.exercise.update({ where: { id: exercise.id }, data, include: { category: true } })
   const labels = await loadCategoryLabels(userId)
   res.json({ exercise: toExercisePayload(updated, labels) })
 })
