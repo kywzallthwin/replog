@@ -678,7 +678,9 @@ export function WorkoutPage() {
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
   const [cancelConfirmation, setCancelConfirmation] = useState(false)
+  const [finishConfirmation, setFinishConfirmation] = useState(false)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
+  const finishTriggerRef = useRef<HTMLButtonElement>(null)
   const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
   const addExerciseButtonRef = useRef<HTMLButtonElement>(null)
   const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
@@ -690,6 +692,7 @@ export function WorkoutPage() {
   const dropIdRef = useRef(0)
   const metadataSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const manualCompletionPendingRef = useRef(false)
+  const finishCompletionPendingRef = useRef(false)
   const { data: session, isError, isPending } = useQuery({
     queryKey: sessionQueryKey(sessionId ?? ''),
     queryFn: () => getSession(sessionId ?? ''),
@@ -860,11 +863,16 @@ export function WorkoutPage() {
         queryClient.setQueryData(sessionQueryKey(sessionId), updatedSession)
       }
 
+      setFinishConfirmation(false)
+
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       if (isManual) await queryClient.invalidateQueries({ queryKey: manualDraftQueryKey })
       await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
       await queryClient.invalidateQueries({ queryKey: ['progress'] })
       if (updatedSession.source === 'MANUAL') navigate('/history')
+    },
+    onSettled: () => {
+      finishCompletionPendingRef.current = false
     },
   })
   const cancelSessionMutation = useMutation({
@@ -1247,6 +1255,33 @@ export function WorkoutPage() {
       sessionId,
       sessionExerciseId: deleteConfirmation.exercise.id,
     })
+  }
+
+  function openFinishConfirmation() {
+    if (!sessionId || workoutMutationIsPending) {
+      return
+    }
+
+    finishSessionMutation.reset()
+    setFinishConfirmation(true)
+  }
+
+  function closeFinishConfirmation() {
+    if (finishSessionMutation.isPending) {
+      return
+    }
+
+    finishSessionMutation.reset()
+    setFinishConfirmation(false)
+  }
+
+  function confirmFinishWorkout() {
+    if (!sessionId || finishCompletionPendingRef.current || finishSessionMutation.isPending) {
+      return
+    }
+
+    finishCompletionPendingRef.current = true
+    finishSessionMutation.mutate(sessionId)
   }
 
   return (
@@ -1662,7 +1697,8 @@ export function WorkoutPage() {
                 </button>
                 {!isManual ? <button
                   type="button"
-                  onClick={() => finishSessionMutation.mutate(session.id)}
+                  ref={finishTriggerRef}
+                  onClick={openFinishConfirmation}
                   disabled={finishSessionMutation.isPending || cancelSessionMutation.isPending || workoutWriteIsPending}
                   className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[14px] bg-green-100 px-4 py-3 text-sm font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:bg-green-50 disabled:text-green-400"
                 >
@@ -1708,7 +1744,7 @@ export function WorkoutPage() {
                   {finishSessionMutation.isError ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Unable to save workout. Please try again.</p> : null}
                   <button type="button" onClick={() => void saveManualWorkout()} disabled={!session.exercises.some((exercise) => exercise.sets.length) || hasManualMetadataErrors || workoutMutationIsPending || manualMetadataSaving || manualCompletionSaving} className="min-h-11 w-full rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{manualMetadataSaving || manualCompletionSaving || finishSessionMutation.isPending ? 'Saving…' : 'Save Workout'}</button>
                 </section> : null}
-                {!isManual && finishSessionMutation.isError ? (
+                {!isManual && finishSessionMutation.isError && !finishConfirmation ? (
                    <p role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                     Unable to finish workout. Please try again.
                   </p>
@@ -1808,6 +1844,48 @@ export function WorkoutPage() {
           </div>
         </Dialog>
       ) : null}
+      {finishConfirmation ? (
+        <Dialog
+          role="alertdialog"
+          labelledBy="workout-finish-dialog-title"
+          describedBy="workout-finish-dialog-description"
+          onClose={closeFinishConfirmation}
+          closeOnEscape={!finishSessionMutation.isPending}
+          restoreFocusRef={finishTriggerRef}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
+        >
+          <h2 id="workout-finish-dialog-title" className="min-w-0 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
+            Finish workout?
+          </h2>
+          <p id="workout-finish-dialog-description" className="mt-1.5 min-w-0 break-words text-sm leading-5 text-slate-500 [overflow-wrap:anywhere]">
+            You're ready to wrap up.
+          </p>
+          {finishSessionMutation.isError ? (
+            <p role="alert" className="mt-3 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              Unable to finish workout. Please try again.
+            </p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={closeFinishConfirmation}
+              disabled={finishSessionMutation.isPending}
+              className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Keep Going
+            </button>
+            <button
+              type="button"
+              onClick={confirmFinishWorkout}
+              disabled={finishSessionMutation.isPending}
+              className="min-h-11 flex-1 whitespace-nowrap rounded-[14px] bg-green-100 px-4 py-3 text-sm font-bold text-green-700 transition hover:bg-green-200 disabled:cursor-not-allowed disabled:bg-green-50 disabled:text-green-400"
+            >
+              {finishSessionMutation.isPending ? 'Finishing...' : 'Finish Workout'}
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
       {cancelConfirmation ? (
         <Dialog
           role="alertdialog"
@@ -1822,17 +1900,17 @@ export function WorkoutPage() {
           className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
         >
             <h2 id="workout-cancel-dialog-title" className="min-w-0 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
-              {isManual ? 'Discard this draft?' : 'Cancel this workout?'}
+              {isManual ? 'Discard this draft?' : 'Discard workout?'}
             </h2>
-            <p id="workout-cancel-dialog-description" className="mt-2 min-w-0 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
-              {isManual ? 'This permanently deletes this manual draft and its saved sets.' : `This will permanently delete the active ${session?.dayName ?? 'workout'} session and any sets you have logged. This cannot be undone.`}
+            <p id="workout-cancel-dialog-description" className="mt-1.5 min-w-0 break-words text-sm leading-5 text-slate-500 [overflow-wrap:anywhere]">
+              {isManual ? 'This permanently deletes this manual draft and its saved sets.' : 'All logged sets will be deleted.'}
             </p>
             {cancelSessionMutation.isError ? (
-              <p role="alert" className="mt-4 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <p role="alert" className="mt-3 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 Unable to cancel workout. Please try again.
               </p>
             ) : null}
-            <div className="mt-5 flex gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setCancelConfirmation(false)}
@@ -1851,7 +1929,7 @@ export function WorkoutPage() {
                 disabled={cancelSessionMutation.isPending}
                 className="min-h-11 flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
               >
-                {cancelSessionMutation.isPending ? (isManual ? 'Discarding...' : 'Cancelling...') : (isManual ? 'Discard Draft' : 'Cancel Workout')}
+                {cancelSessionMutation.isPending ? 'Discarding...' : (isManual ? 'Discard Draft' : 'Discard Workout')}
               </button>
             </div>
         </Dialog>

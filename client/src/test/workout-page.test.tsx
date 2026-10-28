@@ -189,6 +189,11 @@ async function openAddSetForm() {
   return { card, form }
 }
 
+async function openFinishConfirmation() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Finish Workout' }))
+  return screen.getByRole('alertdialog', { name: 'Finish workout?' })
+}
+
 beforeEach(() => {
   window.localStorage.clear()
   mockedGetExercises.mockResolvedValue(exerciseOptions)
@@ -265,7 +270,8 @@ describe('WorkoutPage regression coverage', () => {
     const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
     mockedFinishSession.mockResolvedValueOnce(completed)
     renderWorkout()
-    fireEvent.click(await screen.findByRole('button', { name: 'Finish Workout' }))
+    const finishDialog = await openFinishConfirmation()
+    fireEvent.click(within(finishDialog).getByRole('button', { name: 'Finish Workout' }))
     await waitFor(() => expect(screen.queryByText('Rest timer')).not.toBeInTheDocument())
     expect(window.localStorage.getItem(restTimerKey())).toBeNull()
 
@@ -274,8 +280,8 @@ describe('WorkoutPage regression coverage', () => {
     renderWorkout()
     const cancel = await screen.findByRole('button', { name: 'Cancel Workout' })
     fireEvent.click(cancel)
-    const dialog = screen.getByRole('alertdialog', { name: 'Cancel this workout?' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel Workout' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Discard workout?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Discard Workout' }))
     await waitFor(() => expect(within(dialog).getByRole('alert')).toBeInTheDocument())
     expect(window.localStorage.getItem(restTimerKey())).not.toBeNull()
   })
@@ -533,14 +539,99 @@ describe('WorkoutPage regression coverage', () => {
     const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
     mockedFinishSession.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(completed)
     renderWorkout()
-    const finish = await screen.findByRole('button', { name: 'Finish Workout' })
-    fireEvent.click(finish)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to finish workout. Please try again.')
+    const dialog = await openFinishConfirmation()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Finish Workout' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to finish workout. Please try again.')
 
-    fireEvent.click(finish)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Finish Workout' }))
     await waitFor(() => expect(mockedFinishSession.mock.calls.at(-1)?.[0]).toBe('session-1'))
     expect(await screen.findByText('Read only')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument()
+  })
+
+  it('asks for confirmation before finishing and keeps the workout active until it is confirmed', async () => {
+    renderWorkout()
+
+    const dialog = await openFinishConfirmation()
+    expect(mockedFinishSession).not.toHaveBeenCalled()
+    expect(within(dialog).getByText('You\'re ready to wrap up.')).toBeInTheDocument()
+    expect(screen.getByText('Active workout')).toBeInTheDocument()
+  })
+
+  it('keeps the active workout and its logged sets when the confirmation is continued', async () => {
+    renderWorkout()
+
+    const dialog = await openFinishConfirmation()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep Going' }))
+
+    expect(screen.queryByRole('alertdialog', { name: 'Finish workout?' })).not.toBeInTheDocument()
+    expect(mockedFinishSession).not.toHaveBeenCalled()
+    expect(screen.getByText('Active workout')).toBeInTheDocument()
+    const card = await getExerciseCard()
+    expect(within(card).getByText('1 sets logged')).toBeInTheDocument()
+  })
+
+  it('dismisses the finish confirmation with Escape without finishing the workout', async () => {
+    renderWorkout()
+
+    const dialog = await openFinishConfirmation()
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+
+    expect(screen.queryByRole('alertdialog', { name: 'Finish workout?' })).not.toBeInTheDocument()
+    expect(mockedFinishSession).not.toHaveBeenCalled()
+    expect(screen.getByText('Active workout')).toBeInTheDocument()
+  })
+
+  it('completes the workout once when the confirmation is confirmed', async () => {
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+    mockedFinishSession.mockResolvedValueOnce(completed)
+    renderWorkout()
+
+    const dialog = await openFinishConfirmation()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Finish Workout' }))
+
+    await waitFor(() => expect(mockedFinishSession).toHaveBeenCalledTimes(1))
+    expect(mockedFinishSession.mock.calls[0]?.[0]).toBe('session-1')
+    expect(await screen.findByText('Completed workout')).toBeInTheDocument()
+  })
+
+  it('ignores repeated taps while the confirmed finish is processing', async () => {
+    const completion = deferred<WorkoutSession>()
+    mockedFinishSession.mockReturnValueOnce(completion.promise)
+    renderWorkout()
+
+    const dialog = await openFinishConfirmation()
+    const confirm = within(dialog).getByRole('button', { name: 'Finish Workout' })
+    fireEvent.click(confirm)
+    await waitFor(() => expect(mockedFinishSession).toHaveBeenCalledTimes(1))
+    expect(confirm).toBeDisabled()
+
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    expect(mockedFinishSession).toHaveBeenCalledTimes(1)
+
+    completion.resolve(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Finish Workout' })).not.toBeInTheDocument())
+  })
+
+  it('shares the compact card, spacing, and button sizing across both confirmations', async () => {
+    renderWorkout()
+
+    const finishDialog = await openFinishConfirmation()
+    const finishSecondary = within(finishDialog).getByRole('button', { name: 'Keep Going' })
+    const finishActions = finishSecondary.parentElement
+    fireEvent.click(finishSecondary)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Workout' }))
+    const cancelDialog = screen.getByRole('alertdialog', { name: 'Discard workout?' })
+    const cancelSecondary = within(cancelDialog).getByRole('button', { name: 'Keep Workout' })
+    const cancelActions = cancelSecondary.parentElement
+
+    expect(cancelDialog.className).toBe(finishDialog.className)
+    expect(cancelActions?.className).toBe(finishActions?.className)
+    expect(cancelSecondary.className).toBe(finishSecondary.className)
+    expect(finishActions).toHaveClass('mt-4', 'flex', 'flex-wrap', 'gap-2')
+    expect(finishSecondary).toHaveClass('min-h-11', 'rounded-[14px]', 'px-4', 'py-3', 'text-sm', 'font-bold')
   })
 
   it('reuses the full-row date control and blocks invalid duration metadata saves', async () => {
@@ -648,14 +739,14 @@ describe('WorkoutPage regression coverage', () => {
     const trigger = await screen.findByRole('button', { name: 'Cancel Workout' })
     trigger.focus()
     fireEvent.click(trigger)
-    let dialog = screen.getByRole('alertdialog', { name: 'Cancel this workout?' })
+    let dialog = screen.getByRole('alertdialog', { name: 'Discard workout?' })
     expect(within(dialog).getByRole('button', { name: 'Keep Workout' })).toHaveFocus()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Keep Workout' }))
     expect(trigger).toHaveFocus()
 
     fireEvent.click(trigger)
-    dialog = screen.getByRole('alertdialog', { name: 'Cancel this workout?' })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel Workout' }))
+    dialog = screen.getByRole('alertdialog', { name: 'Discard workout?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Discard Workout' }))
 
     await waitFor(() => expect(mockedCancelSession.mock.calls[0]?.[0]).toBe('session-1'))
     expect(await screen.findByRole('heading', { name: 'Dashboard destination' })).toBeInTheDocument()
