@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { apiBaseUrl, apiConfigurationError } from '../../lib/api'
 import { ensureApiAvailable } from '../../lib/apiAvailability'
 import { BrandedLoader } from '../ui/BrandedLoader'
@@ -11,13 +11,19 @@ type ApiStartupGateProps = {
 export function ApiStartupGate({ children, configurationError = apiConfigurationError }: ApiStartupGateProps) {
   const [retryCount, setRetryCount] = useState(0)
   const [state, setState] = useState<'checking' | 'ready' | 'failed'>(() => navigator.onLine ? 'checking' : 'failed')
-  const [totalElapsedSeconds, setTotalElapsedSeconds] = useState(0)
-  const [attemptElapsedSeconds, setAttemptElapsedSeconds] = useState(0)
-  const [attemptInProgress, setAttemptInProgress] = useState(false)
+  const [showColdStartHint, setShowColdStartHint] = useState(false)
   const [announcement, setAnnouncement] = useState(() => navigator.onLine ? 'Starting RepLog' : 'Offline. Reconnect to continue startup.')
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
-  const startedAtRef = useRef<number | null>(null)
-  const attemptStartedAtRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (configurationError || state !== 'checking' || showColdStartHint) return
+
+    const coldStartTimer = setTimeout(() => {
+      setShowColdStartHint(true)
+    }, 3000)
+
+    return () => clearTimeout(coldStartTimer)
+  }, [configurationError, showColdStartHint, state])
 
   useEffect(() => {
     if (configurationError) return
@@ -30,22 +36,6 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
     let currentController: AbortController | undefined
     let retryTimer: ReturnType<typeof setTimeout> | undefined
     let stopStartupWatchers = () => undefined
-    const startedAt = startedAtRef.current ?? Date.now()
-    startedAtRef.current = startedAt
-    const elapsedTimer = setInterval(() => {
-      const currentTime = Date.now()
-      setTotalElapsedSeconds(Math.floor((currentTime - startedAt) / 1000))
-      if (attemptStartedAtRef.current !== null) {
-        setAttemptElapsedSeconds(Math.floor((currentTime - attemptStartedAtRef.current) / 1000))
-      }
-    }, 1000)
-    const finishAttempt = () => {
-      if (attemptStartedAtRef.current !== null) {
-        setAttemptElapsedSeconds(Math.floor((Date.now() - attemptStartedAtRef.current) / 1000))
-      }
-      attemptStartedAtRef.current = null
-      setAttemptInProgress(false)
-    }
     const retry = (manual = false) => {
       if (!active || startupComplete || document.visibilityState === 'hidden' || !navigator.onLine) return
       if (inFlight) {
@@ -56,23 +46,18 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
       if (manual) setState('checking')
       if (sequenceStarted) setAnnouncement('Retrying RepLog')
       sequenceStarted = true
-      attemptStartedAtRef.current = Date.now()
-      setAttemptElapsedSeconds(0)
-      setAttemptInProgress(true)
       const controller = new AbortController()
       currentController = controller
       void ensureApiAvailable(() => apiBaseUrl, controller.signal).then(
         () => {
           if (active) {
             startupComplete = true
-            finishAttempt()
             stopStartupWatchers()
             setState('ready')
           }
         },
         () => {
           if (!active || controller.signal.aborted) return
-          finishAttempt()
           if (!navigator.onLine) { setState('failed'); return }
           setAnnouncement('RepLog unavailable. Retrying automatically.')
           setState('failed')
@@ -98,14 +83,12 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
       setIsOnline(false)
       setState('failed')
       setAnnouncement('Offline. Reconnect to continue startup.')
-      finishAttempt()
       retryAfterCancellation = false
       if (retryTimer) clearTimeout(retryTimer)
       currentController?.abort()
     }
     stopStartupWatchers = () => {
       if (retryTimer) clearTimeout(retryTimer)
-      clearInterval(elapsedTimer)
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
       document.removeEventListener('visibilitychange', onVisibility)
@@ -136,17 +119,38 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
 
   if (state === 'checking') {
     return (
-      <main className="min-h-dvh bg-slate-100 px-4">
-        <div className="grid min-h-dvh content-center justify-items-center gap-4 text-center">
-          <BrandedLoader fullScreen={false} statusMessage={announcement} />
-          <div className="w-full max-w-xs">
-            <p className="text-sm font-semibold text-slate-800">Starting RepLog…</p>
-            <p className="mt-1 text-sm text-slate-600">Waking the service and checking its database</p>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Current readiness attempt" aria-valuemin={0} aria-valuemax={90} aria-valuenow={Math.min(90, attemptElapsedSeconds)}><div className="h-full rounded-full bg-slate-800 transition-[width] duration-300" style={{ width: `${Math.min(100, attemptElapsedSeconds / 90 * 100)}%` }} /></div>
-            <p className="mt-2 text-xs text-slate-600">Current attempt: {attemptElapsedSeconds}s / 90s</p>
-            <p className="mt-1 text-xs text-slate-500">Total waiting: {totalElapsedSeconds}s</p>
+      <main className="relative min-h-dvh bg-slate-100 px-4">
+        <BrandedLoader fullScreen statusMessage={announcement} />
+        {showColdStartHint ? (
+          <div className="pointer-events-none absolute inset-x-0 top-1/2 mt-8 flex justify-center px-4">
+            <p className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+              <svg
+                aria-hidden="true"
+                focusable="false"
+                viewBox="0 0 16 16"
+                className="h-3.5 w-3.5 animate-spin text-slate-500 motion-reduce:animate-none"
+              >
+                <circle
+                  cx="8"
+                  cy="8"
+                  r="6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeOpacity="0.25"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M14 8a6 6 0 0 0-6-6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="2"
+                />
+              </svg>
+              <span>Starting RepLog…</span>
+            </p>
           </div>
-        </div>
+        ) : null}
       </main>
     )
   }
@@ -158,11 +162,6 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
           <h1 className="text-lg font-semibold text-slate-900">RepLog is starting slowly</h1>
           <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
           <p className="mt-2 text-sm text-slate-600">{isOnline ? 'RepLog will retry while this page is open and online.' : 'You’re offline. Reconnect to continue startup.'}</p>
-          <p className="mt-2 text-xs text-slate-500">Total waiting: {totalElapsedSeconds}s</p>
-          {isOnline && attemptInProgress ? <>
-            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Current readiness attempt" aria-valuemin={0} aria-valuemax={90} aria-valuenow={Math.min(90, attemptElapsedSeconds)}><div className="h-full rounded-full bg-slate-800 transition-[width] duration-300" style={{ width: `${Math.min(100, attemptElapsedSeconds / 90 * 100)}%` }} /></div>
-            <p className="mt-2 text-xs text-slate-600">Current attempt: {attemptElapsedSeconds}s / 90s</p>
-          </> : <p className="mt-2 text-xs text-slate-600">Current attempt: {isOnline ? 'waiting for automatic retry' : 'paused while offline'}</p>}
           <button
             type="button"
             disabled={!isOnline}
