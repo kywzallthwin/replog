@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { isBetterEstimatedSet } from '../../estimatedOneRepMax.js'
 import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
+import { loadCategoryLabels } from '../exercises/categoryLabels.js'
+import { toDayPayload } from '../programs/dayPayload.js'
 import {
   addSetSchema,
   addSetChainSchema,
@@ -754,6 +756,80 @@ sessionsRouter.delete('/:sessionId/exercises/:sessionExerciseId', requireAuth, a
   })
 
   res.status(204).send()
+})
+
+sessionsRouter.post('/:sessionId/save-to-program', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId) {
+    res.status(400).json({ error: 'Invalid session id' })
+    return
+  }
+
+  const session = await prisma.session.findFirst({
+    where: { id: sessionId, userId },
+    include: { sessionExercises: { orderBy: { order: 'asc' } } },
+  })
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' })
+    return
+  }
+
+  if (session.endedAt) {
+    res.status(409).json({ error: 'Finished workouts cannot be saved to a program' })
+    return
+  }
+
+  if (!session.programId || !session.dayId) {
+    res.status(409).json({ error: 'This workout is not linked to a program day' })
+    return
+  }
+
+  if (session.sessionExercises.length === 0) {
+    res.status(400).json({ error: 'Add at least one exercise before saving to the program' })
+    return
+  }
+
+  const day = await prisma.day.findFirst({
+    where: { id: session.dayId, programId: session.programId, program: { ownerId: userId } },
+    select: { id: true },
+  })
+
+  if (!day) {
+    res.status(404).json({ error: 'Program day not found' })
+    return
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.dayExercise.deleteMany({ where: { dayId: day.id } })
+    await tx.dayExercise.createMany({
+      data: session.sessionExercises.map((sessionExercise, index) => ({
+        dayId: day.id,
+        exerciseId: sessionExercise.exerciseId,
+        order: index + 1,
+      })),
+    })
+  })
+
+  const updatedDay = await prisma.day.findUnique({
+    where: { id: day.id },
+    include: {
+      dayExercises: {
+        orderBy: { order: 'asc' },
+        include: { exercise: { include: { category: true } } },
+      },
+    },
+  })
+
+  const labels = await loadCategoryLabels(userId)
+  res.json({ day: updatedDay ? toDayPayload(updatedDay, labels) : null })
 })
 
 sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets', requireAuth, async (req, res) => {

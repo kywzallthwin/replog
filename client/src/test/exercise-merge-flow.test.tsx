@@ -108,9 +108,9 @@ describe('exercise merge picker flow', () => {
     await waitFor(() => expect(screen.getByRole('tab', { name: 'All exercises' })).toHaveFocus())
   })
 
-  it('removes row merge controls while keeping category editing available', () => {
+  it('removes row merge controls while keeping exercise editing available', () => {
     renderPicker()
     expect(screen.queryByRole('button', { name: 'Merge Vague Pull' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit category for Vague Pull' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit exercise Vague Pull' })).toBeInTheDocument()
   })
 })

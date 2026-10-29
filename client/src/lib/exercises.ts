@@ -46,11 +46,6 @@ export async function deleteCategory(categoryId: string, replacementCategoryId?:
   await api.delete(`/exercises/categories/${categoryId}`, { params: replacementCategoryId ? { replacementCategoryId } : undefined })
 }
 
-export async function recategorizeExercise(exerciseId: string, categoryId: string) {
-  const response = await api.patch<ExerciseResponse>(`/exercises/${exerciseId}/category`, { categoryId })
-  return response.data.exercise
-}
-
 export type MergeExerciseResult = {
   changedProgramDayEntries: number
   changedWorkoutEntries: number
@@ -66,12 +61,23 @@ export type CreateExerciseInput = {
   categoryId: string
 }
 
+export type UpdateExerciseInput = {
+  name?: string
+  categoryId?: string
+}
+
 type ExerciseResponse = {
   exercise: ExerciseOption
 }
 
 export async function createExercise(input: CreateExerciseInput) {
   const response = await api.post<ExerciseResponse>('/exercises', input)
+
+  return response.data.exercise
+}
+
+export async function updateExercise(exerciseId: string, input: UpdateExerciseInput) {
+  const response = await api.patch<ExerciseResponse>(`/exercises/${exerciseId}`, input)
 
   return response.data.exercise
 }

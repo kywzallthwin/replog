@@ -1,4 +1,6 @@
+import axios from 'axios'
 import { api } from './api'
+import type { ProgramDay } from './programs'
 
 export type WorkoutSet = {
   id: string
@@ -260,4 +262,19 @@ export async function finishSession(sessionId: string) {
 
 export async function cancelSession(sessionId: string) {
   await api.delete(`/sessions/${sessionId}`)
+}
+
+export async function saveSessionToProgram(sessionId: string) {
+  const response = await api.post<{ day: ProgramDay | null }>(`/sessions/${sessionId}/save-to-program`)
+
+  return response.data.day
+}
+
+export function getSessionMutationError(error: unknown, fallbackMessage: string) {
+  if (axios.isAxiosError(error)) {
+    const message = (error.response?.data as { error?: unknown } | undefined)?.error
+    if (typeof message === 'string' && message.trim()) return message
+  }
+
+  return fallbackMessage
 }

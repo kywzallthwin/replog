@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiStartupGate } from '../components/startup/ApiStartupGate'
 import { waitForApiReadiness } from '../lib/apiReadiness'
@@ -14,21 +14,72 @@ describe('ApiStartupGate', () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
   })
 
-  it('holds children until readiness succeeds', async () => {
+  it('holds children until readiness succeeds with immediate BrandedLoader and no cold-start clutter before 3 seconds', async () => {
     let resolve: () => void = () => undefined
     mockedReadiness.mockReturnValue(new Promise<void>((done) => { resolve = done }))
-    render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
+    const { container } = render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
+
+    expect(container.querySelector('.replog-loader')).toHaveClass('min-h-dvh', 'place-content-center')
+    expect(container.querySelector('[data-loader-monogram]')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Starting RepLog')
-    expect(screen.getByRole('status')).not.toHaveTextContent(/\d+ seconds/)
-    expect(screen.getByRole('progressbar', { name: 'Current readiness attempt' })).toHaveAttribute('aria-valuemax', '90')
+    expect(screen.getByRole('status')).toHaveClass('sr-only')
+    expect(screen.queryByText('Starting RepLog…')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Waking the service/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Current attempt|Total waiting|\d+s/)).not.toBeInTheDocument()
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument()
+
     resolve()
     expect(await screen.findByText('Application')).toBeInTheDocument()
   })
 
-  it('shows a bounded failure state', async () => {
+  it('reveals the cold-start hint and subtle spinner after 3 seconds and keeps it visible across manual retries', async () => {
+    vi.useFakeTimers()
+    let rejectFirst: (error: Error) => void = () => undefined
+    let resolveSecond: () => void = () => undefined
+    mockedReadiness
+      .mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectFirst = reject }))
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { resolveSecond = resolve }))
+
+    const { container } = render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(2999) })
+    expect(screen.queryByText('Starting RepLog…')).not.toBeInTheDocument()
+    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument()
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(screen.getByText('Starting RepLog…')).toBeInTheDocument()
+    const spinner = container.querySelector('svg.animate-spin')
+    expect(spinner).toBeInTheDocument()
+    expect(spinner).toHaveClass('motion-reduce:animate-none')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Current attempt|Total waiting/)).not.toBeInTheDocument()
+
+    await act(async () => { rejectFirst(new Error('unavailable')); await Promise.resolve() })
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(screen.getByText('Starting RepLog…')).toBeInTheDocument()
+    expect(container.querySelector('svg.animate-spin')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Retrying RepLog')
+
+    await act(async () => { resolveSecond(); await Promise.resolve() })
+    expect(screen.getByText('Application')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('shows a simplified slow-start failure card without timers or progress bars', async () => {
     mockedReadiness.mockRejectedValue(new Error('unavailable'))
     render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
-    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
+
+    const retryButton = await screen.findByRole('button', { name: 'Retry' })
+    expect(retryButton).toBeInTheDocument()
+    expect(retryButton).toHaveClass('min-h-11', 'min-w-11')
+    expect(screen.getByRole('heading', { name: 'RepLog is starting slowly' })).toBeInTheDocument()
+    expect(screen.getByText('RepLog will retry while this page is open and online.')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('RepLog unavailable. Retrying automatically.')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
     expect(screen.queryByText('Application')).not.toBeInTheDocument()
   })
 
@@ -48,6 +99,9 @@ describe('ApiStartupGate', () => {
     render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
     expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled()
     expect(screen.getByText('You’re offline. Reconnect to continue startup.')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Offline. Reconnect to continue startup.')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
     expect(mockedReadiness).not.toHaveBeenCalled()
 
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
@@ -112,7 +166,7 @@ describe('ApiStartupGate', () => {
     vi.useRealTimers()
   })
 
-  it('resets attempt progress on retry while retaining total wait and stable announcements', async () => {
+  it('keeps the simplified recovery card mounted during automatic background retry with stable announcements', async () => {
     vi.useFakeTimers()
     let rejectFirst: (error: Error) => void = () => undefined
     mockedReadiness
@@ -121,27 +175,23 @@ describe('ApiStartupGate', () => {
     render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
     await act(async () => { await Promise.resolve(); await Promise.resolve() })
     await act(async () => { await vi.advanceTimersByTimeAsync(7000) })
-    expect(screen.getByText('Total waiting: 7s')).toBeInTheDocument()
-    expect(screen.getByText('Current attempt: 7s / 90s')).toBeInTheDocument()
 
     await act(async () => { rejectFirst(new Error('unavailable')); await Promise.resolve() })
+    expect(screen.getByRole('heading', { name: 'RepLog is starting slowly' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('RepLog unavailable. Retrying automatically.')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
+
     await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
     expect(mockedReadiness).toHaveBeenCalledTimes(2)
-    expect(screen.getByText('Total waiting: 22s')).toBeInTheDocument()
-    expect(screen.getByText('Current attempt: 0s / 90s')).toBeInTheDocument()
-    expect(screen.getByRole('progressbar', { name: 'Current readiness attempt' })).toHaveAttribute('aria-valuenow', '0')
+    expect(screen.getByRole('heading', { name: 'RepLog is starting slowly' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Retrying RepLog')
-
-    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
-    expect(screen.getByText('Total waiting: 25s')).toBeInTheDocument()
-    expect(screen.getByText('Current attempt: 3s / 90s')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Retrying RepLog')
-    expect(screen.getByRole('status')).not.toHaveTextContent(/25s|3s/)
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
     vi.useRealTimers()
   })
 
-  it('retains total wait through an offline pause and resets attempt time on reconnect', async () => {
+  it('updates recovery announcements through an offline pause and reconnect without timers or progress bars', async () => {
     vi.useFakeTimers()
     let resolveSecond: () => void = () => undefined
     mockedReadiness
@@ -150,22 +200,22 @@ describe('ApiStartupGate', () => {
     render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
     await act(async () => { await Promise.resolve(); await Promise.resolve() })
     await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
     await act(async () => { window.dispatchEvent(new Event('offline')) })
-    expect(screen.getByText('Total waiting: 5s')).toBeInTheDocument()
-    expect(screen.getByText('Current attempt: paused while offline')).toBeInTheDocument()
+    expect(screen.getByText('You’re offline. Reconnect to continue startup.')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Offline. Reconnect to continue startup.')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
-    expect(screen.getByText('Total waiting: 9s')).toBeInTheDocument()
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
     await act(async () => { window.dispatchEvent(new Event('online')); await Promise.resolve(); await Promise.resolve() })
     expect(mockedReadiness).toHaveBeenCalledTimes(2)
-    expect(screen.getByText('Total waiting: 9s')).toBeInTheDocument()
-    expect(screen.getByText('Current attempt: 0s / 90s')).toBeInTheDocument()
+    expect(screen.getByText('RepLog will retry while this page is open and online.')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Retrying RepLog')
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
-    expect(screen.getByText('Total waiting: 11s')).toBeInTheDocument()
-    expect(screen.getByText('Current attempt: 2s / 90s')).toBeInTheDocument()
     await act(async () => { resolveSecond(); await Promise.resolve(); await Promise.resolve() })
     expect(screen.getByText('Application')).toBeInTheDocument()
     vi.useRealTimers()

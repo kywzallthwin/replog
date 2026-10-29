@@ -66,6 +66,9 @@ test('critical mobile journey: auth, navigation, programs, workout, and history'
   await exercise.getByRole('button', { name: 'Save Set' }).click()
   await expect(exercise.getByText('1 sets logged')).toBeVisible()
   await page.getByRole('button', { name: 'Finish Workout' }).click()
+  const finishDialog = page.getByRole('alertdialog', { name: 'Finish workout?' })
+  await expect(finishDialog).toBeVisible()
+  await finishDialog.getByRole('button', { name: 'Finish Workout' }).click()
   await expect(page.getByText('Completed workout', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Finish Workout' })).toHaveCount(0)
 
