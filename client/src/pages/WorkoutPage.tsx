@@ -2,7 +2,7 @@ import type { FormEvent, RefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, BookmarkCheck } from 'lucide-react'
 import {
   addSessionExercise,
   addSet,
@@ -12,7 +12,9 @@ import {
   finishSession,
   manualDraftQueryKey,
   getSession,
+  getSessionMutationError,
   removeSessionExercise,
+  saveSessionToProgram,
   sessionHistoryQueryKey,
   sessionQueryKey,
   swapSessionExercise,
@@ -28,7 +30,7 @@ import { clearSavedManualMetadata, sessionManualMetadata, type ManualMetadataOve
 import { dashboardQueryKey } from '../lib/dashboard'
 import { getBadgeClass } from '../lib/badgeColors'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
-import { activeProgramQueryKey, getActiveProgram } from '../lib/programs'
+import { activeProgramQueryKey, getActiveProgram, programsQueryKey } from '../lib/programs'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { formatWorkoutDuration, useWorkoutTimer } from '../lib/useWorkoutTimer'
@@ -679,8 +681,11 @@ export function WorkoutPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
   const [cancelConfirmation, setCancelConfirmation] = useState(false)
   const [finishConfirmation, setFinishConfirmation] = useState(false)
+  const [saveToProgramConfirmation, setSaveToProgramConfirmation] = useState(false)
+  const [saveToProgramNotice, setSaveToProgramNotice] = useState<string | null>(null)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
   const finishTriggerRef = useRef<HTMLButtonElement>(null)
+  const saveToProgramTriggerRef = useRef<HTMLButtonElement>(null)
   const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
   const addExerciseButtonRef = useRef<HTMLButtonElement>(null)
   const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
@@ -793,6 +798,7 @@ export function WorkoutPage() {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       setExercisePicker(null)
       setSelectedExerciseId('')
+      setSaveToProgramNotice(null)
     },
   })
   const swapSessionExerciseMutation = useMutation({
@@ -805,6 +811,7 @@ export function WorkoutPage() {
       await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
       setExercisePicker(null)
       setSelectedExerciseId('')
+      setSaveToProgramNotice(null)
     },
   })
   const removeSessionExerciseMutation = useMutation({
@@ -818,6 +825,7 @@ export function WorkoutPage() {
       setActiveExerciseId(null)
       setEditingSet(null)
       setDeleteConfirmation(null)
+      setSaveToProgramNotice(null)
     },
   })
   const exercisePickerIsSaving = addSessionExerciseMutation.isPending || swapSessionExerciseMutation.isPending
@@ -892,6 +900,19 @@ export function WorkoutPage() {
       navigate(isManual ? '/history/log' : '/dashboard')
     },
   })
+  const saveToProgramMutation = useMutation({
+    mutationFn: saveSessionToProgram,
+    onSuccess: async (day) => {
+      const exerciseCount = day?.exercises.length ?? 0
+      const target = day ? (session?.programName ? `${session.programName} · ${day.name}` : day.name) : 'the program day'
+
+      setSaveToProgramConfirmation(false)
+      setSaveToProgramNotice(`Saved ${exerciseCount} ${exerciseCount === 1 ? 'exercise' : 'exercises'} to ${target}.`)
+
+      await queryClient.invalidateQueries({ queryKey: programsQueryKey })
+      await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+    },
+  })
   const manualMetadataMutation = useMutation({
     mutationFn: (metadata: { workoutDate?: string; durationMinutes?: number | ''; notes?: string }) =>
       updateManualMetadata(sessionId ?? '', metadata),
@@ -940,7 +961,35 @@ export function WorkoutPage() {
     navigate(headerLink)
   }
 
-  const workoutMutationIsPending = workoutWriteIsPending || finishSessionMutation.isPending || cancelSessionMutation.isPending
+  const workoutMutationIsPending = workoutWriteIsPending || finishSessionMutation.isPending || cancelSessionMutation.isPending || saveToProgramMutation.isPending
+  const canSaveToProgram = Boolean(session?.programId && session?.dayId)
+  const saveToProgramBlockedReason = !session
+    ? null
+    : !canSaveToProgram
+      ? 'This workout is not linked to a program day.'
+      : session.exercises.length === 0
+        ? 'Add at least one exercise before saving to the program.'
+        : null
+  const saveToProgramErrorMessage = saveToProgramMutation.isError
+    ? getSessionMutationError(saveToProgramMutation.error, 'Unable to save to the program. Please try again.')
+    : null
+
+  function openSaveToProgramConfirmation() {
+    if (!sessionId || !session || saveToProgramBlockedReason) return
+    saveToProgramMutation.reset()
+    setSaveToProgramConfirmation(true)
+  }
+
+  function closeSaveToProgramConfirmation() {
+    if (saveToProgramMutation.isPending) return
+    setSaveToProgramConfirmation(false)
+  }
+
+  function confirmSaveToProgram() {
+    if (!sessionId) return
+    saveToProgramMutation.mutate(sessionId)
+  }
+
   async function saveManualWorkout() {
     if (!sessionId || !session || hasManualMetadataErrors || manualCompletionPendingRef.current || !session.exercises.some((exercise) => exercise.sets.length)) return
     manualCompletionPendingRef.current = true
@@ -1695,6 +1744,27 @@ export function WorkoutPage() {
                 >
                   + Add Exercise
                 </button>
+                <div>
+                  <button
+                    type="button"
+                    ref={saveToProgramTriggerRef}
+                    onClick={openSaveToProgramConfirmation}
+                    disabled={saveToProgramBlockedReason !== null || workoutMutationIsPending}
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                  >
+                    <BookmarkCheck aria-hidden="true" size={16} strokeWidth={2} />
+                    <span>Save to Program</span>
+                  </button>
+                  {saveToProgramBlockedReason ? (
+                    <p className="mt-2 text-[11px] font-semibold leading-4 text-slate-400">{saveToProgramBlockedReason}</p>
+                  ) : null}
+                  {saveToProgramNotice ? (
+                    <p role="status" className="mt-2 text-[11px] font-semibold leading-4 text-green-700">{saveToProgramNotice}</p>
+                  ) : null}
+                  {saveToProgramErrorMessage && !saveToProgramConfirmation ? (
+                    <p role="alert" className="mt-2 text-[11px] font-semibold leading-4 text-red-700">{saveToProgramErrorMessage}</p>
+                  ) : null}
+                </div>
                 {!isManual ? <button
                   type="button"
                   ref={finishTriggerRef}
@@ -1783,6 +1853,50 @@ export function WorkoutPage() {
            restoreFocusRef={exercisePickerTriggerRef}
          />
        ) : null}
+
+      {saveToProgramConfirmation ? (
+        <Dialog
+          role="alertdialog"
+          labelledBy="workout-save-program-dialog-title"
+          describedBy="workout-save-program-dialog-description"
+          onClose={closeSaveToProgramConfirmation}
+          closeOnEscape={!saveToProgramMutation.isPending}
+          restoreFocusRef={saveToProgramTriggerRef}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
+        >
+          <h2 id="workout-save-program-dialog-title" className="min-w-0 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
+            Save to program?
+          </h2>
+          <p id="workout-save-program-dialog-description" className="mt-1.5 min-w-0 break-words text-sm leading-5 text-slate-500 [overflow-wrap:anywhere]">
+            This replaces the exercise list for {session?.dayName ?? 'this day'}
+            {session?.programName ? ` in ${session.programName}` : ''}. Your logged sets and this workout stay as they are.
+          </p>
+          {saveToProgramErrorMessage ? (
+            <p role="alert" className="mt-3 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {saveToProgramErrorMessage}
+            </p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={closeSaveToProgramConfirmation}
+              disabled={saveToProgramMutation.isPending}
+              className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmSaveToProgram}
+              disabled={saveToProgramMutation.isPending}
+              className="min-h-11 flex-1 whitespace-nowrap rounded-[14px] bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+            >
+              {saveToProgramMutation.isPending ? 'Saving...' : 'Save to Program'}
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
 
       {deleteConfirmation ? (
         <Dialog

@@ -3,6 +3,7 @@ import { prisma } from '../../prisma.js'
 import { requireAuth } from '../auth/auth.middleware.js'
 import { createStarterProgramForUser, createProgramFromDays, normalizeProgramName, programTemplates } from './starterProgram.js'
 import { loadCategoryLabels } from '../exercises/categoryLabels.js'
+import { toDayExercisePayload, toDayPayload, type DayPayloadExerciseSource } from './dayPayload.js'
 import {
   createDaySchema,
   createProgramSchema,
@@ -35,37 +36,12 @@ type FullProgram = {
     name: string
     badgeColor: string
     order: number
-    dayExercises: Array<{
-      id: string
-      exerciseId: string
-      order: number
-      exercise: { name: string; category?: { displayName: string; id: string; ownerId: string | null } }
-    }>
+    dayExercises: DayPayloadExerciseSource[]
   }>
 }
 
 function isUniqueConstraintError(error: unknown) {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002'
-}
-
-function toDayExercisePayload(dayExercise: FullProgram['days'][number]['dayExercises'][number], labels: Map<string, string>) {
-  return {
-    id: dayExercise.id,
-    exerciseId: dayExercise.exerciseId,
-    name: dayExercise.exercise.name,
-    category: dayExercise.exercise.category ? { id: dayExercise.exercise.category.id, name: labels.get(dayExercise.exercise.category.id) ?? dayExercise.exercise.category.displayName, isCustom: dayExercise.exercise.category.ownerId !== null } : null,
-    order: dayExercise.order,
-  }
-}
-
-function toDayPayload(day: FullProgram['days'][number], labels: Map<string, string>) {
-  return {
-    id: day.id,
-    name: day.name,
-    badgeColor: day.badgeColor,
-    order: day.order,
-    exercises: day.dayExercises.map((exercise) => toDayExercisePayload(exercise, labels)),
-  }
 }
 
 function toProgramPayload(program: FullProgram, labels: Map<string, string>) {

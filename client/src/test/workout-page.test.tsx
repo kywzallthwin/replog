@@ -13,6 +13,7 @@ import {
   getSession,
   manualDraftQueryKey,
   removeSessionExercise,
+  saveSessionToProgram,
   swapSessionExercise,
   updateSet,
   updateManualMetadata,
@@ -21,7 +22,7 @@ import {
   type WorkoutSet,
 } from '../lib/sessions'
 import { getExercises, type ExerciseOption } from '../lib/exercises'
-import { getActiveProgram, type Program } from '../lib/programs'
+import { getActiveProgram, activeProgramQueryKey, type Program, type ProgramDay } from '../lib/programs'
 import { createTestQueryClient } from './query-client'
 
 vi.mock('../lib/sessions', async (importOriginal) => {
@@ -40,6 +41,7 @@ vi.mock('../lib/sessions', async (importOriginal) => {
     finishSession: vi.fn(),
     cancelSession: vi.fn(),
     updateManualMetadata: vi.fn(),
+    saveSessionToProgram: vi.fn(),
   }
 })
 
@@ -64,6 +66,7 @@ const mockedRemoveSessionExercise = vi.mocked(removeSessionExercise)
 const mockedFinishSession = vi.mocked(finishSession)
 const mockedCancelSession = vi.mocked(cancelSession)
 const mockedUpdateManualMetadata = vi.mocked(updateManualMetadata)
+const mockedSaveSessionToProgram = vi.mocked(saveSessionToProgram)
 const mockedGetExercises = vi.mocked(getExercises)
 const mockedGetActiveProgram = vi.mocked(getActiveProgram)
 const restTimerKey = (sessionId = 'session-1') => `replog:rest-timer:${sessionId}`
@@ -145,6 +148,22 @@ const activeProgram: Program = {
   ],
 }
 
+const savedProgramDay: ProgramDay = {
+  id: 'day-1',
+  name: 'Upper A',
+  badgeColor: 'bg-blue-100 text-blue-800',
+  order: 1,
+  exercises: [
+    {
+      id: 'day-exercise-0',
+      exerciseId: 'bench',
+      name: 'Bench Press',
+      category: { id: 'category-chest', name: 'Chest', isCustom: false },
+      order: 1,
+    },
+  ],
+}
+
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
   let reject!: (reason?: unknown) => void
@@ -171,6 +190,8 @@ function renderWorkout(session: WorkoutSession = workoutSession()) {
       </MemoryRouter>
     </QueryClientProvider>,
   )
+
+  return queryClient
 }
 
 async function getExerciseCard(name = 'Bench Press') {
@@ -213,6 +234,7 @@ beforeEach(() => {
     durationSec: metadata.durationMinutes === undefined || metadata.durationMinutes === '' ? null : Number(metadata.durationMinutes) * 60,
     notes: metadata.notes ?? null,
   }))
+  mockedSaveSessionToProgram.mockResolvedValue(savedProgramDay)
 })
 
 describe('WorkoutPage regression coverage', () => {
@@ -632,6 +654,59 @@ describe('WorkoutPage regression coverage', () => {
     expect(cancelSecondary.className).toBe(finishSecondary.className)
     expect(finishActions).toHaveClass('mt-4', 'flex', 'flex-wrap', 'gap-2')
     expect(finishSecondary).toHaveClass('min-h-11', 'rounded-[14px]', 'px-4', 'py-3', 'text-sm', 'font-bold')
+  })
+
+  it('saves the current exercises to the source program day and keeps the workout active', async () => {
+    const queryClient = renderWorkout()
+    queryClient.setQueryData(activeProgramQueryKey, activeProgram)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Save to Program' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Save to program?' })
+    expect(mockedSaveSessionToProgram).not.toHaveBeenCalled()
+    expect(within(dialog).getByText(/replaces the exercise list for Upper A in Strength Base/)).toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save to Program' }))
+
+    await waitFor(() => expect(mockedSaveSessionToProgram).toHaveBeenCalledTimes(1))
+    expect(mockedSaveSessionToProgram.mock.calls[0]?.[0]).toBe('session-1')
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved 1 exercise to Strength Base · Upper A.')
+    await waitFor(() => expect(queryClient.getQueryState(activeProgramQueryKey)?.isInvalidated).toBe(true))
+    expect(screen.getByText('Active workout')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Finish Workout' })).toBeInTheDocument()
+  })
+
+  it('keeps the workout and its logged sets when the save confirmation is dismissed', async () => {
+    renderWorkout()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Save to Program' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Save to program?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('alertdialog', { name: 'Save to program?' })).not.toBeInTheDocument()
+    expect(mockedSaveSessionToProgram).not.toHaveBeenCalled()
+    expect(screen.getByText('Active workout')).toBeInTheDocument()
+    const card = await getExerciseCard()
+    expect(within(card).getByText('1 sets logged')).toBeInTheDocument()
+  })
+
+  it('reports a failed program save without ending the workout', async () => {
+    mockedSaveSessionToProgram.mockRejectedValueOnce(new Error('offline'))
+    renderWorkout()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Save to Program' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Save to program?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save to Program' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to save to the program. Please try again.')
+    expect(screen.getByText('Active workout')).toBeInTheDocument()
+  })
+
+  it('blocks the program save when the workout is not linked to a program day', async () => {
+    renderWorkout(workoutSession({ programId: null, dayId: null }))
+
+    expect(await screen.findByRole('button', { name: 'Save to Program' })).toBeDisabled()
+    expect(screen.getByText('This workout is not linked to a program day.')).toBeInTheDocument()
+    expect(mockedSaveSessionToProgram).not.toHaveBeenCalled()
   })
 
   it('reuses the full-row date control and blocks invalid duration metadata saves', async () => {
