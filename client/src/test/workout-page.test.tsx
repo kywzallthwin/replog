@@ -386,6 +386,39 @@ describe('WorkoutPage regression coverage', () => {
     expect(mockedAddSet).not.toHaveBeenCalled()
   })
 
+  it('immediately renders a saved set or drop chain in the exercise card even if the background session refetch rejects', async () => {
+    renderWorkout()
+    const { card, form } = await openAddSetForm()
+
+    mockedGetSession.mockRejectedValue(new Error('refetch failed'))
+    mockedAddSet.mockResolvedValueOnce(workoutSet({ id: 'set-2', weightKg: 85, reps: 6, order: 1 }))
+
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '85' } })
+    fireEvent.change(within(form).getAllByRole('spinbutton')[1], { target: { value: '6' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+
+    expect(await within(card).findByText('85 kg')).toBeInTheDocument()
+    expect(within(card).getByText('2 sets logged')).toBeInTheDocument()
+    expect(within(form).queryByText('Unable to add set. Please try again.')).not.toBeInTheDocument()
+
+    mockedAddSetChain.mockResolvedValueOnce([
+      workoutSet({ id: 'set-3', weightKg: 90, reps: 5, order: 2 }),
+      workoutSet({ id: 'set-4', kind: 'DROP', parentSetId: 'set-3', weightKg: 70, reps: 8, order: 3 }),
+    ])
+
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '90' } })
+    fireEvent.change(within(form).getAllByRole('spinbutton')[1], { target: { value: '5' } })
+    fireEvent.click(within(form).getByRole('button', { name: /Add drop set/ }))
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Drop 1 weight kg' }), { target: { value: '70' } })
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Drop 1 reps' }), { target: { value: '8' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+
+    expect(await within(card).findByText('90 kg')).toBeInTheDocument()
+    expect(within(card).getByText('70 kg')).toBeInTheDocument()
+    expect(within(card).getByText('4 sets logged')).toBeInTheDocument()
+    expect(within(form).queryByText('Unable to add set. Please try again.')).not.toBeInTheDocument()
+  })
+
   it('repeats a simple set and promotes a warm-up to normal', async () => {
     renderWorkout(workoutSession({ exercises: [workoutExercise({ sets: [workoutSet({ kind: 'WARMUP', weightKg: 40, reps: 10 })] })] }))
 

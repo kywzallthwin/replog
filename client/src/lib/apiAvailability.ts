@@ -1,36 +1,51 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig, type GenericAbortSignal } from 'axios'
 import { waitForApiReadiness } from './apiReadiness'
 
-const STALE_AFTER_MS = 10 * 60 * 1000
+const STALE_AFTER_MS = 4 * 60 * 1000
 
 type AvailabilityConfig = AxiosRequestConfig & {
   __repLogReplay?: boolean
   __repLogAvailabilityChecked?: boolean
 }
 
-let lastSuccessfulAt: number | null = null
+let lastSuccessfulMonotonicAt: number | null = null
+let lastSuccessfulWallClockAt: number | null = null
 let readinessFlight: { promise: Promise<void>; controller: AbortController; waiters: number } | null = null
 
-function now() {
+function monotonicNow() {
   return typeof performance !== 'undefined' ? performance.now() : Date.now()
 }
 
+function wallClockNow() {
+  return Date.now()
+}
+
 export function markApiAvailable() {
-  lastSuccessfulAt = now()
+  lastSuccessfulMonotonicAt = monotonicNow()
+  lastSuccessfulWallClockAt = wallClockNow()
 }
 
 export function resetApiAvailability() {
-  lastSuccessfulAt = null
+  lastSuccessfulMonotonicAt = null
+  lastSuccessfulWallClockAt = null
   readinessFlight?.controller.abort()
   readinessFlight = null
 }
 
 export function isApiAvailabilityStale() {
-  return lastSuccessfulAt === null || now() - lastSuccessfulAt >= STALE_AFTER_MS
+  if (lastSuccessfulMonotonicAt === null || lastSuccessfulWallClockAt === null) {
+    return true
+  }
+
+  return (
+    monotonicNow() - lastSuccessfulMonotonicAt >= STALE_AFTER_MS ||
+    wallClockNow() - lastSuccessfulWallClockAt >= STALE_AFTER_MS
+  )
 }
 
 export function invalidateApiAvailability() {
-  lastSuccessfulAt = null
+  lastSuccessfulMonotonicAt = null
+  lastSuccessfulWallClockAt = null
 }
 
 function cancellationError() {
@@ -134,12 +149,15 @@ export function installApiAvailability(instance: AxiosInstance, getApiBaseUrl: (
       return response
     },
     async (error: AxiosError) => {
+      if (isRetryableFailure(error)) {
+        invalidateApiAvailability()
+      }
+
       const config = error.config as AvailabilityConfig | undefined
       if (!config || !isSafeRequest(config) || config.__repLogReplay || !isRetryableFailure(error)) {
         throw error
       }
 
-      invalidateApiAvailability()
       await ensureApiAvailable(getApiBaseUrl, config.signal)
       config.__repLogReplay = true
       return instance.request(config)

@@ -68,17 +68,43 @@ describe('API availability coordination', () => {
     expect(mockedReadiness).toHaveBeenCalledTimes(1)
   })
 
-  it('does not replay a dispatched mutation after an upstream failure', async () => {
+  it('does not replay a dispatched mutation after an upstream failure, but invalidates availability for the next attempt', async () => {
     let calls = 0
     const instance = axios.create({ adapter: async (config) => {
       calls += 1
-      throw new axios.AxiosError('upstream unavailable', 'ERR_NETWORK', config)
+      if (calls === 1) {
+        throw new axios.AxiosError('upstream unavailable', 'ERR_NETWORK', config)
+      }
+      return { data: { ok: true }, status: 201, statusText: 'Created', headers: {}, config }
     } })
     installApiAvailability(instance, () => '/api')
     markApiAvailable()
 
     await expect(instance.post('/write', { value: 1 })).rejects.toBeInstanceOf(axios.AxiosError)
     expect(calls).toBe(1)
+    expect(mockedReadiness).not.toHaveBeenCalled()
+    expect(isApiAvailabilityStale()).toBe(true)
+
+    await expect(instance.post('/write', { value: 1 })).resolves.toMatchObject({ status: 201 })
+    expect(mockedReadiness).toHaveBeenCalledTimes(1)
+    expect(calls).toBe(2)
+  })
+
+  it('marks availability stale when wall-clock time exceeds 4 minutes even if performance.now() paused during device sleep', () => {
+    const perfSpy = vi.spyOn(performance, 'now').mockReturnValue(1000)
+    const dateSpy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
+
+    markApiAvailable()
+    expect(isApiAvailabilityStale()).toBe(false)
+
+    dateSpy.mockReturnValue(1_700_000_000_000 + 4 * 60 * 1000 - 1)
+    expect(isApiAvailabilityStale()).toBe(false)
+
+    dateSpy.mockReturnValue(1_700_000_000_000 + 4 * 60 * 1000)
+    expect(perfSpy()).toBe(1000)
+    expect(isApiAvailabilityStale()).toBe(true)
+
+    vi.restoreAllMocks()
   })
 
   it('recovers a failed safe request once', async () => {

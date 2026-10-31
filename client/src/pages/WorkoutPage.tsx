@@ -756,11 +756,22 @@ export function WorkoutPage() {
   const restTimer = useRestTimer(!session || isManual ? undefined : sessionId, restTimerSessionStatus)
   const addSetMutation = useMutation({
     mutationFn: addSet,
-    onSuccess: async (_set, variables) => {
+    onSuccess: (createdSet, variables) => {
       if (!isManual) restTimer.start()
 
       if (sessionId) {
-        await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
+        queryClient.setQueryData<WorkoutSession>(sessionQueryKey(sessionId), (current) => {
+          if (!current) return current
+          return {
+            ...current,
+            exercises: current.exercises.map((exercise) =>
+              exercise.id === variables.sessionExerciseId
+                ? { ...exercise, sets: [...exercise.sets, createdSet] }
+                : exercise,
+            ),
+          }
+        })
+        void queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
 
       setKind('NORMAL')
@@ -773,11 +784,22 @@ export function WorkoutPage() {
   })
   const addSetChainMutation = useMutation({
     mutationFn: addSetChain,
-    onSuccess: async (_sets, variables) => {
+    onSuccess: (createdSets, variables) => {
       if (!isManual) restTimer.start()
 
       if (sessionId) {
-        await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
+        queryClient.setQueryData<WorkoutSession>(sessionQueryKey(sessionId), (current) => {
+          if (!current) return current
+          return {
+            ...current,
+            exercises: current.exercises.map((exercise) =>
+              exercise.id === variables.sessionExerciseId
+                ? { ...exercise, sets: [...exercise.sets, ...createdSets] }
+                : exercise,
+            ),
+          }
+        })
+        void queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
 
       setKind('NORMAL')
@@ -832,10 +854,24 @@ export function WorkoutPage() {
   const exercisePickerHasError = addSessionExerciseMutation.isError || swapSessionExerciseMutation.isError
   const updateSetMutation = useMutation({
     mutationFn: updateSet,
-    onSuccess: async () => {
+    onSuccess: (updatedSet, variables) => {
       if (!isManual) restTimer.start()
       if (sessionId) {
-        await queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
+        queryClient.setQueryData<WorkoutSession>(sessionQueryKey(sessionId), (current) => {
+          if (!current) return current
+          return {
+            ...current,
+            exercises: current.exercises.map((exercise) =>
+              exercise.id === variables.sessionExerciseId
+                ? {
+                    ...exercise,
+                    sets: exercise.sets.map((set) => (set.id === variables.setId ? updatedSet : set)),
+                  }
+                : exercise,
+            ),
+          }
+        })
+        void queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
 
       setEditingSet(null)

@@ -873,20 +873,23 @@ sessionsRouter.post('/:sessionId/exercises/:sessionExerciseId/sets', requireAuth
     return
   }
 
-  const latestSet = await prisma.setLog.findFirst({
-    where: { sessionExerciseId },
-    orderBy: { order: 'desc' },
-  })
-  const setLog = await prisma.setLog.create({
-    data: {
-      sessionExerciseId,
-      kind: parsedBody.data.kind,
-      notes: parsedBody.data.notes || null,
-      weightKg: parsedBody.data.weightKg,
-      reps: parsedBody.data.reps,
-      order: (latestSet?.order ?? 0) + 1,
-    },
-  })
+  const setLog = await prisma.$transaction(async (tx) => {
+    const latestSet = await tx.setLog.findFirst({
+      where: { sessionExerciseId },
+      orderBy: { order: 'desc' },
+    })
+
+    return tx.setLog.create({
+      data: {
+        sessionExerciseId,
+        kind: parsedBody.data.kind,
+        notes: parsedBody.data.notes || null,
+        weightKg: parsedBody.data.weightKg,
+        reps: parsedBody.data.reps,
+        order: (latestSet?.order ?? 0) + 1,
+      },
+    })
+  }, { isolationLevel: 'Serializable' })
 
   res.status(201).json({
     set: {
