@@ -1,30 +1,8 @@
-import type { FormEvent, ReactNode, RefObject } from 'react'
+import type { FormEvent, RefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, BookmarkCheck } from 'lucide-react'
-import {
-  DndContext,
-  DragOverlay,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-  type Modifier,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { ArrowDown, ArrowLeft, ArrowUp, BookmarkCheck } from 'lucide-react'
 import {
   addSessionExercise,
   addSet,
@@ -76,117 +54,17 @@ type DropDraft = {
   reps: string
 }
 
-const restrictToVerticalAxis: Modifier = ({ transform }) => ({
-  ...transform,
-  x: 0,
-  scaleX: 1,
-  scaleY: 1,
-})
-
-function WorkoutExerciseDragPreview({ exercise, index }: { exercise: WorkoutExercise; index: number }) {
-  return (
-    <div className="min-w-0 rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_14px_30px_rgba(15,23,42,0.18)] sm:p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
-            Exercise {index + 1}
-          </p>
-          <p className="mt-1 min-w-0 break-words text-lg font-bold tracking-[-0.02em] text-slate-900 [overflow-wrap:anywhere]">
-            {exercise.name}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            {exercise.sets.length ? `${exercise.sets.length} sets logged` : 'No sets yet'}
-          </p>
-        </div>
-        <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18" fill="currentColor">
-            <circle cx="3" cy="2" r="1.25" />
-            <circle cx="11" cy="2" r="1.25" />
-            <circle cx="3" cy="9" r="1.25" />
-            <circle cx="11" cy="9" r="1.25" />
-            <circle cx="3" cy="16" r="1.25" />
-            <circle cx="11" cy="16" r="1.25" />
-          </svg>
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function SortableExerciseCard({
-  exercise,
-  disabled,
-  isFinished,
-  onMoveByKeyboard,
-  children,
-}: {
-  exercise: WorkoutExercise
-  disabled: boolean
-  isFinished: boolean
-  onMoveByKeyboard: (direction: -1 | 1, trigger: HTMLButtonElement) => void
-  children: (dragHandle: ReactNode) => ReactNode
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: exercise.id, disabled: disabled || isFinished })
-
-  const dragHandle = isFinished ? null : (
-    <button
-      ref={setActivatorNodeRef}
-      type="button"
-      {...attributes}
-      {...listeners}
-      disabled={disabled}
-      onKeyDown={(event) => {
-        listeners?.onKeyDown?.(event)
-        if (event.defaultPrevented || disabled) {
-          return
-        }
-        if (event.key === 'ArrowUp') {
-          event.preventDefault()
-          onMoveByKeyboard(-1, event.currentTarget)
-        } else if (event.key === 'ArrowDown') {
-          event.preventDefault()
-          onMoveByKeyboard(1, event.currentTarget)
-        }
-      }}
-      data-press="icon"
-      data-press-tone="slate"
-      title="Drag to reorder"
-      aria-label={`Drag ${exercise.name} to reorder`}
-      className="grid h-11 w-11 shrink-0 cursor-grab place-items-center rounded-full text-slate-300 transition hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing disabled:cursor-not-allowed disabled:text-slate-200"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18" fill="currentColor" aria-hidden="true">
-        <circle cx="3" cy="2" r="1.25" />
-        <circle cx="11" cy="2" r="1.25" />
-        <circle cx="3" cy="9" r="1.25" />
-        <circle cx="11" cy="9" r="1.25" />
-        <circle cx="3" cy="16" r="1.25" />
-        <circle cx="11" cy="16" r="1.25" />
-      </svg>
-    </button>
-  )
-
-  return (
-    <article
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform ? { ...transform, x: 0, scaleX: 1, scaleY: 1 } : transform),
-        transition,
-      }}
-      className={`min-w-0 rounded-[18px] border border-slate-100 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:p-4 ${
-        isDragging ? 'relative z-10 opacity-0' : ''
-      }`}
-    >
-      {children(dragHandle)}
-    </article>
-  )
+function moveExercise(exercises: WorkoutExercise[], sourceIndex: number, targetIndex: number): WorkoutExercise[] {
+  const nextExercises = [...exercises]
+  const [movedExercise] = nextExercises.splice(sourceIndex, 1)
+  if (!movedExercise) {
+    return exercises
+  }
+  nextExercises.splice(targetIndex, 0, movedExercise)
+  return nextExercises.map((exercise, index) => ({
+    ...exercise,
+    order: index + 1,
+  }))
 }
 
 const setKindOptions = [
@@ -819,11 +697,9 @@ export function WorkoutPage() {
   const [finishConfirmation, setFinishConfirmation] = useState(false)
   const [saveToProgramConfirmation, setSaveToProgramConfirmation] = useState(false)
   const [saveToProgramNotice, setSaveToProgramNotice] = useState<string | null>(null)
-  const [activeDragExercise, setActiveDragExercise] = useState<{ exercise: WorkoutExercise; index: number } | null>(null)
   const [displayedExercises, setDisplayedExercises] = useState<WorkoutExercise[] | null>(null)
   const [reorderAnnouncement, setReorderAnnouncement] = useState('')
-  const [dndAccessibilityContainer] = useState(() => document.createElement('div'))
-  const keyboardTargetIndexRef = useRef<number | null>(null)
+  const pendingReorderFocusRef = useRef<{ exerciseId: string; direction: 'up' | 'down' } | null>(null)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
   const finishTriggerRef = useRef<HTMLButtonElement>(null)
   const saveToProgramTriggerRef = useRef<HTMLButtonElement>(null)
@@ -1009,10 +885,7 @@ export function WorkoutPage() {
 
         return {
           ...currentSession,
-          exercises: arrayMove(currentSession.exercises, sourceIndex, targetIndex).map((exercise, index) => ({
-            ...exercise,
-            order: index + 1,
-          })),
+          exercises: moveExercise(currentSession.exercises, sourceIndex, targetIndex),
         }
       })
 
@@ -1207,75 +1080,52 @@ export function WorkoutPage() {
     manualCompletionSaving
   const renderedExercises = displayedExercises ?? session?.exercises ?? []
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 250,
-        tolerance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-
   useEffect(() => {
-    if (!activeDragExercise) {
+    if (workoutMutationIsPending || !pendingReorderFocusRef.current) {
       return
     }
 
-    function handleWindowKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
-        return
-      }
+    const activeExercises = displayedExercises ?? session?.exercises ?? []
+    const { exerciseId, direction } = pendingReorderFocusRef.current
+    pendingReorderFocusRef.current = null
 
-      const total = renderedExercises.length
-      if (total <= 1) {
-        return
-      }
-
-      const currentIndex = keyboardTargetIndexRef.current ?? activeDragExercise?.index ?? 0
-      const delta = event.key === 'ArrowDown' ? 1 : -1
-      const nextIndex = Math.max(0, Math.min(total - 1, currentIndex + delta))
-      if (nextIndex !== currentIndex && activeDragExercise) {
-        keyboardTargetIndexRef.current = nextIndex
-        setReorderAnnouncement(`Moved ${activeDragExercise.exercise.name} to position ${nextIndex + 1} of ${total}.`)
-      }
+    const currentIndex = activeExercises.findIndex((exercise) => exercise.id === exerciseId)
+    if (currentIndex < 0) {
+      return
     }
 
-    window.addEventListener('keydown', handleWindowKeyDown)
-    return () => window.removeEventListener('keydown', handleWindowKeyDown)
-  }, [activeDragExercise, renderedExercises.length])
+    const nextDirection =
+      direction === 'up' && currentIndex === 0
+        ? 'down'
+        : direction === 'down' && currentIndex === activeExercises.length - 1
+          ? 'up'
+          : direction
 
-  function commitReorder(sessionExerciseId: string, targetIndex: number, focusTrigger?: HTMLButtonElement) {
+    const targetButton = document.querySelector<HTMLButtonElement>(
+      `[data-reorder-button="${exerciseId}-${nextDirection}"]`,
+    )
+    targetButton?.focus({ preventScroll: true })
+  }, [displayedExercises, session?.exercises, workoutMutationIsPending])
+
+  function handleMoveExercise(sessionExerciseId: string, direction: -1 | 1) {
     if (!sessionId || !session || session.endedAt || workoutMutationIsPending) {
-      setActiveDragExercise(null)
-      keyboardTargetIndexRef.current = null
       return
     }
 
     const currentExercises = displayedExercises ?? session.exercises
     const sourceIndex = currentExercises.findIndex((exercise) => exercise.id === sessionExerciseId)
+    const targetIndex = sourceIndex + direction
     if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= currentExercises.length) {
-      setActiveDragExercise(null)
-      keyboardTargetIndexRef.current = null
       return
     }
 
     const movedExercise = currentExercises[sourceIndex]
-    if (sourceIndex === targetIndex) {
-      if (movedExercise) {
-        setReorderAnnouncement(`${movedExercise.name} stayed at position ${sourceIndex + 1} of ${currentExercises.length}.`)
-      }
-      setActiveDragExercise(null)
-      keyboardTargetIndexRef.current = null
-      return
+    const reorderedExercises = moveExercise(currentExercises, sourceIndex, targetIndex)
+
+    pendingReorderFocusRef.current = {
+      exerciseId: sessionExerciseId,
+      direction: direction < 0 ? 'up' : 'down',
     }
-
-    const reorderedExercises = arrayMove(currentExercises, sourceIndex, targetIndex).map((exercise, index) => ({
-      ...exercise,
-      order: index + 1,
-    }))
-
     setDisplayedExercises(reorderedExercises)
     setSaveToProgramNotice(null)
     if (movedExercise) {
@@ -1287,78 +1137,6 @@ export function WorkoutPage() {
       sessionExerciseId,
       targetIndex,
     })
-    setActiveDragExercise(null)
-    keyboardTargetIndexRef.current = null
-
-    if (focusTrigger) {
-      requestAnimationFrame(() => focusTrigger.focus())
-    }
-  }
-
-  function handleExerciseDragStart(event: DragStartEvent) {
-    if (!session || session.endedAt || workoutMutationIsPending) {
-      return
-    }
-
-    const currentExercises = displayedExercises ?? session.exercises
-    const index = currentExercises.findIndex((item) => item.id === String(event.active.id))
-    const exercise = currentExercises[index]
-    if (exercise && index >= 0) {
-      reorderSessionExerciseMutation.reset()
-      keyboardTargetIndexRef.current = index
-      setActiveDragExercise({ exercise, index })
-      setReorderAnnouncement(`Picked up ${exercise.name} at position ${index + 1} of ${currentExercises.length}.`)
-    }
-  }
-
-  function handleExerciseDragOver(event: DragOverEvent) {
-    if (!session || !event.over) {
-      return
-    }
-
-    const currentExercises = displayedExercises ?? session.exercises
-    const activeItem = currentExercises.find((item) => item.id === String(event.active.id))
-    const overIndex = currentExercises.findIndex((item) => item.id === String(event.over?.id))
-    if (activeItem && overIndex >= 0 && overIndex !== keyboardTargetIndexRef.current) {
-      keyboardTargetIndexRef.current = overIndex
-      setReorderAnnouncement(`Moved ${activeItem.name} to position ${overIndex + 1} of ${currentExercises.length}.`)
-    }
-  }
-
-  function handleExerciseDragEnd(event: DragEndEvent) {
-    if (!session || session.endedAt || workoutMutationIsPending) {
-      setActiveDragExercise(null)
-      keyboardTargetIndexRef.current = null
-      return
-    }
-
-    const currentExercises = displayedExercises ?? session.exercises
-    const sourceIndex = currentExercises.findIndex((exercise) => exercise.id === String(event.active.id))
-    const overIndex = event.over ? currentExercises.findIndex((exercise) => exercise.id === String(event.over?.id)) : -1
-    const fallbackKeyboardIndex = keyboardTargetIndexRef.current
-    const targetIndex =
-      overIndex >= 0 && overIndex !== sourceIndex
-        ? overIndex
-        : fallbackKeyboardIndex !== null && fallbackKeyboardIndex >= 0
-          ? fallbackKeyboardIndex
-          : overIndex
-
-    if (sourceIndex < 0 || targetIndex < 0) {
-      setActiveDragExercise(null)
-      keyboardTargetIndexRef.current = null
-      return
-    }
-
-    commitReorder(String(event.active.id), targetIndex)
-  }
-
-  function handleExerciseDragCancel() {
-    if (activeDragExercise && session) {
-      const total = (displayedExercises ?? session.exercises).length
-      setReorderAnnouncement(`Reordering cancelled. ${activeDragExercise.exercise.name} returned to position ${activeDragExercise.index + 1} of ${total}.`)
-    }
-    setActiveDragExercise(null)
-    keyboardTargetIndexRef.current = null
   }
 
   const canSaveToProgram = Boolean(session?.programId && session?.dayId)
@@ -1832,111 +1610,114 @@ export function WorkoutPage() {
               />
             ) : null}
 
-            <DndContext
-              sensors={sensors}
-              modifiers={[restrictToVerticalAxis]}
-              collisionDetection={closestCenter}
-              accessibility={{ container: dndAccessibilityContainer }}
-              onDragStart={handleExerciseDragStart}
-              onDragOver={handleExerciseDragOver}
-              onDragEnd={handleExerciseDragEnd}
-              onDragCancel={handleExerciseDragCancel}
-            >
-              <SortableContext
-                items={renderedExercises.map((exercise) => exercise.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="mt-5 space-y-3">
-                  {renderedExercises.map((exercise, index) => {
-                    const isFinished = Boolean(session.endedAt)
-                    const activeEdit = editingSet?.exerciseId === exercise.id ? editingSet.set : null
-                    const latestSet = getLatestSet(exercise)
+            <div className="mt-5 space-y-3">
+              {renderedExercises.map((exercise, index) => {
+                const isFinished = Boolean(session.endedAt)
+                const activeEdit = editingSet?.exerciseId === exercise.id ? editingSet.set : null
+                const latestSet = getLatestSet(exercise)
 
-                    return (
-                    <SortableExerciseCard
-                      key={exercise.id}
-                      exercise={exercise}
-                      disabled={workoutMutationIsPending}
-                      isFinished={isFinished}
-                      onMoveByKeyboard={(direction, trigger) => {
-                        reorderSessionExerciseMutation.reset()
-                        commitReorder(exercise.id, index + direction, trigger)
-                      }}
-                    >
-                      {(dragHandle) => (
-                        <>
-                          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
-                                Exercise {index + 1}
-                              </p>
-                              <h3 className="mt-1 min-w-0 break-words text-lg font-bold tracking-[-0.02em] text-slate-900 [overflow-wrap:anywhere]">
-                                {exercise.name}
-                              </h3>
-                              <p className="mt-1 text-sm text-slate-500">
-                                {exercise.sets.length ? `${exercise.sets.length} sets logged` : 'No sets yet'}
-                              </p>
-                            </div>
-                            {isFinished ? null : (
-                              <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
-                                <button
-                                  type="button"
-                                  onClick={(event) => openSwapExercisePicker(exercise, event.currentTarget)}
-                                  disabled={workoutMutationIsPending || exercise.sets.length > 0}
-                                  aria-describedby={exercise.sets.length > 0 ? `swap-explanation-${exercise.id}` : undefined}
-                                  className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-                                >
-                                  Swap
-                                </button>
-                                 {exercise.sets.length > 0 ? <span id={`swap-explanation-${exercise.id}`} className="w-full text-[11px] font-semibold leading-4 text-slate-400">Remove logged sets before swapping this exercise.</span> : null}
-                                 <button
-                                   type="button"
-                                   onClick={() => openAddSetForm(exercise)}
-                                   disabled={workoutMutationIsPending}
-                                   className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-                                 >
-                                   Add Set
-                                 </button>
-                                {latestSet ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRepeatSet(exercise)}
-                                    aria-label="Repeat last set"
-                                    disabled={workoutMutationIsPending}
-                                    className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
-                                  >
-                                    Repeat
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                   onClick={(event) => handleRemoveExercise(exercise, event.currentTarget)}
-                                  data-press="icon"
-                                  data-press-tone="red"
-                                  title="Remove exercise"
-                                  aria-label={`Remove ${exercise.name}`}
-                                    disabled={workoutMutationIsPending}
-                                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:text-slate-300"
-                                >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="15"
-                                    height="15"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  >
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                  </svg>
-                                </button>
-                                {dragHandle}
-                              </div>
-                            )}
-                          </div>
+                return (
+                  <article
+                    key={exercise.id}
+                    className="min-w-0 rounded-[18px] border border-slate-100 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:p-4"
+                  >
+                    <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Exercise {index + 1}
+                        </p>
+                        <h3 className="mt-1 min-w-0 break-words text-lg font-bold tracking-[-0.02em] text-slate-900 [overflow-wrap:anywhere]">
+                          {exercise.name}
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {exercise.sets.length ? `${exercise.sets.length} sets logged` : 'No sets yet'}
+                        </p>
+                      </div>
+                      {isFinished ? null : (
+                        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={(event) => openSwapExercisePicker(exercise, event.currentTarget)}
+                            disabled={workoutMutationIsPending || exercise.sets.length > 0}
+                            aria-describedby={exercise.sets.length > 0 ? `swap-explanation-${exercise.id}` : undefined}
+                            className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                          >
+                            Swap
+                          </button>
+                          {exercise.sets.length > 0 ? <span id={`swap-explanation-${exercise.id}`} className="w-full text-[11px] font-semibold leading-4 text-slate-400">Remove logged sets before swapping this exercise.</span> : null}
+                          <button
+                            type="button"
+                            onClick={() => openAddSetForm(exercise)}
+                            disabled={workoutMutationIsPending}
+                            className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                          >
+                            Add Set
+                          </button>
+                          {latestSet ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRepeatSet(exercise)}
+                              aria-label="Repeat last set"
+                              disabled={workoutMutationIsPending}
+                              className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+                            >
+                              Repeat
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            data-reorder-button={`${exercise.id}-up`}
+                            onClick={() => handleMoveExercise(exercise.id, -1)}
+                            disabled={index === 0 || workoutMutationIsPending}
+                            data-press="icon"
+                            data-press-tone="slate"
+                            title={`Move ${exercise.name} up`}
+                            aria-label={`Move ${exercise.name} up`}
+                            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
+                          >
+                            <ArrowUp aria-hidden="true" size={16} strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            data-reorder-button={`${exercise.id}-down`}
+                            onClick={() => handleMoveExercise(exercise.id, 1)}
+                            disabled={index === renderedExercises.length - 1 || workoutMutationIsPending}
+                            data-press="icon"
+                            data-press-tone="slate"
+                            title={`Move ${exercise.name} down`}
+                            aria-label={`Move ${exercise.name} down`}
+                            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-200"
+                          >
+                            <ArrowDown aria-hidden="true" size={16} strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => handleRemoveExercise(exercise, event.currentTarget)}
+                            data-press="icon"
+                            data-press-tone="red"
+                            title="Remove exercise"
+                            aria-label={`Remove ${exercise.name}`}
+                            disabled={workoutMutationIsPending}
+                            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:text-slate-300"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="15"
+                              height="15"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                           <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} />
                           {exercise.sets.length ? (
                             <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
@@ -2151,26 +1932,10 @@ export function WorkoutPage() {
                               }}
                             />
                           ) : null}
-                        </>
-                      )}
-                    </SortableExerciseCard>
-                    )
-                  })}
-                </div>
-              </SortableContext>
-              <DragOverlay
-                adjustScale={false}
-                modifiers={[restrictToVerticalAxis]}
-                dropAnimation={null}
-              >
-                {activeDragExercise ? (
-                  <WorkoutExerciseDragPreview
-                    exercise={activeDragExercise.exercise}
-                    index={activeDragExercise.index}
-                  />
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+                  </article>
+                )
+              })}
+            </div>
 
             {reorderSessionExerciseMutation.isPending || reorderAnnouncement ? (
               <p
