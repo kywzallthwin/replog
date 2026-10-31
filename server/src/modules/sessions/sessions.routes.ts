@@ -9,6 +9,7 @@ import {
   addSetChainSchema,
   createManualSessionSchema,
   manualMetadataSchema,
+  reorderSessionExerciseSchema,
   sessionExerciseSchema,
   startSessionSchema,
   updateSetSchema,
@@ -698,6 +699,117 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId', requireAuth, as
   })
 
   res.json({ exercise: toSessionExercisePayload(updatedSessionExercise) })
+})
+
+sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId/reorder', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const sessionId = typeof req.params.sessionId === 'string' ? req.params.sessionId : null
+  const sessionExerciseId = typeof req.params.sessionExerciseId === 'string' ? req.params.sessionExerciseId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!sessionId || !sessionExerciseId) {
+    res.status(400).json({ error: 'Invalid session or exercise id' })
+    return
+  }
+
+  const parsedBody = reorderSessionExerciseSchema.safeParse(req.body)
+
+  if (!parsedBody.success) {
+    res.status(400).json({ error: 'Invalid request body', fields: parsedBody.error.flatten().fieldErrors })
+    return
+  }
+
+  const session = await prisma.session.findFirst({
+    where: {
+      id: sessionId,
+      userId,
+    },
+    include: {
+      sessionExercises: {
+        orderBy: { order: 'asc' },
+        include: {
+          setLogs: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      },
+    },
+  })
+
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' })
+    return
+  }
+
+  if (session.endedAt) {
+    res.status(409).json({ error: 'Finished workouts cannot be edited' })
+    return
+  }
+
+  const sourceIndex = session.sessionExercises.findIndex((exercise) => exercise.id === sessionExerciseId)
+
+  if (sourceIndex < 0) {
+    res.status(404).json({ error: 'Session exercise not found' })
+    return
+  }
+
+  const targetIndex = parsedBody.data.targetIndex
+
+  if (targetIndex >= session.sessionExercises.length) {
+    res.status(400).json({ error: 'Invalid target exercise position' })
+    return
+  }
+
+  const reordered = [...session.sessionExercises]
+
+  if (sourceIndex !== targetIndex) {
+    const [movedExercise] = reordered.splice(sourceIndex, 1)
+
+    if (!movedExercise) {
+      res.status(400).json({ error: 'Invalid target exercise position' })
+      return
+    }
+
+    reordered.splice(targetIndex, 0, movedExercise)
+    await prisma.$transaction(async (tx) => {
+      for (const [index, exercise] of reordered.entries()) {
+        await tx.sessionExercise.update({
+          where: { id: exercise.id },
+          data: { order: -(index + 1) },
+        })
+      }
+
+      for (const [index, exercise] of reordered.entries()) {
+        await tx.sessionExercise.update({
+          where: { id: exercise.id },
+          data: { order: index + 1 },
+        })
+      }
+    })
+  }
+
+  const previousPerformanceReferences = await getPreviousPerformanceReferences(
+    userId,
+    session.startedAt,
+    reordered.map((sessionExercise) => sessionExercise.exerciseId),
+    session.source === 'MANUAL' ? session.workoutDate : null,
+  )
+
+  res.json({
+    exercises: reordered.map((sessionExercise, index) => ({
+      id: sessionExercise.id,
+      exerciseId: sessionExercise.exerciseId,
+      name: sessionExercise.nameSnapshot,
+      order: index + 1,
+      sets: sessionExercise.setLogs.map(toSetPayload),
+      lastTime: previousPerformanceReferences.lastTimeReferences.get(sessionExercise.exerciseId) ?? null,
+      previousWorkout: previousPerformanceReferences.previousWorkoutReferences.get(sessionExercise.exerciseId) ?? null,
+    })),
+  })
 })
 
 sessionsRouter.delete('/:sessionId/exercises/:sessionExerciseId', requireAuth, async (req, res) => {

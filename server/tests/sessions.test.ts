@@ -242,3 +242,157 @@ test('the removed workout-note route returns the normal API not-found response',
   assert.equal(response.status, 404, response.text)
   assert.deepEqual(response.body, { error: 'API route not found' })
 })
+
+test('active session exercise reordering renumbers exercises transactionally without mutating the source program day or allowing completed-session edits', async () => {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const ownerEmail = `reorder-owner-${suffix}@example.com`
+  const otherEmail = `reorder-other-${suffix}@example.com`
+  const ownerAgent = request.agent(app)
+  const otherAgent = request.agent(app)
+
+  try {
+    const ownerRegisterResponse = await ownerAgent.post('/api/auth/register').send({
+      email: ownerEmail,
+      username: 'Reorder Owner',
+      password: 'password123',
+    })
+    assert.equal(ownerRegisterResponse.status, 201, ownerRegisterResponse.text)
+
+    const otherRegisterResponse = await otherAgent.post('/api/auth/register').send({
+      email: otherEmail,
+      username: 'Reorder Other',
+      password: 'password123',
+    })
+    assert.equal(otherRegisterResponse.status, 201, otherRegisterResponse.text)
+
+    const activeProgramResponse = await ownerAgent.get('/api/programs/active')
+    assert.equal(activeProgramResponse.status, 200, activeProgramResponse.text)
+    const sourceDay = activeProgramResponse.body.program.days[0] as {
+      id: string
+      exercises: Array<{ id: string; exerciseId: string; name: string; order: number }>
+    }
+    assert.ok(sourceDay)
+    assert.ok(sourceDay.exercises.length >= 3)
+    const originalProgramExerciseIds = sourceDay.exercises.map((exercise) => exercise.exerciseId)
+    const originalProgramOrders = sourceDay.exercises.map((exercise) => exercise.order)
+
+    const startResponse = await ownerAgent.post('/api/sessions').send({ dayId: sourceDay.id })
+    assert.equal(startResponse.status, 201, startResponse.text)
+    const sessionId = startResponse.body.session.id as string
+    const initialExercises = startResponse.body.session.exercises as Array<{
+      id: string
+      exerciseId: string
+      name: string
+      order: number
+    }>
+    assert.equal(initialExercises.length, sourceDay.exercises.length)
+    const [firstExercise, secondExercise, thirdExercise] = initialExercises
+    assert.ok(firstExercise)
+    assert.ok(secondExercise)
+    assert.ok(thirdExercise)
+
+    const addSetResponse = await ownerAgent
+      .post(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/sets`)
+      .send({ kind: 'NORMAL', weightKg: 75, reps: 8 })
+    assert.equal(addSetResponse.status, 201, addSetResponse.text)
+
+    const unauthenticatedResponse = await request(app)
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: 2 })
+    assert.equal(unauthenticatedResponse.status, 401, unauthenticatedResponse.text)
+
+    const unauthorizedResponse = await otherAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: 2 })
+    assert.equal(unauthorizedResponse.status, 404, unauthorizedResponse.text)
+
+    const invalidBodyResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: -1 })
+    assert.equal(invalidBodyResponse.status, 400, invalidBodyResponse.text)
+
+    const outOfRangeResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: initialExercises.length })
+    assert.equal(outOfRangeResponse.status, 400, outOfRangeResponse.text)
+    assert.deepEqual(outOfRangeResponse.body, { error: 'Invalid target exercise position' })
+
+    const missingExerciseResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/missing-session-exercise/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(missingExerciseResponse.status, 404, missingExerciseResponse.text)
+    assert.deepEqual(missingExerciseResponse.body, { error: 'Session exercise not found' })
+
+    const reorderResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: 2 })
+    assert.equal(reorderResponse.status, 200, reorderResponse.text)
+
+    const reorderedExercises = reorderResponse.body.exercises as Array<{
+      id: string
+      exerciseId: string
+      order: number
+      sets: Array<{ weightKg: number; reps: number }>
+    }>
+    assert.deepEqual(
+      reorderedExercises.slice(0, 3).map((exercise) => ({ id: exercise.id, order: exercise.order })),
+      [
+        { id: secondExercise.id, order: 1 },
+        { id: thirdExercise.id, order: 2 },
+        { id: firstExercise.id, order: 3 },
+      ],
+    )
+    assert.equal(reorderedExercises[2]?.sets.length, 1)
+    assert.equal(reorderedExercises[2]?.sets[0]?.weightKg, 75)
+
+    const refreshedResponse = await ownerAgent.get(`/api/sessions/${sessionId}`)
+    assert.equal(refreshedResponse.status, 200, refreshedResponse.text)
+    assert.deepEqual(
+      refreshedResponse.body.session.exercises.slice(0, 3).map((exercise: { id: string; order: number }) => ({
+        id: exercise.id,
+        order: exercise.order,
+      })),
+      [
+        { id: secondExercise.id, order: 1 },
+        { id: thirdExercise.id, order: 2 },
+        { id: firstExercise.id, order: 3 },
+      ],
+    )
+
+    const programAfterReorderResponse = await ownerAgent.get('/api/programs/active')
+    assert.equal(programAfterReorderResponse.status, 200, programAfterReorderResponse.text)
+    const dayAfterReorder = programAfterReorderResponse.body.program.days[0] as {
+      exercises: Array<{ exerciseId: string; order: number }>
+    }
+    assert.deepEqual(
+      dayAfterReorder.exercises.map((exercise) => exercise.exerciseId),
+      originalProgramExerciseIds,
+    )
+    assert.deepEqual(
+      dayAfterReorder.exercises.map((exercise) => exercise.order),
+      originalProgramOrders,
+    )
+
+    const finishResponse = await ownerAgent.patch(`/api/sessions/${sessionId}/finish`)
+    assert.equal(finishResponse.status, 200, finishResponse.text)
+    assert.deepEqual(
+      finishResponse.body.session.exercises.slice(0, 3).map((exercise: { id: string; order: number }) => ({
+        id: exercise.id,
+        order: exercise.order,
+      })),
+      [
+        { id: secondExercise.id, order: 1 },
+        { id: thirdExercise.id, order: 2 },
+        { id: firstExercise.id, order: 3 },
+      ],
+    )
+
+    const reorderCompletedResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(reorderCompletedResponse.status, 409, reorderCompletedResponse.text)
+    assert.deepEqual(reorderCompletedResponse.body, { error: 'Finished workouts cannot be edited' })
+  } finally {
+    await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, otherEmail] } } })
+  }
+})

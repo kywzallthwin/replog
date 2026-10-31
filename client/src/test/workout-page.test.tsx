@@ -13,6 +13,7 @@ import {
   getSession,
   manualDraftQueryKey,
   removeSessionExercise,
+  reorderSessionExercise,
   saveSessionToProgram,
   swapSessionExercise,
   updateSet,
@@ -38,6 +39,7 @@ vi.mock('../lib/sessions', async (importOriginal) => {
     addSessionExercise: vi.fn(),
     swapSessionExercise: vi.fn(),
     removeSessionExercise: vi.fn(),
+    reorderSessionExercise: vi.fn(),
     finishSession: vi.fn(),
     cancelSession: vi.fn(),
     updateManualMetadata: vi.fn(),
@@ -63,6 +65,7 @@ const mockedDeleteSet = vi.mocked(deleteSet)
 const mockedAddSessionExercise = vi.mocked(addSessionExercise)
 const mockedSwapSessionExercise = vi.mocked(swapSessionExercise)
 const mockedRemoveSessionExercise = vi.mocked(removeSessionExercise)
+const mockedReorderSessionExercise = vi.mocked(reorderSessionExercise)
 const mockedFinishSession = vi.mocked(finishSession)
 const mockedCancelSession = vi.mocked(cancelSession)
 const mockedUpdateManualMetadata = vi.mocked(updateManualMetadata)
@@ -226,6 +229,7 @@ beforeEach(() => {
   mockedAddSessionExercise.mockResolvedValue(workoutExercise({ id: 'added-exercise', exerciseId: 'row', name: 'Barbell Row', sets: [] }))
   mockedSwapSessionExercise.mockResolvedValue(workoutExercise({ exerciseId: 'row', name: 'Barbell Row', sets: [] }))
   mockedRemoveSessionExercise.mockResolvedValue(undefined)
+  mockedReorderSessionExercise.mockResolvedValue([workoutExercise()])
   mockedFinishSession.mockResolvedValue(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
   mockedCancelSession.mockResolvedValue(undefined)
   mockedUpdateManualMetadata.mockImplementation(async (_sessionId, metadata) => workoutSession({
@@ -885,6 +889,122 @@ describe('WorkoutPage regression coverage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Log Workout setup' })).toBeInTheDocument()
     expect(queryClient.getQueryState(manualDraftQueryKey)?.isInvalidated).toBe(true)
+  })
+
+  it('optimistically reorders active workout exercises with screen-reader announcements and locks conflicting controls while pending', async () => {
+    const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
+    const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
+    const third = workoutExercise({ id: 'session-exercise-3', exerciseId: 'squat', name: 'Back Squat', order: 3, sets: [] })
+    const reorderRequest = deferred<WorkoutExercise[]>()
+    mockedReorderSessionExercise.mockReturnValueOnce(reorderRequest.promise)
+
+    renderWorkout(workoutSession({ exercises: [first, second, third] }))
+
+    const dragBench = await screen.findByRole('button', { name: 'Drag Bench Press to reorder' })
+    expect(dragBench).toHaveClass('h-11', 'w-11')
+
+    fireEvent.keyDown(dragBench, { key: ' ', code: 'Space' })
+    expect(screen.getByRole('status')).toHaveTextContent('Picked up Bench Press at position 1 of 3.')
+
+    fireEvent.keyDown(dragBench, { key: 'ArrowDown', code: 'ArrowDown' })
+    expect(screen.getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
+
+    fireEvent.keyDown(dragBench, { key: ' ', code: 'Space' })
+
+    await waitFor(() => {
+      expect(mockedReorderSessionExercise.mock.calls[0]?.[0]).toEqual({
+        sessionId: 'session-1',
+        sessionExerciseId: 'session-exercise-1',
+        targetIndex: 1,
+      })
+    })
+
+    const headingsWhilePending = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
+    expect(headingsWhilePending).toEqual(['Barbell Row', 'Bench Press', 'Back Squat'])
+    expect(within(await getExerciseCard('Barbell Row')).getByText('Exercise 1')).toBeInTheDocument()
+    expect(within(await getExerciseCard('Bench Press')).getByText('Exercise 2')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
+    expect(screen.getByRole('button', { name: 'Drag Bench Press to reorder' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Drag Barbell Row to reorder' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '+ Add Exercise' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Finish Workout' })).toBeDisabled()
+
+    reorderRequest.resolve([
+      { ...second, order: 1 },
+      { ...first, order: 2 },
+      { ...third, order: 3 },
+    ])
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Drag Bench Press to reorder' })).not.toBeDisabled())
+    expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      'Barbell Row',
+      'Bench Press',
+      'Back Squat',
+    ])
+    expect(screen.getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
+  })
+
+  it('restores the previous exercise order and shows an accessible alert when reordering fails', async () => {
+    const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
+    const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
+    const reorderRequest = deferred<WorkoutExercise[]>()
+    mockedReorderSessionExercise.mockReturnValueOnce(reorderRequest.promise)
+
+    renderWorkout(workoutSession({ exercises: [first, second] }))
+
+    const dragBench = await screen.findByRole('button', { name: 'Drag Bench Press to reorder' })
+    fireEvent.keyDown(dragBench, { key: 'ArrowDown', code: 'ArrowDown' })
+
+    await waitFor(() => {
+      expect(mockedReorderSessionExercise.mock.calls[0]?.[0]).toEqual({
+        sessionId: 'session-1',
+        sessionExerciseId: 'session-exercise-1',
+        targetIndex: 1,
+      })
+    })
+    expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      'Barbell Row',
+      'Bench Press',
+    ])
+
+    reorderRequest.reject(new Error('offline'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to reorder the exercise. Please try again.')
+    expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      'Bench Press',
+      'Barbell Row',
+    ])
+    expect(within(await getExerciseCard('Bench Press')).getByText('Exercise 1')).toBeInTheDocument()
+    expect(within(await getExerciseCard('Barbell Row')).getByText('Exercise 2')).toBeInTheDocument()
+  })
+
+  it('disables drag handles while a conflicting set mutation is in flight and hides them on completed workouts', async () => {
+    const setSaveRequest = deferred<WorkoutSet>()
+    mockedAddSet.mockReturnValueOnce(setSaveRequest.promise)
+    const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
+    const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
+
+    renderWorkout(workoutSession({ exercises: [first, second] }))
+
+    const { form } = await openAddSetForm()
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Drag Bench Press to reorder' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Drag Barbell Row to reorder' })).toBeDisabled()
+    })
+
+    setSaveRequest.resolve(workoutSet({ id: 'set-2', order: 2 }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Drag Bench Press to reorder' })).not.toBeDisabled())
+  })
+
+  it('hides exercise drag handles on completed workouts', async () => {
+    const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
+    const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
+
+    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600, exercises: [first, second] }))
+    await screen.findByText('Completed workout')
+    expect(screen.queryByRole('button', { name: /Drag .* to reorder/ })).not.toBeInTheDocument()
   })
 })
 

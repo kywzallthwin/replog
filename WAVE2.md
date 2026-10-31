@@ -6,7 +6,7 @@ This file is the ticket index. Read only the active ticket named in `STATUS.md`.
 - [W2-01](tickets/W2-01.md): done - historical implementation removed by W2-12
 - [W2-02](tickets/W2-02.md): done - always-visible previous-workout references
 - [W2-03](tickets/W2-03.md): done - persistent rest-timer controls
-- [W2-04](tickets/W2-04.md): proposed - active-workout exercise reordering
+- [W2-04](tickets/W2-04.md): done - active-workout exercise reordering
 - [W2-05](tickets/W2-05.md): proposed - whole-day program reordering
 - [W2-06](tickets/W2-06.md): proposed - custom exercise deletion (rename half delivered by W2-17)
 - [W2-07](tickets/W2-07.md): proposed - completed workout deletion

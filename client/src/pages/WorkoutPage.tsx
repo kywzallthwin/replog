@@ -1,8 +1,30 @@
-import type { FormEvent, RefObject } from 'react'
+import type { FormEvent, ReactNode, RefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, BookmarkCheck } from 'lucide-react'
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+  type Modifier,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import {
   addSessionExercise,
   addSet,
@@ -14,6 +36,7 @@ import {
   getSession,
   getSessionMutationError,
   removeSessionExercise,
+  reorderSessionExercise,
   saveSessionToProgram,
   sessionHistoryQueryKey,
   sessionQueryKey,
@@ -51,6 +74,119 @@ type DropDraft = {
   id: number
   weightKg: string
   reps: string
+}
+
+const restrictToVerticalAxis: Modifier = ({ transform }) => ({
+  ...transform,
+  x: 0,
+  scaleX: 1,
+  scaleY: 1,
+})
+
+function WorkoutExerciseDragPreview({ exercise, index }: { exercise: WorkoutExercise; index: number }) {
+  return (
+    <div className="min-w-0 rounded-[18px] border border-slate-200 bg-white p-3 shadow-[0_14px_30px_rgba(15,23,42,0.18)] sm:p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+            Exercise {index + 1}
+          </p>
+          <p className="mt-1 min-w-0 break-words text-lg font-bold tracking-[-0.02em] text-slate-900 [overflow-wrap:anywhere]">
+            {exercise.name}
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            {exercise.sets.length ? `${exercise.sets.length} sets logged` : 'No sets yet'}
+          </p>
+        </div>
+        <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18" fill="currentColor">
+            <circle cx="3" cy="2" r="1.25" />
+            <circle cx="11" cy="2" r="1.25" />
+            <circle cx="3" cy="9" r="1.25" />
+            <circle cx="11" cy="9" r="1.25" />
+            <circle cx="3" cy="16" r="1.25" />
+            <circle cx="11" cy="16" r="1.25" />
+          </svg>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function SortableExerciseCard({
+  exercise,
+  disabled,
+  isFinished,
+  onMoveByKeyboard,
+  children,
+}: {
+  exercise: WorkoutExercise
+  disabled: boolean
+  isFinished: boolean
+  onMoveByKeyboard: (direction: -1 | 1, trigger: HTMLButtonElement) => void
+  children: (dragHandle: ReactNode) => ReactNode
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: exercise.id, disabled: disabled || isFinished })
+
+  const dragHandle = isFinished ? null : (
+    <button
+      ref={setActivatorNodeRef}
+      type="button"
+      {...attributes}
+      {...listeners}
+      disabled={disabled}
+      onKeyDown={(event) => {
+        listeners?.onKeyDown?.(event)
+        if (event.defaultPrevented || disabled) {
+          return
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault()
+          onMoveByKeyboard(-1, event.currentTarget)
+        } else if (event.key === 'ArrowDown') {
+          event.preventDefault()
+          onMoveByKeyboard(1, event.currentTarget)
+        }
+      }}
+      data-press="icon"
+      data-press-tone="slate"
+      title="Drag to reorder"
+      aria-label={`Drag ${exercise.name} to reorder`}
+      className="grid h-11 w-11 shrink-0 cursor-grab place-items-center rounded-full text-slate-300 transition hover:bg-slate-200 hover:text-slate-600 active:cursor-grabbing disabled:cursor-not-allowed disabled:text-slate-200"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18" fill="currentColor" aria-hidden="true">
+        <circle cx="3" cy="2" r="1.25" />
+        <circle cx="11" cy="2" r="1.25" />
+        <circle cx="3" cy="9" r="1.25" />
+        <circle cx="11" cy="9" r="1.25" />
+        <circle cx="3" cy="16" r="1.25" />
+        <circle cx="11" cy="16" r="1.25" />
+      </svg>
+    </button>
+  )
+
+  return (
+    <article
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform ? { ...transform, x: 0, scaleX: 1, scaleY: 1 } : transform),
+        transition,
+      }}
+      className={`min-w-0 rounded-[18px] border border-slate-100 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:p-4 ${
+        isDragging ? 'relative z-10 opacity-0' : ''
+      }`}
+    >
+      {children(dragHandle)}
+    </article>
+  )
 }
 
 const setKindOptions = [
@@ -683,6 +819,11 @@ export function WorkoutPage() {
   const [finishConfirmation, setFinishConfirmation] = useState(false)
   const [saveToProgramConfirmation, setSaveToProgramConfirmation] = useState(false)
   const [saveToProgramNotice, setSaveToProgramNotice] = useState<string | null>(null)
+  const [activeDragExercise, setActiveDragExercise] = useState<{ exercise: WorkoutExercise; index: number } | null>(null)
+  const [displayedExercises, setDisplayedExercises] = useState<WorkoutExercise[] | null>(null)
+  const [reorderAnnouncement, setReorderAnnouncement] = useState('')
+  const [dndAccessibilityContainer] = useState(() => document.createElement('div'))
+  const keyboardTargetIndexRef = useRef<number | null>(null)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
   const finishTriggerRef = useRef<HTMLButtonElement>(null)
   const saveToProgramTriggerRef = useRef<HTMLButtonElement>(null)
@@ -850,6 +991,64 @@ export function WorkoutPage() {
       setSaveToProgramNotice(null)
     },
   })
+  const reorderSessionExerciseMutation = useMutation({
+    mutationFn: reorderSessionExercise,
+    onMutate: ({ sessionId: targetSessionId, sessionExerciseId, targetIndex }) => {
+      void queryClient.cancelQueries({ queryKey: sessionQueryKey(targetSessionId) })
+      const previousSession = queryClient.getQueryData<WorkoutSession>(sessionQueryKey(targetSessionId))
+
+      queryClient.setQueryData<WorkoutSession>(sessionQueryKey(targetSessionId), (currentSession) => {
+        if (!currentSession) {
+          return currentSession
+        }
+
+        const sourceIndex = currentSession.exercises.findIndex((exercise) => exercise.id === sessionExerciseId)
+        if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= currentSession.exercises.length) {
+          return currentSession
+        }
+
+        return {
+          ...currentSession,
+          exercises: arrayMove(currentSession.exercises, sourceIndex, targetIndex).map((exercise, index) => ({
+            ...exercise,
+            order: index + 1,
+          })),
+        }
+      })
+
+      return { previousSession }
+    },
+    onError: (_error, { sessionId: targetSessionId }, context) => {
+      setReorderAnnouncement('')
+      if (context?.previousSession !== undefined) {
+        queryClient.setQueryData(sessionQueryKey(targetSessionId), context.previousSession)
+      }
+      setDisplayedExercises(null)
+    },
+    onSuccess: (reorderedExercises, { sessionId: targetSessionId }) => {
+      queryClient.setQueryData<WorkoutSession>(sessionQueryKey(targetSessionId), (currentSession) => {
+        if (!currentSession) {
+          return currentSession
+        }
+
+        const existingById = new Map(currentSession.exercises.map((exercise) => [exercise.id, exercise]))
+        return {
+          ...currentSession,
+          exercises: reorderedExercises.map((exercise, index) => {
+            const existing = existingById.get(exercise.id)
+            return {
+              ...existing,
+              ...exercise,
+              order: index + 1,
+            }
+          }),
+        }
+      })
+      setDisplayedExercises(null)
+      setSaveToProgramNotice(null)
+      void queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+    },
+  })
   const exercisePickerIsSaving = addSessionExerciseMutation.isPending || swapSessionExerciseMutation.isPending
   const exercisePickerHasError = addSessionExerciseMutation.isError || swapSessionExerciseMutation.isError
   const updateSetMutation = useMutation({
@@ -896,6 +1095,7 @@ export function WorkoutPage() {
     addSessionExerciseMutation.isPending ||
     swapSessionExerciseMutation.isPending ||
     removeSessionExerciseMutation.isPending ||
+    reorderSessionExerciseMutation.isPending ||
     updateSetMutation.isPending ||
     deleteSetMutation.isPending
   const finishSessionMutation = useMutation({
@@ -968,6 +1168,7 @@ export function WorkoutPage() {
 
   function saveCurrentManualMetadata(): Promise<boolean> {
     if (!sessionId || hasManualMetadataErrors) return Promise.resolve(false)
+    setReorderAnnouncement('')
     const snapshot = { ...manualMetadataValues }
     setPendingMetadataSaves((count) => count + 1)
     const queuedSave = metadataSaveQueueRef.current.catch(() => undefined).then(async () => {
@@ -997,7 +1198,169 @@ export function WorkoutPage() {
     navigate(headerLink)
   }
 
-  const workoutMutationIsPending = workoutWriteIsPending || finishSessionMutation.isPending || cancelSessionMutation.isPending || saveToProgramMutation.isPending
+  const workoutMutationIsPending =
+    workoutWriteIsPending ||
+    finishSessionMutation.isPending ||
+    cancelSessionMutation.isPending ||
+    saveToProgramMutation.isPending ||
+    manualMetadataSaving ||
+    manualCompletionSaving
+  const renderedExercises = displayedExercises ?? session?.exercises ?? []
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  useEffect(() => {
+    if (!activeDragExercise) {
+      return
+    }
+
+    function handleWindowKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+        return
+      }
+
+      const total = renderedExercises.length
+      if (total <= 1) {
+        return
+      }
+
+      const currentIndex = keyboardTargetIndexRef.current ?? activeDragExercise?.index ?? 0
+      const delta = event.key === 'ArrowDown' ? 1 : -1
+      const nextIndex = Math.max(0, Math.min(total - 1, currentIndex + delta))
+      if (nextIndex !== currentIndex && activeDragExercise) {
+        keyboardTargetIndexRef.current = nextIndex
+        setReorderAnnouncement(`Moved ${activeDragExercise.exercise.name} to position ${nextIndex + 1} of ${total}.`)
+      }
+    }
+
+    window.addEventListener('keydown', handleWindowKeyDown)
+    return () => window.removeEventListener('keydown', handleWindowKeyDown)
+  }, [activeDragExercise, renderedExercises.length])
+
+  function commitReorder(sessionExerciseId: string, targetIndex: number, focusTrigger?: HTMLButtonElement) {
+    if (!sessionId || !session || session.endedAt || workoutMutationIsPending) {
+      setActiveDragExercise(null)
+      keyboardTargetIndexRef.current = null
+      return
+    }
+
+    const currentExercises = displayedExercises ?? session.exercises
+    const sourceIndex = currentExercises.findIndex((exercise) => exercise.id === sessionExerciseId)
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= currentExercises.length) {
+      setActiveDragExercise(null)
+      keyboardTargetIndexRef.current = null
+      return
+    }
+
+    const movedExercise = currentExercises[sourceIndex]
+    if (sourceIndex === targetIndex) {
+      if (movedExercise) {
+        setReorderAnnouncement(`${movedExercise.name} stayed at position ${sourceIndex + 1} of ${currentExercises.length}.`)
+      }
+      setActiveDragExercise(null)
+      keyboardTargetIndexRef.current = null
+      return
+    }
+
+    const reorderedExercises = arrayMove(currentExercises, sourceIndex, targetIndex).map((exercise, index) => ({
+      ...exercise,
+      order: index + 1,
+    }))
+
+    setDisplayedExercises(reorderedExercises)
+    setSaveToProgramNotice(null)
+    if (movedExercise) {
+      setReorderAnnouncement(`Moved ${movedExercise.name} to position ${targetIndex + 1} of ${currentExercises.length}.`)
+    }
+    reorderSessionExerciseMutation.reset()
+    reorderSessionExerciseMutation.mutate({
+      sessionId,
+      sessionExerciseId,
+      targetIndex,
+    })
+    setActiveDragExercise(null)
+    keyboardTargetIndexRef.current = null
+
+    if (focusTrigger) {
+      requestAnimationFrame(() => focusTrigger.focus())
+    }
+  }
+
+  function handleExerciseDragStart(event: DragStartEvent) {
+    if (!session || session.endedAt || workoutMutationIsPending) {
+      return
+    }
+
+    const currentExercises = displayedExercises ?? session.exercises
+    const index = currentExercises.findIndex((item) => item.id === String(event.active.id))
+    const exercise = currentExercises[index]
+    if (exercise && index >= 0) {
+      reorderSessionExerciseMutation.reset()
+      keyboardTargetIndexRef.current = index
+      setActiveDragExercise({ exercise, index })
+      setReorderAnnouncement(`Picked up ${exercise.name} at position ${index + 1} of ${currentExercises.length}.`)
+    }
+  }
+
+  function handleExerciseDragOver(event: DragOverEvent) {
+    if (!session || !event.over) {
+      return
+    }
+
+    const currentExercises = displayedExercises ?? session.exercises
+    const activeItem = currentExercises.find((item) => item.id === String(event.active.id))
+    const overIndex = currentExercises.findIndex((item) => item.id === String(event.over?.id))
+    if (activeItem && overIndex >= 0 && overIndex !== keyboardTargetIndexRef.current) {
+      keyboardTargetIndexRef.current = overIndex
+      setReorderAnnouncement(`Moved ${activeItem.name} to position ${overIndex + 1} of ${currentExercises.length}.`)
+    }
+  }
+
+  function handleExerciseDragEnd(event: DragEndEvent) {
+    if (!session || session.endedAt || workoutMutationIsPending) {
+      setActiveDragExercise(null)
+      keyboardTargetIndexRef.current = null
+      return
+    }
+
+    const currentExercises = displayedExercises ?? session.exercises
+    const sourceIndex = currentExercises.findIndex((exercise) => exercise.id === String(event.active.id))
+    const overIndex = event.over ? currentExercises.findIndex((exercise) => exercise.id === String(event.over?.id)) : -1
+    const fallbackKeyboardIndex = keyboardTargetIndexRef.current
+    const targetIndex =
+      overIndex >= 0 && overIndex !== sourceIndex
+        ? overIndex
+        : fallbackKeyboardIndex !== null && fallbackKeyboardIndex >= 0
+          ? fallbackKeyboardIndex
+          : overIndex
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      setActiveDragExercise(null)
+      keyboardTargetIndexRef.current = null
+      return
+    }
+
+    commitReorder(String(event.active.id), targetIndex)
+  }
+
+  function handleExerciseDragCancel() {
+    if (activeDragExercise && session) {
+      const total = (displayedExercises ?? session.exercises).length
+      setReorderAnnouncement(`Reordering cancelled. ${activeDragExercise.exercise.name} returned to position ${activeDragExercise.index + 1} of ${total}.`)
+    }
+    setActiveDragExercise(null)
+    keyboardTargetIndexRef.current = null
+  }
+
   const canSaveToProgram = Boolean(session?.programId && session?.dayId)
   const saveToProgramBlockedReason = !session
     ? null
@@ -1012,6 +1375,7 @@ export function WorkoutPage() {
 
   function openSaveToProgramConfirmation() {
     if (!sessionId || !session || saveToProgramBlockedReason) return
+    setReorderAnnouncement('')
     saveToProgramMutation.reset()
     setSaveToProgramConfirmation(true)
   }
@@ -1468,306 +1832,369 @@ export function WorkoutPage() {
               />
             ) : null}
 
-            <div className="mt-5 space-y-3">
-              {session.exercises.map((exercise, index) => {
-                const isFinished = Boolean(session.endedAt)
-                const activeEdit = editingSet?.exerciseId === exercise.id ? editingSet.set : null
-                const latestSet = getLatestSet(exercise)
+            <DndContext
+              sensors={sensors}
+              modifiers={[restrictToVerticalAxis]}
+              collisionDetection={closestCenter}
+              accessibility={{ container: dndAccessibilityContainer }}
+              onDragStart={handleExerciseDragStart}
+              onDragOver={handleExerciseDragOver}
+              onDragEnd={handleExerciseDragEnd}
+              onDragCancel={handleExerciseDragCancel}
+            >
+              <SortableContext
+                items={renderedExercises.map((exercise) => exercise.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="mt-5 space-y-3">
+                  {renderedExercises.map((exercise, index) => {
+                    const isFinished = Boolean(session.endedAt)
+                    const activeEdit = editingSet?.exerciseId === exercise.id ? editingSet.set : null
+                    const latestSet = getLatestSet(exercise)
 
-                return (
-                <article
-                  key={exercise.id}
-                  className="min-w-0 rounded-[18px] border border-slate-100 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:p-4"
-                >
-                  <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
-                        Exercise {index + 1}
-                      </p>
-                      <h3 className="mt-1 min-w-0 break-words text-lg font-bold tracking-[-0.02em] text-slate-900 [overflow-wrap:anywhere]">
-                        {exercise.name}
-                      </h3>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {exercise.sets.length ? `${exercise.sets.length} sets logged` : 'No sets yet'}
-                      </p>
-                    </div>
-                    {isFinished ? null : (
-                      <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
-                        <button
-                          type="button"
-                          onClick={(event) => openSwapExercisePicker(exercise, event.currentTarget)}
-                          disabled={workoutMutationIsPending || exercise.sets.length > 0}
-                          aria-describedby={exercise.sets.length > 0 ? `swap-explanation-${exercise.id}` : undefined}
-                          className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-                        >
-                          Swap
-                        </button>
-                         {exercise.sets.length > 0 ? <span id={`swap-explanation-${exercise.id}`} className="w-full text-[11px] font-semibold leading-4 text-slate-400">Remove logged sets before swapping this exercise.</span> : null}
-                         <button
-                           type="button"
-                           onClick={() => openAddSetForm(exercise)}
-                           disabled={workoutMutationIsPending}
-                           className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-                         >
-                           Add Set
-                         </button>
-                        {latestSet ? (
-                          <button
-                            type="button"
-                            onClick={() => handleRepeatSet(exercise)}
-                            aria-label="Repeat last set"
-                            disabled={workoutMutationIsPending}
-                            className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
-                          >
-                            Repeat
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                           onClick={(event) => handleRemoveExercise(exercise, event.currentTarget)}
-                          data-press="icon"
-                          data-press-tone="red"
-                          title="Remove exercise"
-                          aria-label={`Remove ${exercise.name}`}
-                            disabled={workoutMutationIsPending}
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:text-slate-300"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} />
-                  {exercise.sets.length ? (
-                    <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
-                      {exercise.sets.map((set, setIndex) => {
-                        const setNumber = exercise.sets
-                          .slice(0, setIndex + 1)
-                          .filter((candidate) => candidate.kind === 'NORMAL').length
-
-                        return (
-                          <SetRow
-                            key={set.id}
-                           set={set}
-                           setNumber={setNumber}
-                            isFinished={isFinished}
-                            isDisabled={workoutMutationIsPending}
-                           isDropChild={Boolean(set.parentSetId)}
-                           onEdit={() => openEditSetForm(exercise, set)}
-                            onDelete={(trigger) => handleDeleteSet(exercise, set, trigger)}
-                          />
-                        )
-                      })}
-                    </div>
-                  ) : null}
-                  {!isFinished && activeExerciseId === exercise.id ? (
-                    <form
-                      onSubmit={(event) => handleAddSet(event, exercise)}
-      noValidate
-      className="mt-3 min-w-0 rounded-[14px] border border-slate-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:p-4"
+                    return (
+                    <SortableExerciseCard
+                      key={exercise.id}
+                      exercise={exercise}
+                      disabled={workoutMutationIsPending}
+                      isFinished={isFinished}
+                      onMoveByKeyboard={(direction, trigger) => {
+                        reorderSessionExerciseMutation.reset()
+                        commitReorder(exercise.id, index + direction, trigger)
+                      }}
                     >
-                      <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">New Set</p>
-                      <div className="grid min-w-0 gap-3">
-                        <label className="block min-w-0">
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
-                          <FluidSelect
-                            value={kind}
-                            options={[...addSetKindOptions]}
-                            onValueChange={(nextKind) => {
-                              const nextSetKind = nextKind as SetKind
-                              setKind(nextSetKind)
-                              if (nextSetKind !== 'NORMAL') {
-                                setDropDrafts([])
-                              }
-                            }}
-                            ariaLabel="Set kind"
-                          />
-                        </label>
-                        <div className={`grid min-w-0 gap-2 ${kind === 'NORMAL' ? 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]' : 'grid-cols-2'}`}>
-                          <label className="block min-w-0">
-                          <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
-                           <input
-                             ref={addWeightRef}
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            max="1000"
-                            step="0.5"
-                             value={weightKg}
-                             onChange={(event) => { setWeightKg(event.target.value); setAddFieldError(null); setFormError('') }}
-                             aria-invalid={addFieldError === 'weight' || undefined}
-                             aria-describedby={addFieldError === 'weight' ? 'add-set-error' : undefined}
-                            className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
-                            required
-                          />
-                          </label>
-                          <label className="block min-w-0">
-                          <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Reps</span>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min="1"
-                            max="1000"
-                            step="1"
-                             ref={addRepsRef}
-                             value={reps}
-                             onChange={(event) => { setReps(event.target.value); setAddFieldError(null); setFormError('') }}
-                             aria-invalid={addFieldError === 'reps' || undefined}
-                             aria-describedby={addFieldError === 'reps' ? 'add-set-error' : undefined}
-                            className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
-                            required
-                          />
-                          </label>
-                          {kind === 'NORMAL' ? (
-                            <div data-testid="add-drop-action" className="block min-w-0">
-                              <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Drop</span>
-                              <button
-                                type="button"
-                                onClick={addDropDraft}
-                                disabled={dropDrafts.length >= 9 || workoutMutationIsPending}
-                                aria-label={`Add drop set. ${dropDrafts.length} of 9 added`}
-                                className="flex h-11 w-full items-center justify-center rounded-[10px] border border-blue-200 bg-blue-50 text-xl font-bold leading-none text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                              >
-                                {dropDrafts.length >= 9 ? '9/9' : '+'}
-                              </button>
+                      {(dragHandle) => (
+                        <>
+                          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+                                Exercise {index + 1}
+                              </p>
+                              <h3 className="mt-1 min-w-0 break-words text-lg font-bold tracking-[-0.02em] text-slate-900 [overflow-wrap:anywhere]">
+                                {exercise.name}
+                              </h3>
+                              <p className="mt-1 text-sm text-slate-500">
+                                {exercise.sets.length ? `${exercise.sets.length} sets logged` : 'No sets yet'}
+                              </p>
+                            </div>
+                            {isFinished ? null : (
+                              <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
+                                <button
+                                  type="button"
+                                  onClick={(event) => openSwapExercisePicker(exercise, event.currentTarget)}
+                                  disabled={workoutMutationIsPending || exercise.sets.length > 0}
+                                  aria-describedby={exercise.sets.length > 0 ? `swap-explanation-${exercise.id}` : undefined}
+                                  className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                                >
+                                  Swap
+                                </button>
+                                 {exercise.sets.length > 0 ? <span id={`swap-explanation-${exercise.id}`} className="w-full text-[11px] font-semibold leading-4 text-slate-400">Remove logged sets before swapping this exercise.</span> : null}
+                                 <button
+                                   type="button"
+                                   onClick={() => openAddSetForm(exercise)}
+                                   disabled={workoutMutationIsPending}
+                                   className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                                 >
+                                   Add Set
+                                 </button>
+                                {latestSet ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRepeatSet(exercise)}
+                                    aria-label="Repeat last set"
+                                    disabled={workoutMutationIsPending}
+                                    className="min-h-11 rounded-[12px] border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
+                                  >
+                                    Repeat
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                   onClick={(event) => handleRemoveExercise(exercise, event.currentTarget)}
+                                  data-press="icon"
+                                  data-press-tone="red"
+                                  title="Remove exercise"
+                                  aria-label={`Remove ${exercise.name}`}
+                                    disabled={workoutMutationIsPending}
+                                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:text-slate-300"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="15"
+                                    height="15"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                  </svg>
+                                </button>
+                                {dragHandle}
+                              </div>
+                            )}
+                          </div>
+                          <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} />
+                          {exercise.sets.length ? (
+                            <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
+                              {exercise.sets.map((set, setIndex) => {
+                                const setNumber = exercise.sets
+                                  .slice(0, setIndex + 1)
+                                  .filter((candidate) => candidate.kind === 'NORMAL').length
+
+                                return (
+                                  <SetRow
+                                    key={set.id}
+                                   set={set}
+                                   setNumber={setNumber}
+                                    isFinished={isFinished}
+                                    isDisabled={workoutMutationIsPending}
+                                   isDropChild={Boolean(set.parentSetId)}
+                                   onEdit={() => openEditSetForm(exercise, set)}
+                                    onDelete={(trigger) => handleDeleteSet(exercise, set, trigger)}
+                                  />
+                                )
+                              })}
                             </div>
                           ) : null}
-                        </div>
-                      </div>
-                      {kind === 'NORMAL' && dropDrafts.length ? (
-                        <div className="mt-2 space-y-2">
-                          {dropDrafts.map((drop, dropIndex) => (
-                            <div key={drop.id} data-testid="drop-fields" className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-[10px] border border-slate-200 bg-slate-50 p-2">
-                              <span className="inline-flex whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-extrabold tracking-[0.04em] text-blue-700">
-                                DROP {dropIndex + 1}
-                              </span>
-                              <label className="block min-w-0">
-                                  <input
+                          {!isFinished && activeExerciseId === exercise.id ? (
+                            <form
+                              onSubmit={(event) => handleAddSet(event, exercise)}
+              noValidate
+              className="mt-3 min-w-0 rounded-[14px] border border-slate-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:p-4"
+                            >
+                              <p className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">New Set</p>
+                              <div className="grid min-w-0 gap-3">
+                                <label className="block min-w-0">
+                                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Kind</span>
+                                  <FluidSelect
+                                    value={kind}
+                                    options={[...addSetKindOptions]}
+                                    onValueChange={(nextKind) => {
+                                      const nextSetKind = nextKind as SetKind
+                                      setKind(nextSetKind)
+                                      if (nextSetKind !== 'NORMAL') {
+                                        setDropDrafts([])
+                                      }
+                                    }}
+                                    ariaLabel="Set kind"
+                                  />
+                                </label>
+                                <div className={`grid min-w-0 gap-2 ${kind === 'NORMAL' ? 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]' : 'grid-cols-2'}`}>
+                                  <label className="block min-w-0">
+                                  <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
+                                   <input
+                                     ref={addWeightRef}
                                     type="number"
                                     inputMode="decimal"
                                     min="0"
                                     max="1000"
                                     step="0.5"
-                                    data-drop-id={drop.id}
-                                    data-drop-field="weightKg"
-                                     value={drop.weightKg}
-                                     onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
-                                     aria-invalid={addFieldError === `drop-weight-${drop.id}` || undefined}
-                                     aria-describedby={addFieldError === `drop-weight-${drop.id}` ? 'add-set-error' : undefined}
-                                    aria-label={`Drop ${dropIndex + 1} weight kg`}
-                                    placeholder="kg"
-                                    className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                     value={weightKg}
+                                     onChange={(event) => { setWeightKg(event.target.value); setAddFieldError(null); setFormError('') }}
+                                     aria-invalid={addFieldError === 'weight' || undefined}
+                                     aria-describedby={addFieldError === 'weight' ? 'add-set-error' : undefined}
+                                    className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                                     required
                                   />
-                              </label>
-                              <label className="block min-w-0">
+                                  </label>
+                                  <label className="block min-w-0">
+                                  <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Reps</span>
                                   <input
                                     type="number"
                                     inputMode="numeric"
                                     min="1"
                                     max="1000"
                                     step="1"
-                                    data-drop-id={drop.id}
-                                    data-drop-field="reps"
-                                    value={drop.reps}
-                                     onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
-                                     aria-invalid={addFieldError === `drop-reps-${drop.id}` || undefined}
-                                     aria-describedby={addFieldError === `drop-reps-${drop.id}` ? 'add-set-error' : undefined}
-                                    aria-label={`Drop ${dropIndex + 1} reps`}
-                                    placeholder="reps"
-                                    className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                     ref={addRepsRef}
+                                     value={reps}
+                                     onChange={(event) => { setReps(event.target.value); setAddFieldError(null); setFormError('') }}
+                                     aria-invalid={addFieldError === 'reps' || undefined}
+                                     aria-describedby={addFieldError === 'reps' ? 'add-set-error' : undefined}
+                                    className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                                     required
                                   />
+                                  </label>
+                                  {kind === 'NORMAL' ? (
+                                    <div data-testid="add-drop-action" className="block min-w-0">
+                                      <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Drop</span>
+                                      <button
+                                        type="button"
+                                        onClick={addDropDraft}
+                                        disabled={dropDrafts.length >= 9 || workoutMutationIsPending}
+                                        aria-label={`Add drop set. ${dropDrafts.length} of 9 added`}
+                                        className="flex h-11 w-full items-center justify-center rounded-[10px] border border-blue-200 bg-blue-50 text-xl font-bold leading-none text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                                      >
+                                        {dropDrafts.length >= 9 ? '9/9' : '+'}
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                              {kind === 'NORMAL' && dropDrafts.length ? (
+                                <div className="mt-2 space-y-2">
+                                  {dropDrafts.map((drop, dropIndex) => (
+                                    <div key={drop.id} data-testid="drop-fields" className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-center gap-2 rounded-[10px] border border-slate-200 bg-slate-50 p-2">
+                                      <span className="inline-flex whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-extrabold tracking-[0.04em] text-blue-700">
+                                        DROP {dropIndex + 1}
+                                      </span>
+                                      <label className="block min-w-0">
+                                          <input
+                                            type="number"
+                                            inputMode="decimal"
+                                            min="0"
+                                            max="1000"
+                                            step="0.5"
+                                            data-drop-id={drop.id}
+                                            data-drop-field="weightKg"
+                                             value={drop.weightKg}
+                                             onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
+                                             aria-invalid={addFieldError === `drop-weight-${drop.id}` || undefined}
+                                             aria-describedby={addFieldError === `drop-weight-${drop.id}` ? 'add-set-error' : undefined}
+                                            aria-label={`Drop ${dropIndex + 1} weight kg`}
+                                            placeholder="kg"
+                                            className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                            required
+                                          />
+                                      </label>
+                                      <label className="block min-w-0">
+                                          <input
+                                            type="number"
+                                            inputMode="numeric"
+                                            min="1"
+                                            max="1000"
+                                            step="1"
+                                            data-drop-id={drop.id}
+                                            data-drop-field="reps"
+                                            value={drop.reps}
+                                             onChange={(event) => updateDropDraft(drop.id, 'reps', event.target.value)}
+                                             aria-invalid={addFieldError === `drop-reps-${drop.id}` || undefined}
+                                             aria-describedby={addFieldError === `drop-reps-${drop.id}` ? 'add-set-error' : undefined}
+                                            aria-label={`Drop ${dropIndex + 1} reps`}
+                                            placeholder="reps"
+                                            className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
+                                            required
+                                          />
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeDropDraft(drop.id)}
+                                        disabled={workoutMutationIsPending}
+                                        aria-label={`Remove drop ${dropIndex + 1}`}
+                                        className="grid h-11 w-11 place-items-center rounded-full text-base font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                              <label className="mt-4 block">
+                                  <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
+                                    Note <span className="font-medium normal-case tracking-normal text-slate-300">· optional</span>
+                                </span>
+                                <textarea
+                                  value={setFeedbackNote}
+                                  onChange={(event) => setSetFeedbackNote(event.target.value)}
+                                  maxLength={300}
+                                  rows={2}
+                                  placeholder="e.g. Last 2 reps were partial"
+                                  className="w-full resize-y rounded-[10px] border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-900 outline-none focus:border-slate-900"
+                                />
                               </label>
-                              <button
-                                type="button"
-                                onClick={() => removeDropDraft(drop.id)}
-                                disabled={workoutMutationIsPending}
-                                aria-label={`Remove drop ${dropIndex + 1}`}
-                                className="grid h-11 w-11 place-items-center rounded-full text-base font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                      <label className="mt-4 block">
-                          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
-                            Note <span className="font-medium normal-case tracking-normal text-slate-300">· optional</span>
-                        </span>
-                        <textarea
-                          value={setFeedbackNote}
-                          onChange={(event) => setSetFeedbackNote(event.target.value)}
-                          maxLength={300}
-                          rows={2}
-                          placeholder="e.g. Last 2 reps were partial"
-                          className="w-full resize-y rounded-[10px] border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-900 outline-none focus:border-slate-900"
-                        />
-                      </label>
-                      {formError || addSetMutation.isError || addSetChainMutation.isError ? (
-                         <p id="add-set-error" role="alert" className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                          {formError || 'Unable to add set. Please try again.'}
-                        </p>
-                      ) : null}
-                       <div className="sticky bottom-0 z-10 -mx-3 mt-3 flex gap-2 border-t border-slate-100 bg-white px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:border-0 sm:px-0 sm:pt-0 sm:pb-0 sm:shadow-none">
-                   <button
-                          type="submit"
-                           disabled={workoutMutationIsPending}
-                          className="min-h-11 rounded-[12px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
-                        >
-                          {addSetMutation.isPending || addSetChainMutation.isPending ? 'Saving...' : 'Save Set'}
-                        </button>
-                        <button
-                          type="button"
-                           onClick={() => setActiveExerciseId(null)}
-                           disabled={workoutMutationIsPending}
-                          className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  ) : null}
-                  {!isFinished && activeEdit ? (
-                    <EditSetForm
-                      key={activeEdit.id}
-                      set={activeEdit}
-                       isSaving={updateSetMutation.isPending}
-                       isError={updateSetMutation.isError}
-                       focusRef={editWeightRef}
-                       onCancel={() => setEditingSet(null)}
-                      onSave={(values) => {
-                        if (!sessionId) {
-                          return
-                        }
+                              {formError || addSetMutation.isError || addSetChainMutation.isError ? (
+                                 <p id="add-set-error" role="alert" className="mt-3 rounded-[10px] bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                                  {formError || 'Unable to add set. Please try again.'}
+                                </p>
+                              ) : null}
+                               <div className="sticky bottom-0 z-10 -mx-3 mt-3 flex gap-2 border-t border-slate-100 bg-white px-3 pt-3 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:border-0 sm:px-0 sm:pt-0 sm:pb-0 sm:shadow-none">
+                           <button
+                                  type="submit"
+                                   disabled={workoutMutationIsPending}
+                                  className="min-h-11 rounded-[12px] bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-500"
+                                >
+                                  {addSetMutation.isPending || addSetChainMutation.isPending ? 'Saving...' : 'Save Set'}
+                                </button>
+                                <button
+                                  type="button"
+                                   onClick={() => setActiveExerciseId(null)}
+                                   disabled={workoutMutationIsPending}
+                                  className="min-h-11 rounded-[12px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          ) : null}
+                          {!isFinished && activeEdit ? (
+                            <EditSetForm
+                              key={activeEdit.id}
+                              set={activeEdit}
+                               isSaving={updateSetMutation.isPending}
+                               isError={updateSetMutation.isError}
+                               focusRef={editWeightRef}
+                               onCancel={() => setEditingSet(null)}
+                              onSave={(values) => {
+                                if (!sessionId) {
+                                  return
+                                }
 
-                        updateSetMutation.mutate({
-                          sessionId,
-                          sessionExerciseId: exercise.id,
-                          setId: activeEdit.id,
-                          ...values,
-                        })
-                      }}
-                    />
-                  ) : null}
-                </article>
-                )
-              })}
-            </div>
+                                updateSetMutation.mutate({
+                                  sessionId,
+                                  sessionExerciseId: exercise.id,
+                                  setId: activeEdit.id,
+                                  ...values,
+                                })
+                              }}
+                            />
+                          ) : null}
+                        </>
+                      )}
+                    </SortableExerciseCard>
+                    )
+                  })}
+                </div>
+              </SortableContext>
+              <DragOverlay
+                adjustScale={false}
+                modifiers={[restrictToVerticalAxis]}
+                dropAnimation={null}
+              >
+                {activeDragExercise ? (
+                  <WorkoutExerciseDragPreview
+                    exercise={activeDragExercise.exercise}
+                    index={activeDragExercise.index}
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+
+            {reorderSessionExerciseMutation.isPending || reorderAnnouncement ? (
+              <p
+                role="status"
+                aria-live="polite"
+                className={
+                  reorderSessionExerciseMutation.isPending
+                    ? 'mt-4 rounded-[10px] bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600'
+                    : 'sr-only'
+                }
+              >
+                {reorderSessionExerciseMutation.isPending
+                  ? reorderAnnouncement
+                    ? `Reordering exercise... ${reorderAnnouncement}`
+                    : 'Reordering exercise...'
+                  : reorderAnnouncement}
+              </p>
+            ) : null}
+
+            {reorderSessionExerciseMutation.isError ? (
+              <p role="alert" className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {getSessionMutationError(reorderSessionExerciseMutation.error, 'Unable to reorder the exercise. Please try again.')}
+              </p>
+            ) : null}
 
             {session.endedAt ? null : (
               <div className="mt-5 space-y-3">
