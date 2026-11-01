@@ -283,6 +283,10 @@ export async function cancelSession(sessionId: string) {
   await api.delete(`/sessions/${sessionId}`)
 }
 
+export async function deleteSession(sessionId: string) {
+  await api.delete(`/sessions/${sessionId}`)
+}
+
 export async function saveSessionToProgram(sessionId: string) {
   const response = await api.post<{ day: ProgramDay | null }>(`/sessions/${sessionId}/save-to-program`)
 

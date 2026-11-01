@@ -28,6 +28,7 @@ import {
   addSet,
   addSetChain,
   cancelSession,
+  deleteSession,
   deleteSet,
   finishSession,
   manualDraftQueryKey,
@@ -428,11 +429,17 @@ function CompletedWorkoutSummary({
   headingRef,
   returnLink,
   returnLabel,
+  deleteTriggerRef,
+  isDeleting,
+  onDeleteWorkout,
 }: {
   session: WorkoutSession
   headingRef: RefObject<HTMLHeadingElement | null>
   returnLink: string
   returnLabel: string
+  deleteTriggerRef: RefObject<HTMLButtonElement | null>
+  isDeleting: boolean
+  onDeleteWorkout: () => void
 }) {
   const summary = getWorkoutSummary(session)
   const duration = session.durationSec === null
@@ -500,6 +507,16 @@ function CompletedWorkoutSummary({
           {returnLabel}
         </Link>
       </div>
+
+      <button
+        ref={deleteTriggerRef}
+        type="button"
+        onClick={onDeleteWorkout}
+        disabled={isDeleting}
+        className="mt-2 min-h-11 w-full rounded-[12px] border border-red-200 bg-white px-4 py-3 text-center text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+      >
+        Delete workout
+      </button>
     </section>
   )
 }
@@ -832,6 +849,8 @@ export function WorkoutPage() {
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState | null>(null)
   const [cancelConfirmation, setCancelConfirmation] = useState(false)
+  const [deleteCompletedConfirmation, setDeleteCompletedConfirmation] = useState(false)
+  const [deletedSessionId, setDeletedSessionId] = useState<string | null>(null)
   const [finishConfirmation, setFinishConfirmation] = useState(false)
   const [saveToProgramConfirmation, setSaveToProgramConfirmation] = useState(false)
   const [saveToProgramNotice, setSaveToProgramNotice] = useState<string | null>(null)
@@ -842,6 +861,7 @@ export function WorkoutPage() {
   const pendingReorderHandleFocusRef = useRef<string | null>(null)
   const reorderTriggerRef = useRef<HTMLButtonElement>(null)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
+  const deleteCompletedTriggerRef = useRef<HTMLButtonElement>(null)
   const finishTriggerRef = useRef<HTMLButtonElement>(null)
   const saveToProgramTriggerRef = useRef<HTMLButtonElement>(null)
   const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
@@ -859,7 +879,7 @@ export function WorkoutPage() {
   const { data: session, isError, isPending } = useQuery({
     queryKey: sessionQueryKey(sessionId ?? ''),
     queryFn: () => getSession(sessionId ?? ''),
-    enabled: Boolean(sessionId),
+    enabled: Boolean(sessionId) && deletedSessionId !== sessionId,
     retry: false,
   })
   const {
@@ -1150,6 +1170,29 @@ export function WorkoutPage() {
       navigate(isManual ? '/history/log' : '/dashboard')
     },
   })
+  const deleteCompletedSessionMutation = useMutation({
+    mutationFn: deleteSession,
+    onSuccess: async () => {
+      if (sessionId) {
+        setDeletedSessionId(sessionId)
+      }
+
+      await queryClient.invalidateQueries({ queryKey: sessionHistoryQueryKey })
+      await queryClient.invalidateQueries({
+        queryKey: ['sessions'],
+        predicate: (query) => query.queryKey[1] !== sessionId,
+      })
+      await queryClient.invalidateQueries({ queryKey: dashboardQueryKey })
+      await queryClient.invalidateQueries({ queryKey: ['progress'] })
+
+      if (sessionId) {
+        queryClient.removeQueries({ queryKey: sessionQueryKey(sessionId), exact: true })
+      }
+
+      setDeleteCompletedConfirmation(false)
+      navigate('/history')
+    },
+  })
   const saveToProgramMutation = useMutation({
     mutationFn: saveSessionToProgram,
     onSuccess: async (day) => {
@@ -1216,6 +1259,7 @@ export function WorkoutPage() {
     workoutWriteIsPending ||
     finishSessionMutation.isPending ||
     cancelSessionMutation.isPending ||
+    deleteCompletedSessionMutation.isPending ||
     saveToProgramMutation.isPending ||
     manualMetadataSaving ||
     manualCompletionSaving
@@ -1807,6 +1851,13 @@ export function WorkoutPage() {
                 headingRef={completedSummaryRef}
                 returnLink={summaryReturnLink}
                 returnLabel={summaryReturnLabel}
+                deleteTriggerRef={deleteCompletedTriggerRef}
+                isDeleting={deleteCompletedSessionMutation.isPending}
+                onDeleteWorkout={() => {
+                  if (deleteCompletedSessionMutation.isPending) return
+                  deleteCompletedSessionMutation.reset()
+                  setDeleteCompletedConfirmation(true)
+                }}
               />
             ) : null}
 
@@ -2563,6 +2614,60 @@ export function WorkoutPage() {
                 {cancelSessionMutation.isPending ? 'Discarding...' : (isManual ? 'Discard Draft' : 'Discard Workout')}
               </button>
             </div>
+        </Dialog>
+      ) : null}
+      {deleteCompletedConfirmation && session?.endedAt ? (
+        <Dialog
+          role="alertdialog"
+          labelledBy="workout-delete-completed-dialog-title"
+          describedBy="workout-delete-completed-dialog-description"
+          onClose={() => {
+            if (!deleteCompletedSessionMutation.isPending) {
+              deleteCompletedSessionMutation.reset()
+              setDeleteCompletedConfirmation(false)
+            }
+          }}
+          closeOnEscape={!deleteCompletedSessionMutation.isPending}
+          restoreFocusRef={deleteCompletedTriggerRef}
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-2rem)] w-full max-w-[335px] overflow-y-auto rounded-[22px] bg-white p-[18px] shadow-[0_22px_60px_rgba(15,23,42,0.28)]"
+        >
+          <h2 id="workout-delete-completed-dialog-title" className="min-w-0 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
+            Delete workout?
+          </h2>
+          <p id="workout-delete-completed-dialog-description" className="mt-1.5 min-w-0 break-words text-sm leading-5 text-slate-500 [overflow-wrap:anywhere]">
+            This permanently deletes this {session.dayName} workout and its logged sets from your history and progress. This cannot be undone.
+          </p>
+          {deleteCompletedSessionMutation.isError ? (
+            <p role="alert" className="mt-3 rounded-[12px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {getSessionMutationError(deleteCompletedSessionMutation.error, 'Unable to delete workout. Please try again.')}
+            </p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                deleteCompletedSessionMutation.reset()
+                setDeleteCompletedConfirmation(false)
+              }}
+              disabled={deleteCompletedSessionMutation.isPending}
+              className="min-h-11 flex-1 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (sessionId && !deleteCompletedSessionMutation.isPending) {
+                  deleteCompletedSessionMutation.mutate(sessionId)
+                }
+              }}
+              disabled={deleteCompletedSessionMutation.isPending}
+              className="min-h-11 flex-1 whitespace-nowrap rounded-[14px] border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+            >
+              {deleteCompletedSessionMutation.isPending ? 'Deleting...' : 'Delete workout'}
+            </button>
+          </div>
         </Dialog>
       ) : null}
     </main>

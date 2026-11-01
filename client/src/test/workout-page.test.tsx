@@ -8,6 +8,7 @@ import {
   addSet,
   addSetChain,
   cancelSession,
+  deleteSession,
   deleteSet,
   finishSession,
   getSession,
@@ -15,6 +16,8 @@ import {
   removeSessionExercise,
   reorderSessionExercise,
   saveSessionToProgram,
+  sessionHistoryQueryKey,
+  sessionQueryKey,
   swapSessionExercise,
   updateSet,
   updateManualMetadata,
@@ -22,6 +25,8 @@ import {
   type WorkoutSession,
   type WorkoutSet,
 } from '../lib/sessions'
+import { dashboardQueryKey } from '../lib/dashboard'
+import { progressQueryKey } from '../lib/progress'
 import { getExercises, type ExerciseOption } from '../lib/exercises'
 import { getActiveProgram, activeProgramQueryKey, type Program, type ProgramDay } from '../lib/programs'
 import { createTestQueryClient } from './query-client'
@@ -42,6 +47,7 @@ vi.mock('../lib/sessions', async (importOriginal) => {
     reorderSessionExercise: vi.fn(),
     finishSession: vi.fn(),
     cancelSession: vi.fn(),
+    deleteSession: vi.fn(),
     updateManualMetadata: vi.fn(),
     saveSessionToProgram: vi.fn(),
   }
@@ -68,6 +74,7 @@ const mockedRemoveSessionExercise = vi.mocked(removeSessionExercise)
 const mockedReorderSessionExercise = vi.mocked(reorderSessionExercise)
 const mockedFinishSession = vi.mocked(finishSession)
 const mockedCancelSession = vi.mocked(cancelSession)
+const mockedDeleteSession = vi.mocked(deleteSession)
 const mockedUpdateManualMetadata = vi.mocked(updateManualMetadata)
 const mockedSaveSessionToProgram = vi.mocked(saveSessionToProgram)
 const mockedGetExercises = vi.mocked(getExercises)
@@ -189,6 +196,7 @@ function renderWorkout(session: WorkoutSession = workoutSession()) {
         <Routes>
           <Route path="/workout/:sessionId" element={<WorkoutPage />} />
           <Route path="/dashboard" element={<h1>Dashboard destination</h1>} />
+          <Route path="/history" element={<h1>History destination</h1>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -232,6 +240,7 @@ beforeEach(() => {
   mockedReorderSessionExercise.mockResolvedValue([workoutExercise()])
   mockedFinishSession.mockResolvedValue(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
   mockedCancelSession.mockResolvedValue(undefined)
+  mockedDeleteSession.mockResolvedValue(undefined)
   mockedUpdateManualMetadata.mockImplementation(async (_sessionId, metadata) => workoutSession({
     source: 'MANUAL',
     workoutDate: metadata.workoutDate ?? '2026-09-06',
@@ -862,6 +871,71 @@ describe('WorkoutPage regression coverage', () => {
 
     await waitFor(() => expect(mockedCancelSession.mock.calls[0]?.[0]).toBe('session-1'))
     expect(await screen.findByRole('heading', { name: 'Dashboard destination' })).toBeInTheDocument()
+  })
+
+  it('restores focus when completed workout deletion is cancelled or dismissed with Escape', async () => {
+    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
+
+    const trigger = await screen.findByRole('button', { name: 'Delete workout' })
+    expect(trigger).toHaveClass('min-h-11', 'w-full')
+    expect(screen.queryByRole('button', { name: 'Cancel Workout' })).not.toBeInTheDocument()
+
+    trigger.focus()
+    fireEvent.click(trigger)
+    let dialog = screen.getByRole('alertdialog', { name: 'Delete workout?' })
+    expect(within(dialog).getByText(/permanently deletes this Upper A workout and its logged sets/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog', { name: 'Delete workout?' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(mockedDeleteSession).not.toHaveBeenCalled()
+
+    fireEvent.click(trigger)
+    dialog = screen.getByRole('alertdialog', { name: 'Delete workout?' })
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('alertdialog', { name: 'Delete workout?' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(mockedDeleteSession).not.toHaveBeenCalled()
+  })
+
+  it('locks completed workout deletion while pending, reports errors, and on success removes the detail cache, invalidates derived caches, and navigates to History', async () => {
+    const firstAttempt = deferred<void>()
+    mockedDeleteSession.mockReturnValueOnce(firstAttempt.promise).mockResolvedValueOnce(undefined)
+
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+    const queryClient = renderWorkout(completed)
+    queryClient.setQueryData(sessionHistoryQueryKey, [])
+    queryClient.setQueryData(dashboardQueryKey, { activeSession: null })
+    queryClient.setQueryData(progressQueryKey('bench'), { exercises: [] })
+    queryClient.setQueryData(sessionQueryKey('session-2'), workoutSession({ id: 'session-2' }))
+
+    const trigger = await screen.findByRole('button', { name: 'Delete workout' })
+    fireEvent.click(trigger)
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete workout?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete workout' }))
+
+    await waitFor(() => {
+      expect(mockedDeleteSession).toHaveBeenCalledTimes(1)
+      expect(mockedDeleteSession.mock.calls[0]?.[0]).toBe('session-1')
+      expect(within(dialog).getByRole('button', { name: 'Deleting...' })).toBeDisabled()
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    })
+
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.getByRole('alertdialog', { name: 'Delete workout?' })).toBeInTheDocument()
+
+    firstAttempt.reject(new Error('offline'))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to delete workout. Please try again.')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete workout' }))
+    expect(await screen.findByRole('heading', { name: 'History destination' })).toBeInTheDocument()
+    expect(mockedDeleteSession).toHaveBeenCalledTimes(2)
+    expect(queryClient.getQueryData(sessionQueryKey('session-1'))).toBeUndefined()
+    expect(queryClient.getQueryState(sessionHistoryQueryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(dashboardQueryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(progressQueryKey('bench'))?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(sessionQueryKey('session-2'))?.isInvalidated).toBe(true)
   })
 
   it('invalidates Resume Draft data after a manual draft is discarded', async () => {

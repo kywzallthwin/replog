@@ -506,7 +506,6 @@ sessionsRouter.delete('/:sessionId', requireAuth, async (req, res) => {
     where: {
       id: sessionId,
       userId,
-      endedAt: null,
     },
   })
 
@@ -515,17 +514,7 @@ sessionsRouter.delete('/:sessionId', requireAuth, async (req, res) => {
     return
   }
 
-  const session = await prisma.session.findFirst({
-    where: { id: sessionId, userId },
-    select: { endedAt: true },
-  })
-
-  if (!session) {
-    res.status(404).json({ error: 'Session not found' })
-    return
-  }
-
-  res.status(409).json({ error: 'Finished workouts cannot be cancelled' })
+  res.status(404).json({ error: 'Session not found' })
 })
 
 sessionsRouter.post('/:sessionId/exercises', requireAuth, async (req, res) => {
