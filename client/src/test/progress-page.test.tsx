@@ -198,5 +198,10 @@ describe('ProgressPage states and values', () => {
     expect(trend.querySelectorAll('[aria-hidden="true"]')).toHaveLength(2)
     expect(screen.getByText('Sessions')).toHaveClass('text-slate-600')
     expect(screen.getByText('up')).toHaveClass('text-green-700')
+
+    const chartFigure = screen.getByRole('figure', { name: 'Estimated 1RM chart for Bench Press' })
+    expect(chartFigure).toHaveTextContent('Estimated 1RM (kg)')
+    expect(chartFigure).toHaveTextContent('93.7 kg – 101.2 kg')
+    expect(screen.getByRole('img', { name: /Estimated 1RM chart for Bench Press across 3 sessions/ })).toBeInTheDocument()
   })
 })

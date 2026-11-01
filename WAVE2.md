@@ -11,7 +11,7 @@ This file is the ticket index. Read only the active ticket named in `STATUS.md`.
 - [W2-06](tickets/W2-06.md): done - custom exercise deletion (rename half delivered by W2-17)
 - [W2-07](tickets/W2-07.md): done - completed workout deletion
 - [W2-08](tickets/W2-08.md): done - kg/lb preference and conversion
-- [W2-09](tickets/W2-09.md): proposed - responsive SVG progress chart
+- [W2-09](tickets/W2-09.md): done - responsive SVG progress chart
 - [W2-10](tickets/W2-10.md): proposed - estimated 1RM guide route
 - [W2-11](tickets/W2-11.md): proposed - Wave 2 integration and mobile acceptance gate
 - [W2-12](tickets/W2-12.md): done - remove workout-level notes

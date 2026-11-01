@@ -11,6 +11,8 @@ import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
+import { ProgressChart } from '../components/progress/ProgressChart'
+import { formatProgressShortDate } from '../components/progress/progressChartGeometry'
 import { PageLoader } from '../components/ui/PageLoader'
 
 function formatFullDate(startedAt: string, workoutDate?: string | null) {
@@ -22,12 +24,7 @@ function formatFullDate(startedAt: string, workoutDate?: string | null) {
   }).format(workoutDate ? new Date(`${workoutDate.slice(0, 10)}T12:00:00`) : new Date(startedAt))
 }
 
-function formatShortDate(startedAt: string, workoutDate?: string | null) {
-  return new Intl.DateTimeFormat('en', {
-    day: 'numeric',
-    month: 'short',
-  }).format(workoutDate ? new Date(`${workoutDate.slice(0, 10)}T12:00:00`) : new Date(startedAt))
-}
+const formatShortDate = formatProgressShortDate
 
 function getTrendLabel(progressKg: number, sessionCount: number) {
   if (sessionCount < 2 || progressKg === 0) {
@@ -157,6 +154,13 @@ export function ProgressPage() {
                   {progress.selectedExercise.category}
                 </span>
               </div>
+
+              <ProgressChart
+                exerciseName={progress.selectedExercise.name}
+                sessionHistory={progress.sessionHistory}
+                trendEstimatedOneRepMaxKg={progress.trendEstimatedOneRepMaxKg}
+                weightUnit={weightUnit}
+              />
 
               {progress.sessionHistory.length ? (
                 <>

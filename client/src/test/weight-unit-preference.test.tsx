@@ -268,6 +268,14 @@ describe('Cross-page kg/lb preference and conversion', () => {
     expect(
       screen.getByRole('group', { name: /206.6 lb to 216.9 lb to 223.1 lb; up/ }),
     ).toBeInTheDocument()
+    const chartFigure = screen.getByRole('figure', { name: 'Estimated 1RM chart for Bench Press' })
+    expect(within(chartFigure).getByText('Estimated 1RM (lb)')).toBeInTheDocument()
+    expect(within(chartFigure).getByText('206.6 lb – 223.1 lb')).toBeInTheDocument()
+    expect(
+      within(chartFigure).getByRole('img', {
+        name: /starts at 206.6 lb, latest 223.1 lb, range 206.6 lb to 223.1 lb, trend increasing \(\+16.5 lb\)/,
+      }),
+    ).toBeInTheDocument()
   })
 
   it('converts WorkoutPage displays, converts pound inputs to kg once on submit, and avoids edit round-trip drift', async () => {
