@@ -5,6 +5,7 @@ import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
 import { authMeQueryKey, clearPrivateQueries, getCurrentUser, logoutUser } from '../lib/auth'
 import { startSession } from '../lib/sessions'
 import { getBadgeClass } from '../lib/badgeColors'
+import { formatDashboardVolume, getDashboardVolumeLabel, normalizeWeightUnit } from '../lib/units'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
@@ -51,14 +52,6 @@ function formatDuration(durationSec: number | null, endedAt: string | null) {
     : `Finished · Duration: ${Math.max(1, Math.round(durationSec / 60))} min`
 }
 
-function formatVolume(totalVolumeKg: number) {
-  if (totalVolumeKg >= 1000) {
-    return `${(totalVolumeKg / 1000).toFixed(1)}k`
-  }
-
-  return Math.round(totalVolumeKg).toString()
-}
-
 export function DashboardPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -67,6 +60,7 @@ export function DashboardPage() {
     queryFn: getCurrentUser,
     retry: false,
   })
+  const weightUnit = normalizeWeightUnit(user?.weightUnit)
   const { data: dashboard, isError, isPending } = useQuery({
     queryKey: dashboardQueryKey,
     queryFn: getDashboard,
@@ -317,8 +311,8 @@ export function DashboardPage() {
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Sets</div>
                 </div>
                 <div className="rounded-[16px] bg-slate-50 p-4">
-                  <div className="text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatVolume(dashboard.stats.totalVolumeKg)}</div>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Kg Lifted</div>
+                  <div className="text-2xl font-extrabold tracking-[-0.03em] text-slate-900">{formatDashboardVolume(dashboard.stats.totalVolumeKg, weightUnit)}</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">{getDashboardVolumeLabel(weightUnit)}</div>
                 </div>
               </div>
             </aside>

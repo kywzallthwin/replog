@@ -51,6 +51,18 @@ import {
 import { clearSavedManualMetadata, sessionManualMetadata, type ManualMetadataOverrides } from '../lib/manual-workout-metadata'
 import { dashboardQueryKey } from '../lib/dashboard'
 import { getBadgeClass } from '../lib/badgeColors'
+import {
+  formatVolumeSummary,
+  formatWeight,
+  formatWeightInput,
+  formatWeightValue,
+  getMaxWeightInput,
+  getWeightUnitLabel,
+  resolveSubmittedWeightKg,
+  useWeightUnit,
+  validateWeightInput,
+  type WeightUnit,
+} from '../lib/units'
 import { exercisesQueryKey, getExercises } from '../lib/exercises'
 import { activeProgramQueryKey, getActiveProgram, programsQueryKey } from '../lib/programs'
 import { ExercisePickerDialog } from '../components/exercises/ExercisePickerDialog'
@@ -259,10 +271,6 @@ function formatCompactPreviousDate(date: string) {
     .replace(/\s+/g, '')
 }
 
-function formatCompactWeight(weightKg: number) {
-  return weightKg.toString()
-}
-
 function getPreviousSetGroups(previousWorkout: PreviousWorkoutReference) {
   const setsById = new Map(previousWorkout.sets.map((set) => [set.id, set]))
   const dropsByParentId = new Map<string, WorkoutSet[]>()
@@ -285,19 +293,27 @@ function getPreviousSetGroups(previousWorkout: PreviousWorkoutReference) {
   }))
 }
 
-function formatCompactPreviousSet(set: WorkoutSet, isRoot: boolean) {
+function formatCompactPreviousSet(set: WorkoutSet, isRoot: boolean, weightUnit: WeightUnit) {
+  const weight = formatWeightValue(set.weightKg, weightUnit)
+
   if (isRoot && set.kind === 'WARMUP') {
-    return `wu${formatCompactWeight(set.weightKg)}×${set.reps}`
+    return `wu${weight}×${set.reps}`
   }
 
   if (isRoot && set.kind === 'DROP') {
-    return `d${formatCompactWeight(set.weightKg)}×${set.reps}`
+    return `d${weight}×${set.reps}`
   }
 
-  return `${formatCompactWeight(set.weightKg)}×${set.reps}`
+  return `${weight}×${set.reps}`
 }
 
-function PreviousWorkoutLine({ previousWorkout }: { previousWorkout: PreviousWorkoutReference | null }) {
+function PreviousWorkoutLine({
+  previousWorkout,
+  weightUnit,
+}: {
+  previousWorkout: PreviousWorkoutReference | null
+  weightUnit: WeightUnit
+}) {
   if (!previousWorkout) {
     return <p className="mb-3 text-[11px] font-semibold text-slate-400">No previous sets</p>
   }
@@ -314,7 +330,7 @@ function PreviousWorkoutLine({ previousWorkout }: { previousWorkout: PreviousWor
         {groups.map((group) => {
           const isBest = group.rootSet.id === previousWorkout.bestNormalSetId
           const title = group.sets
-            .map((set, setIndex) => `${setIndex === 0 && set.kind === 'WARMUP' ? 'wu ' : ''}${set.weightKg} kg x ${set.reps}`)
+            .map((set, setIndex) => `${setIndex === 0 && set.kind === 'WARMUP' ? 'wu ' : ''}${formatWeight(set.weightKg, weightUnit)} x ${set.reps}`)
             .join(' -> ')
 
           return (
@@ -326,7 +342,7 @@ function PreviousWorkoutLine({ previousWorkout }: { previousWorkout: PreviousWor
                 {group.sets.map((set, setIndex) => (
                   <span key={set.id} className="inline-flex items-center">
                     {setIndex > 0 ? <span className="mx-0.5 text-slate-400" aria-hidden="true">→</span> : null}
-                    <span>{formatCompactPreviousSet(set, setIndex === 0)}</span>
+                    <span>{formatCompactPreviousSet(set, setIndex === 0, weightUnit)}</span>
                   </span>
                 ))}
               </span>
@@ -409,10 +425,6 @@ function WorkoutDuration({ startedAt }: { startedAt: string }) {
   )
 }
 
-function formatSummaryVolume(volumeKg: number) {
-  return new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(volumeKg)
-}
-
 function getWorkoutSummary(session: WorkoutSession) {
   const sets = session.exercises.flatMap((exercise) => exercise.sets)
 
@@ -426,6 +438,7 @@ function getWorkoutSummary(session: WorkoutSession) {
 
 function CompletedWorkoutSummary({
   session,
+  weightUnit,
   headingRef,
   returnLink,
   returnLabel,
@@ -434,6 +447,7 @@ function CompletedWorkoutSummary({
   onDeleteWorkout,
 }: {
   session: WorkoutSession
+  weightUnit: WeightUnit
   headingRef: RefObject<HTMLHeadingElement | null>
   returnLink: string
   returnLabel: string
@@ -480,7 +494,7 @@ function CompletedWorkoutSummary({
           <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Normal sets</span>
         </div>
         <div className="col-span-2 min-w-0 rounded-[13px] bg-slate-50 p-3">
-          <strong className="block min-w-0 break-words text-[21px] font-black tracking-[-0.04em] text-slate-900">{formatSummaryVolume(summary.totalVolumeKg)} kg</strong>
+          <strong className="block min-w-0 break-words text-[21px] font-black tracking-[-0.04em] text-slate-900">{formatVolumeSummary(summary.totalVolumeKg, weightUnit)}</strong>
           <span className="mt-1 block text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">Total volume</span>
         </div>
       </div>
@@ -576,14 +590,6 @@ function getSuggestedSet(exercise: WorkoutExercise) {
   return exercise.lastTime ?? getLatestSet(exercise)
 }
 
-function getWeightError(value: string) {
-  const parsed = Number(value)
-  if (!value.trim() || !Number.isFinite(parsed)) return 'Enter a weight.'
-  if (parsed < 0) return 'Weight cannot be negative.'
-  if (parsed > 1000) return 'Maximum is 1,000 kg.'
-  return ''
-}
-
 function getRepsError(value: string) {
   const parsed = Number(value)
   if (!value.trim() || !Number.isInteger(parsed) || parsed < 1) return 'Enter whole reps from 1 to 1,000.'
@@ -594,6 +600,7 @@ function getRepsError(value: string) {
 function SetRow({
   set,
   setNumber,
+  weightUnit,
   isFinished,
   isDisabled,
   isDropChild,
@@ -602,6 +609,7 @@ function SetRow({
 }: {
   set: WorkoutSet
   setNumber: number
+  weightUnit: WeightUnit
   isFinished: boolean
   isDisabled: boolean
   isDropChild: boolean
@@ -615,7 +623,7 @@ function SetRow({
       </span>
       <div className="min-w-0 grow">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-bold text-slate-900">{set.weightKg} kg</span>
+          <span className="font-bold text-slate-900">{formatWeight(set.weightKg, weightUnit)}</span>
           <span className="text-xs text-slate-300">x</span>
           <span className="font-medium text-slate-600">{set.reps}</span>
         </div>
@@ -680,6 +688,7 @@ function SetRow({
 
 function EditSetForm({
   set,
+  weightUnit,
   isSaving,
   isError,
   focusRef,
@@ -687,6 +696,7 @@ function EditSetForm({
   onSave,
 }: {
   set: WorkoutSet
+  weightUnit: WeightUnit
   isSaving: boolean
   isError: boolean
   focusRef: RefObject<HTMLInputElement | null>
@@ -698,9 +708,11 @@ function EditSetForm({
     reps: number
   }) => void
 }) {
+  const unitLabel = getWeightUnitLabel(weightUnit)
+  const maxWeight = getMaxWeightInput(weightUnit)
   const [kind, setKind] = useState<SetKind>(set.kind)
   const [notes, setNotes] = useState(set.notes ?? '')
-  const [weightKg, setWeightKg] = useState(set.weightKg.toString())
+  const [weightKg, setWeightKg] = useState(() => formatWeightInput(set.weightKg, weightUnit))
   const [reps, setReps] = useState(set.reps.toString())
   const [formError, setFormError] = useState('')
   const repsRef = useRef<HTMLInputElement>(null)
@@ -710,9 +722,8 @@ function EditSetForm({
     event.preventDefault()
     setFormError('')
 
-    const parsedWeightKg = Number(weightKg)
     const parsedReps = Number(reps)
-    const weightError = getWeightError(weightKg)
+    const weightError = validateWeightInput(weightKg, weightUnit)
     const repsError = getRepsError(reps)
 
     if (weightError) {
@@ -728,7 +739,12 @@ function EditSetForm({
     }
 
     setFieldError(null)
-    onSave({ kind, notes: notes.trim() || null, weightKg: parsedWeightKg, reps: parsedReps })
+    onSave({
+      kind,
+      notes: notes.trim() || null,
+      weightKg: resolveSubmittedWeightKg(weightKg, weightUnit, set.weightKg),
+      reps: parsedReps,
+    })
   }
 
   return (
@@ -750,14 +766,14 @@ function EditSetForm({
           />
         </label>
         <label className="block min-w-0">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight {unitLabel}</span>
           <input
             ref={focusRef}
             disabled={isSaving}
             type="number"
             inputMode="decimal"
             min="0"
-            max="1000"
+            max={maxWeight}
             step="0.5"
             value={weightKg}
             onChange={(event) => { setWeightKg(event.target.value); setFieldError(null) }}
@@ -766,7 +782,7 @@ function EditSetForm({
             className={`h-11 w-full min-w-0 rounded-[10px] border bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900 ${fieldError === 'weightKg' ? 'border-red-400' : 'border-slate-200'}`}
             required
           />
-          {fieldError === 'weightKg' ? <p id="edit-weight-error" role="alert" className="mt-1.5 text-xs font-semibold text-red-600">{getWeightError(weightKg)}</p> : null}
+          {fieldError === 'weightKg' ? <p id="edit-weight-error" role="alert" className="mt-1.5 text-xs font-semibold text-red-600">{validateWeightInput(weightKg, weightUnit)}</p> : null}
         </label>
         <label className="block min-w-0">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Reps</span>
@@ -833,11 +849,16 @@ export function WorkoutPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const weightUnit = useWeightUnit()
+  const unitLabel = getWeightUnitLabel(weightUnit)
+  const maxWeight = getMaxWeightInput(weightUnit)
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null)
   const [editingSet, setEditingSet] = useState<{ exerciseId: string; set: WorkoutSet } | null>(null)
   const [kind, setKind] = useState<SetKind>('NORMAL')
   const [setFeedbackNote, setSetFeedbackNote] = useState('')
   const [weightKg, setWeightKg] = useState('')
+  const [referenceWeightKg, setReferenceWeightKg] = useState<number | null>(null)
+  const [isWeightDirty, setIsWeightDirty] = useState(false)
   const [reps, setReps] = useState('')
   const [dropDrafts, setDropDrafts] = useState<DropDraft[]>([])
   const [manualMetadataOverrides, setManualMetadataOverrides] = useState<ManualMetadataOverrides>({})
@@ -954,7 +975,9 @@ export function WorkoutPage() {
 
       setKind('NORMAL')
       setSetFeedbackNote('')
-      setWeightKg(variables.weightKg.toString())
+      setReferenceWeightKg(variables.weightKg)
+      setIsWeightDirty(false)
+      setWeightKg(formatWeightInput(variables.weightKg, weightUnit))
       setReps(variables.reps.toString())
       setFormError('')
       setAddFieldError(null)
@@ -980,9 +1003,12 @@ export function WorkoutPage() {
         void queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) })
       }
 
+      const rootWeightKg = variables.sets[0]?.weightKg ?? null
       setKind('NORMAL')
       setSetFeedbackNote('')
-      setWeightKg(variables.sets[0]?.weightKg.toString() ?? '')
+      setReferenceWeightKg(rootWeightKg)
+      setIsWeightDirty(false)
+      setWeightKg(rootWeightKg !== null ? formatWeightInput(rootWeightKg, weightUnit) : '')
       setReps(variables.sets[0]?.reps.toString() ?? '')
       setDropDrafts([])
       setFormError('')
@@ -1467,6 +1493,11 @@ export function WorkoutPage() {
     wasCompletedRef.current = Boolean(session?.endedAt)
   }, [session?.endedAt])
 
+  const displayedAddWeightInput =
+    !isWeightDirty && referenceWeightKg !== null
+      ? formatWeightInput(referenceWeightKg, weightUnit)
+      : weightKg
+
   function openAddSetForm(exercise: WorkoutExercise) {
     const suggestedSet = getSuggestedSet(exercise)
 
@@ -1476,7 +1507,9 @@ export function WorkoutPage() {
     addSetChainMutation.reset()
     setKind(exercise.sets.length === 0 ? 'WARMUP' : 'NORMAL')
     setSetFeedbackNote('')
-    setWeightKg(suggestedSet?.weightKg.toString() ?? '')
+    setReferenceWeightKg(suggestedSet?.weightKg ?? null)
+    setIsWeightDirty(false)
+    setWeightKg(suggestedSet ? formatWeightInput(suggestedSet.weightKg, weightUnit) : '')
     setReps(suggestedSet?.reps.toString() ?? '')
     setDropDrafts([])
     setFormError('')
@@ -1564,11 +1597,11 @@ export function WorkoutPage() {
       return
     }
 
-    const parsedWeightKg = Number(weightKg)
+    const weightError = validateWeightInput(displayedAddWeightInput, weightUnit)
     const parsedReps = Number(reps)
 
-    if (!weightKg.trim() || !Number.isFinite(parsedWeightKg) || parsedWeightKg < 0 || parsedWeightKg > 1000) {
-      setFormError(getWeightError(weightKg))
+    if (weightError) {
+      setFormError(weightError)
       setAddFieldError('weight')
       requestAnimationFrame(() => addWeightRef.current?.focus())
       return
@@ -1587,21 +1620,18 @@ export function WorkoutPage() {
       return
     }
 
-    const parsedDrops = dropDrafts.map((drop) => ({
-      weightKg: Number(drop.weightKg),
-      reps: Number(drop.reps),
-    }))
-
-    const invalidDropIndex = dropDrafts.findIndex((drop, index) => {
-      const parsed = parsedDrops[index]
-      return !drop.weightKg.trim() || !Number.isFinite(parsed.weightKg) || parsed.weightKg < 0 || parsed.weightKg > 1000
-    })
+    const invalidDropIndex = dropDrafts.findIndex((drop) => Boolean(validateWeightInput(drop.weightKg, weightUnit)))
     if (invalidDropIndex >= 0) {
       setFormError('Enter a valid weight for every drop')
       setAddFieldError(`drop-weight-${dropDrafts[invalidDropIndex].id}`)
       requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[data-drop-id="${dropDrafts[invalidDropIndex].id}"]`)?.focus())
       return
     }
+
+    const parsedDrops = dropDrafts.map((drop) => ({
+      weightKg: resolveSubmittedWeightKg(drop.weightKg, weightUnit),
+      reps: Number(drop.reps),
+    }))
 
     const invalidDropRepsIndex = dropDrafts.findIndex((drop, index) => {
       const parsed = parsedDrops[index]
@@ -1614,12 +1644,18 @@ export function WorkoutPage() {
       return
     }
 
+    const resolvedWeightKg = resolveSubmittedWeightKg(
+      displayedAddWeightInput,
+      weightUnit,
+      referenceWeightKg,
+    )
+
     if (dropDrafts.length) {
       addSetChainMutation.mutate({
         sessionId,
         sessionExerciseId: exercise.id,
         sets: [
-          { kind: 'NORMAL', notes: setFeedbackNote.trim() || null, weightKg: parsedWeightKg, reps: parsedReps },
+          { kind: 'NORMAL', notes: setFeedbackNote.trim() || null, weightKg: resolvedWeightKg, reps: parsedReps },
           ...parsedDrops.map((drop) => ({ kind: 'DROP' as const, ...drop })),
         ],
       })
@@ -1631,7 +1667,7 @@ export function WorkoutPage() {
       sessionExerciseId: exercise.id,
       kind,
       notes: setFeedbackNote.trim() || null,
-      weightKg: parsedWeightKg,
+      weightKg: resolvedWeightKg,
       reps: parsedReps,
     })
   }
@@ -1848,6 +1884,7 @@ export function WorkoutPage() {
             {session.endedAt ? (
               <CompletedWorkoutSummary
                 session={session}
+                weightUnit={weightUnit}
                 headingRef={completedSummaryRef}
                 returnLink={summaryReturnLink}
                 returnLabel={summaryReturnLabel}
@@ -1943,7 +1980,7 @@ export function WorkoutPage() {
                         </div>
                       )}
                     </div>
-                          <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} />
+                          <PreviousWorkoutLine previousWorkout={exercise.previousWorkout} weightUnit={weightUnit} />
                           {exercise.sets.length ? (
                             <div className="mt-3 rounded-[12px] bg-slate-50 px-3 py-1">
                               {exercise.sets.map((set, setIndex) => {
@@ -1956,6 +1993,7 @@ export function WorkoutPage() {
                                     key={set.id}
                                    set={set}
                                    setNumber={setNumber}
+                                   weightUnit={weightUnit}
                                     isFinished={isFinished}
                                     isDisabled={workoutMutationIsPending}
                                    isDropChild={Boolean(set.parentSetId)}
@@ -1991,16 +2029,16 @@ export function WorkoutPage() {
                                 </label>
                                 <div className={`grid min-w-0 gap-2 ${kind === 'NORMAL' ? 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]' : 'grid-cols-2'}`}>
                                   <label className="block min-w-0">
-                                  <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight kg</span>
+                                  <span className="mb-1 flex h-6 items-center text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Weight {unitLabel}</span>
                                    <input
                                      ref={addWeightRef}
                                     type="number"
                                     inputMode="decimal"
                                     min="0"
-                                    max="1000"
+                                    max={maxWeight}
                                     step="0.5"
-                                     value={weightKg}
-                                     onChange={(event) => { setWeightKg(event.target.value); setAddFieldError(null); setFormError('') }}
+                                     value={displayedAddWeightInput}
+                                     onChange={(event) => { setIsWeightDirty(true); setWeightKg(event.target.value); setAddFieldError(null); setFormError('') }}
                                      aria-invalid={addFieldError === 'weight' || undefined}
                                      aria-describedby={addFieldError === 'weight' ? 'add-set-error' : undefined}
                                     className="h-11 w-full min-w-0 rounded-[10px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
@@ -2052,7 +2090,7 @@ export function WorkoutPage() {
                                             type="number"
                                             inputMode="decimal"
                                             min="0"
-                                            max="1000"
+                                            max={maxWeight}
                                             step="0.5"
                                             data-drop-id={drop.id}
                                             data-drop-field="weightKg"
@@ -2060,8 +2098,8 @@ export function WorkoutPage() {
                                              onChange={(event) => updateDropDraft(drop.id, 'weightKg', event.target.value)}
                                              aria-invalid={addFieldError === `drop-weight-${drop.id}` || undefined}
                                              aria-describedby={addFieldError === `drop-weight-${drop.id}` ? 'add-set-error' : undefined}
-                                            aria-label={`Drop ${dropIndex + 1} weight kg`}
-                                            placeholder="kg"
+                                            aria-label={`Drop ${dropIndex + 1} weight ${unitLabel}`}
+                                            placeholder={unitLabel}
                                             className="h-11 w-full min-w-0 rounded-[8px] border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-slate-900"
                                             required
                                           />
@@ -2137,8 +2175,9 @@ export function WorkoutPage() {
                           ) : null}
                           {!isFinished && activeEdit ? (
                             <EditSetForm
-                              key={activeEdit.id}
+                              key={`${activeEdit.id}-${weightUnit}`}
                               set={activeEdit}
+                              weightUnit={weightUnit}
                                isSaving={updateSetMutation.isPending}
                                isError={updateSetMutation.isError}
                                focusRef={editWeightRef}
@@ -2481,7 +2520,7 @@ export function WorkoutPage() {
           <div>
             <h2 id="workout-delete-dialog-title" className="min-w-0 break-words text-xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">
               {deleteConfirmation.type === 'set'
-                ? `Delete ${deleteConfirmation.set.weightKg} kg x ${deleteConfirmation.set.reps}?`
+                ? `Delete ${formatWeight(deleteConfirmation.set.weightKg, weightUnit)} x ${deleteConfirmation.set.reps}?`
                 : `Remove ${deleteConfirmation.exercise.name}?`}
             </h2>
             <p id="workout-delete-dialog-description" className="mt-2 min-w-0 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">

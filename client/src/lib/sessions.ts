@@ -64,6 +64,7 @@ export type WorkoutHistorySession = {
   durationSec: number | null
   exerciseCount: number
   setCount: number
+  totalVolumeKg?: number
   source?: 'LIVE' | 'MANUAL'
   workoutDate?: string | null
   notes?: string | null

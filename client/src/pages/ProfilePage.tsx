@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { authMeQueryKey, clearPrivateQueries, getCurrentUser, logoutUser } from '../lib/auth'
+import {
+  authMeQueryKey,
+  clearPrivateQueries,
+  getCurrentUser,
+  logoutUser,
+  updateCurrentUser,
+  type AuthUser,
+} from '../lib/auth'
 import { dashboardQueryKey, getDashboard } from '../lib/dashboard'
+import { formatProfileVolume, normalizeWeightUnit, type WeightUnit } from '../lib/units'
 import { BrandLogo } from '../components/BrandLogo'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
@@ -36,6 +44,13 @@ export function ProfilePage() {
     retry: false,
   })
   const profilePending = userPending || dashboardPending
+  const weightUnit = normalizeWeightUnit(user?.weightUnit)
+  const weightUnitMutation = useMutation({
+    mutationFn: (nextUnit: WeightUnit) => updateCurrentUser({ weightUnit: nextUnit }),
+    onSuccess: (updatedUser: AuthUser) => {
+      queryClient.setQueryData(authMeQueryKey, updatedUser)
+    },
+  })
   const logoutMutation = useMutation({
     mutationFn: logoutUser,
     onSuccess: () => {
@@ -44,6 +59,15 @@ export function ProfilePage() {
       navigate('/login', { replace: true })
     },
   })
+
+  function handleWeightUnitChange(nextUnit: WeightUnit) {
+    if (nextUnit === weightUnit || weightUnitMutation.isPending) {
+      return
+    }
+
+    weightUnitMutation.reset()
+    weightUnitMutation.mutate(nextUnit)
+  }
 
   return (
     <main className="min-h-dvh bg-slate-100 px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
@@ -108,7 +132,7 @@ export function ProfilePage() {
                 </div>
                 <div className="px-2 py-4 text-center">
                   <div className="text-[22px] font-extrabold tracking-[-0.03em] text-slate-900">
-                    {Math.round(dashboard?.stats.totalVolumeKg ?? 0)}kg
+                    {formatProfileVolume(dashboard?.stats.totalVolumeKg ?? 0, weightUnit)}
                   </div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400">Lifted</div>
                 </div>
@@ -126,11 +150,46 @@ export function ProfilePage() {
               <span className="text-sm font-medium text-slate-900">Change Password</span>
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>
-            <Link data-press="row" to="/program" className="flex min-h-11 items-center justify-between bg-white px-4 py-4">
+            <Link data-press="row" to="/program" className="flex min-h-11 items-center justify-between border-b border-slate-100 bg-white px-4 py-4">
               <span className="text-sm font-medium text-slate-900">Programs</span>
               <span className="text-slate-300">{String.fromCharCode(0x203a)}</span>
             </Link>
+            <div className="flex min-h-11 items-center justify-between gap-3 bg-white px-4 py-3">
+              <span id="profile-units-label" className="text-sm font-medium text-slate-900">Units</span>
+              <div
+                role="group"
+                aria-labelledby="profile-units-label"
+                className="inline-flex items-center gap-1.5"
+              >
+                {(['KG', 'LB'] as const).map((unitOption) => {
+                  const isActive = weightUnit === unitOption
+                  const label = unitOption === 'LB' ? 'lb' : 'kg'
+
+                  return (
+                    <button
+                      key={unitOption}
+                      type="button"
+                      aria-pressed={isActive}
+                      disabled={weightUnitMutation.isPending}
+                      onClick={() => handleWeightUnitChange(unitOption)}
+                      className={`min-h-11 min-w-11 rounded-full border px-3.5 py-1.5 text-xs font-extrabold transition ${
+                        isActive
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-[0_1px_2px_rgba(15,23,42,0.12)]'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
+          {weightUnitMutation.isError ? (
+            <p role="alert" className="mt-3 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              Unable to update weight unit. Please try again.
+            </p>
+          ) : null}
 
           <p className="mb-3 mt-5 text-[13px] font-semibold text-slate-500">Account</p>
           <button

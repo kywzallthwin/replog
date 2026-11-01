@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getProgress, progressQueryKey } from '../lib/progress'
+import {
+  formatEstimatedOneRepMax,
+  formatProgressDelta,
+  formatWeight,
+  useWeightUnit,
+} from '../lib/units'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { FluidSelect } from '../components/forms/FluidSelect'
 import { TopNav } from '../components/nav/TopNav'
@@ -23,28 +29,6 @@ function formatShortDate(startedAt: string, workoutDate?: string | null) {
   }).format(workoutDate ? new Date(`${workoutDate.slice(0, 10)}T12:00:00`) : new Date(startedAt))
 }
 
-function formatWeight(weightKg: number) {
-  return `${Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)} kg`
-}
-
-function formatEstimatedWeight(weightKg: number) {
-  return `${Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)} kg`
-}
-
-function formatProgress(progressKg: number) {
-  if (progressKg === 0) {
-    return '0 kg'
-  }
-
-  const formattedValue = Number.isInteger(progressKg) ? Math.abs(progressKg) : Math.abs(progressKg).toFixed(1)
-
-  return `${progressKg > 0 ? '+' : '-'}${formattedValue} kg`
-}
-
-function formatTrendValue(weightKg: number) {
-  return Number.isInteger(weightKg) ? weightKg : weightKg.toFixed(1)
-}
-
 function getTrendLabel(progressKg: number, sessionCount: number) {
   if (sessionCount < 2 || progressKg === 0) {
     return 'steady'
@@ -56,6 +40,7 @@ function getTrendLabel(progressKg: number, sessionCount: number) {
 export function ProgressPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const exerciseId = searchParams.get('exerciseId')
+  const weightUnit = useWeightUnit()
   const { data: progress, isError, isPending } = useQuery({
     queryKey: progressQueryKey(exerciseId),
     queryFn: () => getProgress(exerciseId),
@@ -132,13 +117,13 @@ export function ProgressPage() {
                 {progress.personalBest ? (
                   <>
                     <h2 className="mt-2 min-w-0 break-words text-3xl font-extrabold tracking-[-0.04em] text-slate-900 [overflow-wrap:anywhere]">
-                      {formatEstimatedWeight(progress.personalBest.estimatedOneRepMaxKg)}
+                      {formatEstimatedOneRepMax(progress.personalBest.estimatedOneRepMaxKg, weightUnit)}
                     </h2>
                     <Link
                       to={`/workout/${progress.personalBest.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
                       className="mt-1 inline-flex min-h-11 max-w-full min-w-0 items-center break-words text-sm text-slate-500 [overflow-wrap:anywhere] transition hover:text-slate-900"
                     >
-                      From {formatWeight(progress.personalBest.weightKg)} x {progress.personalBest.reps} reps · {formatFullDate(progress.personalBest.startedAt, progress.personalBest.workoutDate)}
+                      From {formatWeight(progress.personalBest.weightKg, weightUnit)} x {progress.personalBest.reps} reps · {formatFullDate(progress.personalBest.startedAt, progress.personalBest.workoutDate)}
                     </Link>
                   </>
                 ) : (
@@ -152,11 +137,11 @@ export function ProgressPage() {
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Sessions</div>
                 </div>
                 <div className="min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatProgress(progress.stats.progressKg)}</div>
+                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatProgressDelta(progress.stats.progressKg, weightUnit)}</div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Progress</div>
                 </div>
                 <div className="col-span-2 min-w-0 rounded-[18px] bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] sm:col-span-1">
-                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatWeight(progress.stats.heaviestWeightKg)}</div>
+                  <div className="min-w-0 break-words text-2xl font-extrabold tracking-[-0.03em] text-slate-900 [overflow-wrap:anywhere]">{formatWeight(progress.stats.heaviestWeightKg, weightUnit)}</div>
                   <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-slate-600">Heaviest Set</div>
                 </div>
               </div>
@@ -180,7 +165,7 @@ export function ProgressPage() {
                       <Link
                         key={session.sessionId}
                         to={`/workout/${session.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
-                        aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt, session.workoutDate)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
+                        aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt, session.workoutDate)}: ${formatWeight(session.topSet.weightKg, weightUnit)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedOneRepMax(session.topSet.estimatedOneRepMaxKg, weightUnit)}`}
                         className="block min-w-0 rounded-[14px] border border-slate-100 bg-slate-50 p-3 transition hover:bg-slate-100"
                       >
                         <div className="flex min-w-0 items-center justify-between gap-3">
@@ -192,11 +177,11 @@ export function ProgressPage() {
                         <dl className="mt-2 grid min-w-0 grid-cols-2 gap-2 text-sm">
                           <div className="min-w-0">
                             <dt className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Top Set</dt>
-                            <dd className="mt-1 min-w-0 break-words font-bold text-slate-900 [overflow-wrap:anywhere]">{formatWeight(session.topSet.weightKg)} x {session.topSet.reps}</dd>
+                            <dd className="mt-1 min-w-0 break-words font-bold text-slate-900 [overflow-wrap:anywhere]">{formatWeight(session.topSet.weightKg, weightUnit)} x {session.topSet.reps}</dd>
                           </div>
                           <div className="min-w-0">
                             <dt className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Est. 1RM</dt>
-                            <dd className="mt-1 min-w-0 break-words text-slate-700 [overflow-wrap:anywhere]">{formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}</dd>
+                            <dd className="mt-1 min-w-0 break-words text-slate-700 [overflow-wrap:anywhere]">{formatEstimatedOneRepMax(session.topSet.estimatedOneRepMaxKg, weightUnit)}</dd>
                           </div>
                         </dl>
                       </Link>
@@ -219,16 +204,16 @@ export function ProgressPage() {
                             <td className="min-w-0 px-4 py-3 font-semibold text-slate-900">
                               <Link
                                 to={`/workout/${session.sessionId}?from=progress&exerciseId=${encodeURIComponent(selectedExercise?.id ?? '')}`}
-                                aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt, session.workoutDate)}: ${formatWeight(session.topSet.weightKg)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}`}
+                                aria-label={`${selectedExercise?.name ?? ''}, ${formatShortDate(session.startedAt, session.workoutDate)}: ${formatWeight(session.topSet.weightKg, weightUnit)} x ${session.topSet.reps}, estimated 1RM ${formatEstimatedOneRepMax(session.topSet.estimatedOneRepMaxKg, weightUnit)}`}
                                 className="flex min-h-11 min-w-11 max-w-full items-center break-words transition hover:text-slate-500 [overflow-wrap:anywhere]"
                               >
                                 <time dateTime={session.workoutDate ?? session.startedAt}>{formatShortDate(session.startedAt, session.workoutDate)}</time>
                               </Link>
                             </td>
                             <td className="min-w-0 break-words px-4 py-3 font-bold text-slate-900 [overflow-wrap:anywhere]">
-                              {formatWeight(session.topSet.weightKg)} x {session.topSet.reps}
+                              {formatWeight(session.topSet.weightKg, weightUnit)} x {session.topSet.reps}
                             </td>
-                            <td className="min-w-0 break-words px-4 py-3 [overflow-wrap:anywhere]">{formatEstimatedWeight(session.topSet.estimatedOneRepMaxKg)}</td>
+                            <td className="min-w-0 break-words px-4 py-3 [overflow-wrap:anywhere]">{formatEstimatedOneRepMax(session.topSet.estimatedOneRepMaxKg, weightUnit)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -237,14 +222,14 @@ export function ProgressPage() {
 
                   <div
                     role="group"
-                    aria-label={`Estimated 1RM trend: ${progress.trendEstimatedOneRepMaxKg.map((weightKg) => `${formatTrendValue(weightKg)} kg`).join(' to ')}; ${getTrendLabel(progress.stats.progressKg, progress.stats.sessionCount)}`}
+                    aria-label={`Estimated 1RM trend: ${progress.trendEstimatedOneRepMaxKg.map((weightKg) => formatWeight(weightKg, weightUnit)).join(' to ')}; ${getTrendLabel(progress.stats.progressKg, progress.stats.sessionCount)}`}
                     className="mt-4 flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] bg-slate-50 px-4 py-3 text-sm text-slate-600"
                   >
                     <span className="font-semibold text-slate-700">Estimated 1RM trend:</span>
                     <ol aria-label="Estimated 1RM values in chronological order" className="flex min-w-0 flex-wrap items-center gap-1">
                       {progress.trendEstimatedOneRepMaxKg.map((weightKg, index) => (
                         <li key={`${weightKg}-${index}`} className="flex min-w-0 items-center gap-1">
-                          <span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatTrendValue(weightKg)} kg</span>
+                          <span className="min-w-0 break-words [overflow-wrap:anywhere]">{formatWeight(weightKg, weightUnit)}</span>
                           {index < progress.trendEstimatedOneRepMaxKg.length - 1 ? <span aria-hidden="true">-&gt;</span> : null}
                         </li>
                       ))}
