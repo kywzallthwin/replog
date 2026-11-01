@@ -2137,41 +2137,41 @@ export function WorkoutPage() {
 
             {session.endedAt ? null : (
               <div className="mt-5 space-y-2.5">
-                <div className={renderedExercises.length > 1 ? 'grid grid-cols-2 gap-2' : undefined}>
-                  <button
-                    ref={addExerciseButtonRef}
-                    type="button"
-                    onClick={(event) => openAddExercisePicker(event.currentTarget)}
-                    disabled={workoutMutationIsPending}
-                    className="min-h-11 w-full rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-                  >
-                    + Add Exercise
-                  </button>
-                  {renderedExercises.length > 1 ? (
-                    <button
-                      ref={reorderTriggerRef}
-                      type="button"
-                      onClick={openReorderDialog}
-                      disabled={workoutMutationIsPending}
-                      aria-label="Reorder Exercises"
-                      className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-                    >
-                      <ArrowUpDown aria-hidden="true" size={16} strokeWidth={2} />
-                      <span>Reorder</span>
-                    </button>
-                  ) : null}
-                </div>
+                <button
+                  ref={addExerciseButtonRef}
+                  type="button"
+                  onClick={(event) => openAddExercisePicker(event.currentTarget)}
+                  disabled={workoutMutationIsPending}
+                  className="min-h-11 w-full rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                >
+                  + Add Exercise
+                </button>
                 <div>
-                  <button
-                    type="button"
-                    ref={saveToProgramTriggerRef}
-                    onClick={openSaveToProgramConfirmation}
-                    disabled={saveToProgramBlockedReason !== null || workoutMutationIsPending}
-                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
-                  >
-                    <BookmarkCheck aria-hidden="true" size={16} strokeWidth={2} />
-                    <span>Save to Program</span>
-                  </button>
+                  <div className={renderedExercises.length > 1 ? 'grid grid-cols-2 gap-2' : undefined}>
+                    {renderedExercises.length > 1 ? (
+                      <button
+                        ref={reorderTriggerRef}
+                        type="button"
+                        onClick={openReorderDialog}
+                        disabled={workoutMutationIsPending}
+                        aria-label="Reorder Exercises"
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                      >
+                        <ArrowUpDown aria-hidden="true" size={16} strokeWidth={2} />
+                        <span>Reorder</span>
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      ref={saveToProgramTriggerRef}
+                      onClick={openSaveToProgramConfirmation}
+                      disabled={saveToProgramBlockedReason !== null || workoutMutationIsPending}
+                      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                    >
+                      <BookmarkCheck aria-hidden="true" size={16} strokeWidth={2} />
+                      <span>Save to Program</span>
+                    </button>
+                  </div>
                   {saveToProgramBlockedReason ? (
                     <p className="mt-2 text-[11px] font-semibold leading-4 text-slate-400">{saveToProgramBlockedReason}</p>
                   ) : null}
