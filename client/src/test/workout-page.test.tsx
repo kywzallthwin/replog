@@ -891,33 +891,78 @@ describe('WorkoutPage regression coverage', () => {
     expect(queryClient.getQueryState(manualDraftQueryKey)?.isInvalidated).toBe(true)
   })
 
-  it('optimistically reorders active workout exercises with Up/Down arrow buttons, boundary disabled states, focus transfer, and screen-reader announcements', async () => {
-    const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
+  it('opens and closes the Reorder Exercises dialog with compact rows, focus restoration, optimistic reordering, and status announcements', async () => {
+    const first = workoutExercise({
+      id: 'session-exercise-1',
+      exerciseId: 'bench',
+      name: 'Bench Press',
+      order: 1,
+      sets: [workoutSet({ id: 'set-1' }), workoutSet({ id: 'set-2', order: 1 })],
+    })
     const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
-    const third = workoutExercise({ id: 'session-exercise-3', exerciseId: 'squat', name: 'Back Squat', order: 3, sets: [] })
+    const third = workoutExercise({
+      id: 'session-exercise-3',
+      exerciseId: 'squat',
+      name: 'Back Squat',
+      order: 3,
+      sets: [workoutSet({ id: 'set-3' })],
+    })
     const reorderDownRequest = deferred<WorkoutExercise[]>()
     mockedReorderSessionExercise.mockReturnValueOnce(reorderDownRequest.promise)
 
     renderWorkout(workoutSession({ exercises: [first, second, third] }))
 
-    const moveBenchUp = await screen.findByRole('button', { name: 'Move Bench Press up' })
-    const moveBenchDown = screen.getByRole('button', { name: 'Move Bench Press down' })
-    const moveRowUp = screen.getByRole('button', { name: 'Move Barbell Row up' })
-    const moveRowDown = screen.getByRole('button', { name: 'Move Barbell Row down' })
-    const moveSquatUp = screen.getByRole('button', { name: 'Move Back Squat up' })
-    const moveSquatDown = screen.getByRole('button', { name: 'Move Back Squat down' })
+    const addExerciseTrigger = await screen.findByRole('button', { name: '+ Add Exercise' })
+    const reorderTrigger = await screen.findByRole('button', { name: 'Reorder Exercises' })
+    const saveToProgramTrigger = screen.getByRole('button', { name: 'Save to Program' })
+    const cancelTrigger = screen.getByRole('button', { name: 'Cancel Workout' })
+    const finishTrigger = screen.getByRole('button', { name: 'Finish Workout' })
 
-    expect(moveBenchUp).toHaveClass('h-11', 'w-11')
-    expect(moveBenchDown).toHaveClass('h-11', 'w-11')
-    expect(moveBenchUp).toBeDisabled()
-    expect(moveBenchDown).not.toBeDisabled()
-    expect(moveRowUp).not.toBeDisabled()
-    expect(moveRowDown).not.toBeDisabled()
-    expect(moveSquatUp).not.toBeDisabled()
-    expect(moveSquatDown).toBeDisabled()
+    expect(screen.getByText('Active workout').closest('.rounded-\\[20px\\]')).not.toContainElement(reorderTrigger)
+    expect(addExerciseTrigger.parentElement?.parentElement).toHaveClass('mt-5', 'space-y-2.5')
+    expect(addExerciseTrigger.parentElement).toHaveClass('grid', 'grid-cols-2', 'gap-2')
+    expect(addExerciseTrigger.parentElement).toContainElement(reorderTrigger)
+    expect(addExerciseTrigger).toHaveClass('min-h-11', 'rounded-[14px]', 'border-slate-200', 'bg-white', 'px-3', 'py-2.5', 'text-sm', 'font-bold', 'text-slate-600')
+    expect(reorderTrigger).toHaveClass('min-h-11', 'rounded-[14px]', 'border-slate-200', 'bg-white', 'px-3', 'py-2.5', 'text-sm', 'font-bold', 'text-slate-700')
+    expect(reorderTrigger).toHaveTextContent('Reorder')
+    expect(saveToProgramTrigger).toHaveClass('min-h-11', 'rounded-[14px]', 'py-2.5')
+    expect(cancelTrigger.parentElement).toHaveClass('grid', 'grid-cols-2', 'gap-2')
+    expect(within(cancelTrigger.parentElement as HTMLElement).getAllByRole('button')).toEqual([cancelTrigger, finishTrigger])
+    expect(cancelTrigger).toHaveClass('min-h-11', 'rounded-[14px]', 'border-red-200', 'bg-white', 'px-3', 'py-2.5', 'text-sm', 'font-bold', 'text-red-600')
+    expect(finishTrigger).toHaveClass('min-h-11', 'rounded-[14px]', 'bg-green-100', 'px-3', 'py-2.5', 'text-sm', 'font-bold', 'text-green-700')
+    expect(screen.queryByRole('button', { name: /Move .* (up|down)/ })).not.toBeInTheDocument()
 
-    moveBenchDown.focus()
-    fireEvent.click(moveBenchDown)
+    reorderTrigger.focus()
+    fireEvent.click(reorderTrigger)
+
+    let dialog = await screen.findByRole('dialog', { name: 'Reorder exercises' })
+    expect(within(dialog).getByText('Active Workout')).toBeInTheDocument()
+
+    // Dismiss with Escape and verify focus restores to the trigger button
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Reorder exercises' })).not.toBeInTheDocument()
+    expect(reorderTrigger).toHaveFocus()
+
+    // Reopen and verify compact row structure, step badges, set counts, and 44x44px drag handles
+    fireEvent.click(reorderTrigger)
+    dialog = await screen.findByRole('dialog', { name: 'Reorder exercises' })
+
+    const benchHandle = within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })
+    const rowHandle = within(dialog).getByRole('button', { name: 'Drag Barbell Row to reorder' })
+    const squatHandle = within(dialog).getByRole('button', { name: 'Drag Back Squat to reorder' })
+
+    expect(benchHandle).toHaveClass('h-11', 'w-11')
+    expect(rowHandle).toHaveClass('h-11', 'w-11')
+    expect(squatHandle).toHaveClass('h-11', 'w-11')
+    expect(benchHandle).toHaveFocus()
+    expect(within(dialog).getByText('2 sets')).toBeInTheDocument()
+    expect(within(dialog).getByText('No sets')).toBeInTheDocument()
+    expect(within(dialog).getByText('1 set')).toBeInTheDocument()
+    expect(within(dialog).getByText('Bench Press')).toHaveClass('truncate', 'text-sm', 'font-semibold', 'text-slate-900')
+    expect(within(dialog).getByRole('button', { name: 'Done' })).toHaveClass('min-h-11', 'w-full')
+
+    // Reorder Bench Press down via ArrowDown on its drag handle
+    fireEvent.keyDown(benchHandle, { key: 'ArrowDown' })
 
     await waitFor(() => {
       expect(mockedReorderSessionExercise.mock.calls[0]?.[0]).toEqual({
@@ -927,17 +972,28 @@ describe('WorkoutPage regression coverage', () => {
       })
     })
 
+    // Both popup rows and background workout cards update optimistically
+    const popupHandlesWhilePending = within(dialog)
+      .getAllByRole('button', { name: /Drag .* to reorder/ })
+      .map((button) => button.getAttribute('aria-label'))
+    expect(popupHandlesWhilePending).toEqual([
+      'Drag Barbell Row to reorder',
+      'Drag Bench Press to reorder',
+      'Drag Back Squat to reorder',
+    ])
+
     const headingsWhilePending = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
     expect(headingsWhilePending).toEqual(['Barbell Row', 'Bench Press', 'Back Squat'])
     expect(within(await getExerciseCard('Barbell Row')).getByText('Exercise 1')).toBeInTheDocument()
     expect(within(await getExerciseCard('Bench Press')).getByText('Exercise 2')).toBeInTheDocument()
     expect(within(await getExerciseCard('Back Squat')).getByText('Exercise 3')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
-    expect(screen.getByRole('button', { name: 'Move Bench Press up' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Move Bench Press down' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Move Barbell Row down' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '+ Add Exercise' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Finish Workout' })).toBeDisabled()
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
+
+    // Pending mutation locks drag handles, Done button, and Escape dismissal
+    expect(within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Done' })).toBeDisabled()
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(dialog).toBeInTheDocument()
 
     reorderDownRequest.resolve([
       { ...second, order: 1 },
@@ -945,51 +1001,34 @@ describe('WorkoutPage regression coverage', () => {
       { ...third, order: 3 },
     ])
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Move Bench Press down' })).not.toBeDisabled())
-    expect(screen.getByRole('button', { name: 'Move Bench Press down' })).toHaveFocus()
-    expect(screen.getByRole('button', { name: 'Move Barbell Row up' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Move Back Squat down' })).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })).not.toBeDisabled())
+    expect(within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })).toHaveFocus()
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
 
-    // Move Bench Press down again to the bottom (index 2) and verify focus shifts to Move Bench Press up
+    // Move Back Squat up via ArrowUp on its drag handle
     mockedReorderSessionExercise.mockResolvedValueOnce([
       { ...second, order: 1 },
       { ...third, order: 2 },
       { ...first, order: 3 },
     ])
-    fireEvent.click(screen.getByRole('button', { name: 'Move Bench Press down' }))
+    const updatedSquatHandle = within(dialog).getByRole('button', { name: 'Drag Back Squat to reorder' })
+    updatedSquatHandle.focus()
+    fireEvent.keyDown(updatedSquatHandle, { key: 'ArrowUp' })
 
     await waitFor(() => {
       expect(mockedReorderSessionExercise.mock.calls[1]?.[0]).toEqual({
         sessionId: 'session-1',
-        sessionExerciseId: 'session-exercise-1',
-        targetIndex: 2,
-      })
-    })
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Move Bench Press up' })).toHaveFocus())
-    expect(screen.getByRole('button', { name: 'Move Bench Press down' })).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('Moved Bench Press to position 3 of 3.')
-
-    // Move Back Squat up to the top (index 0) and verify focus shifts to Move Back Squat down
-    mockedReorderSessionExercise.mockResolvedValueOnce([
-      { ...third, order: 1 },
-      { ...second, order: 2 },
-      { ...first, order: 3 },
-    ])
-    const squatUpButton = screen.getByRole('button', { name: 'Move Back Squat up' })
-    squatUpButton.focus()
-    fireEvent.click(squatUpButton)
-
-    await waitFor(() => {
-      expect(mockedReorderSessionExercise.mock.calls[2]?.[0]).toEqual({
-        sessionId: 'session-1',
         sessionExerciseId: 'session-exercise-3',
-        targetIndex: 0,
+        targetIndex: 1,
       })
     })
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Move Back Squat down' })).toHaveFocus())
-    expect(screen.getByRole('button', { name: 'Move Back Squat up' })).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('Moved Back Squat to position 1 of 3.')
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Drag Back Squat to reorder' })).toHaveFocus())
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Moved Back Squat to position 2 of 3.')
+
+    // Clicking Done closes the dialog and restores focus to the Reorder Exercises button
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('dialog', { name: 'Reorder exercises' })).not.toBeInTheDocument()
+    expect(reorderTrigger).toHaveFocus()
   })
 
   it('restores the previous exercise order and shows an accessible alert when reordering fails', async () => {
@@ -1000,8 +1039,10 @@ describe('WorkoutPage regression coverage', () => {
 
     renderWorkout(workoutSession({ exercises: [first, second] }))
 
-    const moveBenchDown = await screen.findByRole('button', { name: 'Move Bench Press down' })
-    fireEvent.click(moveBenchDown)
+    fireEvent.click(await screen.findByRole('button', { name: 'Reorder Exercises' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Reorder exercises' })
+    const benchHandle = within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })
+    fireEvent.keyDown(benchHandle, { key: 'ArrowDown' })
 
     await waitFor(() => {
       expect(mockedReorderSessionExercise.mock.calls[0]?.[0]).toEqual({
@@ -1017,7 +1058,15 @@ describe('WorkoutPage regression coverage', () => {
 
     reorderRequest.reject(new Error('offline'))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to reorder the exercise. Please try again.')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to reorder the exercise. Please try again.')
+    expect(
+      within(dialog)
+        .getAllByRole('button', { name: /Drag .* to reorder/ })
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual([
+      'Drag Bench Press to reorder',
+      'Drag Barbell Row to reorder',
+    ])
     expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
       'Bench Press',
       'Barbell Row',
@@ -1026,7 +1075,7 @@ describe('WorkoutPage regression coverage', () => {
     expect(within(await getExerciseCard('Barbell Row')).getByText('Exercise 2')).toBeInTheDocument()
   })
 
-  it('disables reorder arrow buttons while a conflicting set mutation is in flight', async () => {
+  it('disables the Reorder Exercises trigger button while a conflicting set mutation is in flight', async () => {
     const setSaveRequest = deferred<WorkoutSet>()
     mockedAddSet.mockReturnValueOnce(setSaveRequest.promise)
     const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
@@ -1038,24 +1087,27 @@ describe('WorkoutPage regression coverage', () => {
     fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Move Bench Press down' })).toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Move Barbell Row up' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Reorder Exercises' })).toBeDisabled()
     })
 
     setSaveRequest.resolve(workoutSet({ id: 'set-2', order: 2 }))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Move Bench Press down' })).not.toBeDisabled()
-      expect(screen.getByRole('button', { name: 'Move Barbell Row up' })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Reorder Exercises' })).not.toBeDisabled()
     })
   })
 
-  it('hides exercise reorder arrow buttons on completed workouts', async () => {
+  it('hides Reorder Exercises on completed workouts and single-exercise workouts', async () => {
     const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
     const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
 
     renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600, exercises: [first, second] }))
     await screen.findByText('Completed workout')
-    expect(screen.queryByRole('button', { name: /Move .* (up|down)/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reorder Exercises' })).not.toBeInTheDocument()
+
+    renderWorkout(workoutSession({ exercises: [first] }))
+    await screen.findByText('Active workout')
+    expect(screen.queryByRole('button', { name: 'Reorder Exercises' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ Add Exercise' }).parentElement?.className ?? '').not.toContain('grid-cols-2')
   })
 })
 
