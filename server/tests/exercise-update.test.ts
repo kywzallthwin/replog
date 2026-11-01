@@ -137,3 +137,249 @@ test('rejects unauthorized, duplicate, and invalid exercise updates', async () =
     // Test data is isolated by unique names and is removed by the test database lifecycle.
   }
 })
+
+test('archives an owned custom exercise, removes it from program days with order recompaction, and preserves completed workout history and progress', async () => {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const ownerAgent = request.agent(app)
+  const otherAgent = request.agent(app)
+
+  try {
+    const ownerResponse = await ownerAgent.post('/api/auth/register').send({ email: `archive-owner-${suffix}@example.com`, username: 'Archive Owner', password: 'password123' })
+    const otherResponse = await otherAgent.post('/api/auth/register').send({ email: `archive-other-${suffix}@example.com`, username: 'Archive Other', password: 'password123' })
+    assert.equal(ownerResponse.status, 201, ownerResponse.text)
+    assert.equal(otherResponse.status, 201, otherResponse.text)
+    const ownerId = ownerResponse.body.user.id as string
+    const otherId = otherResponse.body.user.id as string
+
+    const category = await prisma.exerciseCategory.create({ data: { displayName: `Archive Category ${suffix}`, normalizedName: `archive-category-${suffix}`, ownerId, displayOrder: 1000 } })
+    const globalCategory = await prisma.exerciseCategory.create({ data: { displayName: `Archive Global Category ${suffix}`, normalizedName: `archive-global-category-${suffix}`, displayOrder: 902 } })
+    const globalExercise = await prisma.exercise.create({ data: { name: `Global Press ${suffix}`, categoryId: globalCategory.id } })
+    const archivedExercise = await prisma.exercise.create({ data: { name: `Cable Fly ${suffix}`, categoryId: category.id, ownerId } })
+    const siblingExercise = await prisma.exercise.create({ data: { name: `Pec Deck ${suffix}`, categoryId: category.id, ownerId } })
+    const otherExercise = await prisma.exercise.create({ data: { name: `Other Custom ${suffix}`, categoryId: globalCategory.id, ownerId: otherId } })
+
+    const programOne = await prisma.program.create({
+      data: {
+        ownerId,
+        name: `Archive Program 1 ${suffix}`,
+        nameKey: `archive-program-1-${suffix}`,
+        days: {
+          create: [
+            {
+              name: 'Day A',
+              badgeColor: 'bg-blue-100 text-blue-800',
+              order: 1,
+              dayExercises: {
+                create: [
+                  { exerciseId: globalExercise.id, order: 1 },
+                  { exerciseId: archivedExercise.id, order: 2 },
+                  { exerciseId: siblingExercise.id, order: 3 },
+                ],
+              },
+            },
+            {
+              name: 'Day B',
+              badgeColor: 'bg-green-100 text-green-800',
+              order: 2,
+              dayExercises: {
+                create: [
+                  { exerciseId: archivedExercise.id, order: 1 },
+                  { exerciseId: siblingExercise.id, order: 2 },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      include: { days: { orderBy: { order: 'asc' } } },
+    })
+
+    const programTwo = await prisma.program.create({
+      data: {
+        ownerId,
+        name: `Archive Program 2 ${suffix}`,
+        nameKey: `archive-program-2-${suffix}`,
+        days: {
+          create: [
+            {
+              name: 'Solo Day',
+              badgeColor: 'bg-amber-100 text-amber-800',
+              order: 1,
+              dayExercises: {
+                create: [{ exerciseId: archivedExercise.id, order: 1 }],
+              },
+            },
+          ],
+        },
+      },
+      include: { days: true },
+    })
+
+    const dayA = programOne.days[0]
+    const dayB = programOne.days[1]
+    const soloDay = programTwo.days[0]
+    assert.ok(dayA && dayB && soloDay)
+
+    const completedSession = await prisma.session.create({
+      data: {
+        userId: ownerId,
+        programId: programOne.id,
+        dayId: dayA.id,
+        dayNameSnapshot: 'Day A',
+        badgeColorSnapshot: 'bg-blue-100 text-blue-800',
+        startedAt: new Date('2026-01-05T09:00:00.000Z'),
+        endedAt: new Date('2026-01-05T10:00:00.000Z'),
+        durationSec: 3600,
+        sessionExercises: {
+          create: [
+            {
+              exerciseId: archivedExercise.id,
+              nameSnapshot: `Cable Fly Logged ${suffix}`,
+              order: 1,
+              setLogs: {
+                create: [{ kind: 'NORMAL', weightKg: 45, reps: 10, order: 1 }],
+              },
+            },
+          ],
+        },
+      },
+    })
+
+    const activeSession = await prisma.session.create({
+      data: {
+        userId: ownerId,
+        programId: programOne.id,
+        dayId: dayA.id,
+        dayNameSnapshot: 'Day A',
+        badgeColorSnapshot: 'bg-blue-100 text-blue-800',
+        sessionExercises: {
+          create: [
+            { exerciseId: globalExercise.id, nameSnapshot: globalExercise.name, order: 1 },
+          ],
+        },
+      },
+    })
+    const activeSessionExercise = await prisma.sessionExercise.findFirstOrThrow({
+      where: { sessionId: activeSession.id },
+    })
+
+    // Built-in and other user's exercises cannot be deleted
+    const deleteBuiltIn = await ownerAgent.delete(`/api/exercises/${globalExercise.id}`)
+    assert.equal(deleteBuiltIn.status, 404, deleteBuiltIn.text)
+    assert.equal((await prisma.exercise.findUniqueOrThrow({ where: { id: globalExercise.id } })).archivedAt, null)
+
+    const deleteOther = await ownerAgent.delete(`/api/exercises/${otherExercise.id}`)
+    assert.equal(deleteOther.status, 404, deleteOther.text)
+    assert.equal((await prisma.exercise.findUniqueOrThrow({ where: { id: otherExercise.id } })).archivedAt, null)
+
+    // Delete owned custom exercise
+    const deleteResponse = await ownerAgent.delete(`/api/exercises/${archivedExercise.id}`)
+    assert.equal(deleteResponse.status, 204, deleteResponse.text)
+
+    const archivedRecord = await prisma.exercise.findUniqueOrThrow({ where: { id: archivedExercise.id } })
+    assert.notEqual(archivedRecord.archivedAt, null)
+
+    // Re-deleting an already-archived exercise returns 404
+    const secondDelete = await ownerAgent.delete(`/api/exercises/${archivedExercise.id}`)
+    assert.equal(secondDelete.status, 404, secondDelete.text)
+
+    // Program days have removed the archived exercise and recompacted order
+    const dayOneExercises = await prisma.dayExercise.findMany({
+      where: { dayId: dayA.id },
+      orderBy: { order: 'asc' },
+    })
+    assert.deepEqual(
+      dayOneExercises.map((entry) => [entry.exerciseId, entry.order]),
+      [
+        [globalExercise.id, 1],
+        [siblingExercise.id, 2],
+      ],
+    )
+
+    const dayTwoExercises = await prisma.dayExercise.findMany({
+      where: { dayId: dayB.id },
+      orderBy: { order: 'asc' },
+    })
+    assert.deepEqual(
+      dayTwoExercises.map((entry) => [entry.exerciseId, entry.order]),
+      [[siblingExercise.id, 1]],
+    )
+
+    const soloDayExercises = await prisma.dayExercise.findMany({
+      where: { dayId: soloDay.id },
+    })
+    assert.equal(soloDayExercises.length, 0)
+
+    // Catalog excludes the archived exercise
+    const catalogResponse = await ownerAgent.get('/api/exercises')
+    assert.equal(catalogResponse.status, 200, catalogResponse.text)
+    const catalogExercises = (catalogResponse.body as { exercises: { id: string }[] }).exercises
+    assert.equal(catalogExercises.some((entry) => entry.id === archivedExercise.id), false)
+    assert.equal(catalogExercises.some((entry) => entry.id === siblingExercise.id), true)
+    assert.equal(catalogExercises.some((entry) => entry.id === globalExercise.id), true)
+
+    // Completed workout history and progress remain intact
+    const sessionDetail = await ownerAgent.get(`/api/sessions/${completedSession.id}`)
+    assert.equal(sessionDetail.status, 200, sessionDetail.text)
+    assert.deepEqual(
+      (sessionDetail.body as { session: { exercises: { exerciseId: string; name: string; sets: { weightKg: number; reps: number }[] }[] } }).session.exercises.map((entry) => ({
+        exerciseId: entry.exerciseId,
+        name: entry.name,
+        setCount: entry.sets.length,
+      })),
+      [{ exerciseId: archivedExercise.id, name: `Cable Fly Logged ${suffix}`, setCount: 1 }],
+    )
+
+    const historyResponse = await ownerAgent.get('/api/sessions/history')
+    assert.equal(historyResponse.status, 200, historyResponse.text)
+    const historySession = (historyResponse.body as { sessions: { id: string; exercisePreview: string[] }[] }).sessions.find((item) => item.id === completedSession.id)
+    assert.deepEqual(historySession?.exercisePreview, [`Cable Fly Logged ${suffix}`])
+
+    const progressResponse = await ownerAgent.get(`/api/progress?exerciseId=${archivedExercise.id}`)
+    assert.equal(progressResponse.status, 200, progressResponse.text)
+    assert.equal(progressResponse.body.selectedExercise.id, archivedExercise.id)
+    assert.equal(progressResponse.body.stats.sessionCount, 1)
+    assert.equal(progressResponse.body.stats.heaviestWeightKg, 45)
+
+    // Archived exercise is excluded from active normalized-name uniqueness checks on update and create
+    const renameToArchivedName = await ownerAgent.patch(`/api/exercises/${siblingExercise.id}`).send({ name: `  cable fly ${suffix}  ` })
+    assert.equal(renameToArchivedName.status, 200, renameToArchivedName.text)
+
+    const restoreSiblingName = await ownerAgent.patch(`/api/exercises/${siblingExercise.id}`).send({ name: `Pec Deck ${suffix}` })
+    assert.equal(restoreSiblingName.status, 200, restoreSiblingName.text)
+
+    const recreateWithArchivedName = await ownerAgent.post('/api/exercises').send({ name: `Cable Fly ${suffix}`, categoryId: category.id })
+    assert.equal(recreateWithArchivedName.status, 201, recreateWithArchivedName.text)
+    assert.notEqual(recreateWithArchivedName.body.exercise.id, archivedExercise.id)
+
+    // Archived exercise cannot be updated, merged, added to program days, or added/swapped into workouts
+    const updateArchived = await ownerAgent.patch(`/api/exercises/${archivedExercise.id}`).send({ name: `Revived ${suffix}` })
+    assert.equal(updateArchived.status, 404, updateArchived.text)
+
+    const updateArchivedCategory = await ownerAgent.patch(`/api/exercises/${archivedExercise.id}/category`).send({ categoryId: category.id })
+    assert.equal(updateArchivedCategory.status, 404, updateArchivedCategory.text)
+
+    const mergeFromArchived = await ownerAgent.post(`/api/exercises/${archivedExercise.id}/merge`).send({ targetExerciseId: siblingExercise.id })
+    assert.equal(mergeFromArchived.status, 404, mergeFromArchived.text)
+
+    const mergeIntoArchived = await ownerAgent.post(`/api/exercises/${siblingExercise.id}/merge`).send({ targetExerciseId: archivedExercise.id })
+    assert.equal(mergeIntoArchived.status, 404, mergeIntoArchived.text)
+
+    const addArchivedToProgramDay = await ownerAgent
+      .post(`/api/programs/${programOne.id}/days/${dayA.id}/exercises`)
+      .send({ exerciseId: archivedExercise.id })
+    assert.equal(addArchivedToProgramDay.status, 404, addArchivedToProgramDay.text)
+
+    const addArchivedToSession = await ownerAgent
+      .post(`/api/sessions/${activeSession.id}/exercises`)
+      .send({ exerciseId: archivedExercise.id })
+    assert.equal(addArchivedToSession.status, 404, addArchivedToSession.text)
+
+    const swapToArchivedInSession = await ownerAgent
+      .patch(`/api/sessions/${activeSession.id}/exercises/${activeSessionExercise.id}`)
+      .send({ exerciseId: archivedExercise.id })
+    assert.equal(swapToArchivedInSession.status, 404, swapToArchivedInSession.text)
+  } finally {
+    // Test data is isolated by unique names and is removed by the test database lifecycle.
+  }
+})

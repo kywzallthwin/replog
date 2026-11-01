@@ -569,6 +569,7 @@ sessionsRouter.post('/:sessionId/exercises', requireAuth, async (req, res) => {
   const exercise = await prisma.exercise.findFirst({
     where: {
       id: parsedBody.data.exerciseId,
+      archivedAt: null,
       OR: [{ ownerId: null }, { ownerId: userId }],
     },
   })
@@ -663,6 +664,7 @@ sessionsRouter.patch('/:sessionId/exercises/:sessionExerciseId', requireAuth, as
   const exercise = await prisma.exercise.findFirst({
     where: {
       id: parsedBody.data.exerciseId,
+      archivedAt: null,
       OR: [{ ownerId: null }, { ownerId: userId }],
     },
   })
@@ -886,7 +888,7 @@ sessionsRouter.post('/:sessionId/save-to-program', requireAuth, async (req, res)
 
   const session = await prisma.session.findFirst({
     where: { id: sessionId, userId },
-    include: { sessionExercises: { orderBy: { order: 'asc' } } },
+    include: { sessionExercises: { where: { exercise: { archivedAt: null } }, orderBy: { order: 'asc' } } },
   })
 
   if (!session) {

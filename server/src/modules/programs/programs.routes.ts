@@ -193,7 +193,7 @@ programsRouter.post('/', requireAuth, async (req, res) => {
           days: {
             orderBy: { order: 'asc' },
             include: {
-              dayExercises: { orderBy: { order: 'asc' } },
+              dayExercises: { where: { exercise: { archivedAt: null } }, orderBy: { order: 'asc' } },
             },
           },
         },
@@ -239,9 +239,9 @@ programsRouter.post('/', requireAuth, async (req, res) => {
                 badgeColor: day.badgeColor,
                 order: day.order,
                 dayExercises: {
-                  create: day.dayExercises.map((exercise) => ({
+                  create: day.dayExercises.map((exercise, index) => ({
                     exerciseId: exercise.exerciseId,
-                    order: exercise.order,
+                    order: index + 1,
                   })),
                 },
               })),
@@ -664,7 +664,7 @@ programsRouter.post('/:programId/days/:dayId/exercises', requireAuth, async (req
   }
 
   const exercise = await prisma.exercise.findFirst({
-    where: { id: parsedBody.data.exerciseId, OR: [{ ownerId: null }, { ownerId: userId }] },
+    where: { id: parsedBody.data.exerciseId, archivedAt: null, OR: [{ ownerId: null }, { ownerId: userId }] },
   })
 
   if (!exercise) {

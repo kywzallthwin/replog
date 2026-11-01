@@ -81,3 +81,7 @@ export async function updateExercise(exerciseId: string, input: UpdateExerciseIn
 
   return response.data.exercise
 }
+
+export async function deleteExercise(exerciseId: string) {
+  await api.delete(`/exercises/${exerciseId}`)
+}
