@@ -77,6 +77,20 @@ test('dashboard Up Next selects only usable active-program days', async () => {
     assert.equal((await getSuggestedDay())?.id, workA.id)
     assert.equal((await getSuggestedDay())?.id, workA.id)
 
+    // Reorder WORK B (currently index 3) before WORK A (to index 1) and verify dashboard sequence follows the reordered program
+    const reorderBeforeSessionResponse = await agent
+      .patch(`/api/programs/${activeProgram.id}/days/${workB.id}/reorder`)
+      .send({ targetIndex: 1 })
+    assert.equal(reorderBeforeSessionResponse.status, 200, reorderBeforeSessionResponse.text)
+    assert.equal((await getSuggestedDay())?.id, workB.id)
+
+    // Reorder WORK B back to index 3 (order 4) so WORK A is first again
+    const restoreReorderResponse = await agent
+      .patch(`/api/programs/${activeProgram.id}/days/${workB.id}/reorder`)
+      .send({ targetIndex: 3 })
+    assert.equal(restoreReorderResponse.status, 200, restoreReorderResponse.text)
+    assert.equal((await getSuggestedDay())?.id, workA.id)
+
     await createCompletedSession(activeProgram.id, workA, '2026-01-01T10:00:00.000Z')
     assert.equal((await getSuggestedDay())?.id, workB.id)
 
