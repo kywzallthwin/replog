@@ -1,15 +1,15 @@
 # RepLog Status
 
-- Active initiatives: Wave 2 verification sync complete on `fix/severBug` (`2209410` through `1dc7f04`); W2-03, W2-04, W2-05, W2-06, W2-07, W2-08, W2-09, W2-13, W2-15, W2-16, and W2-17 are verified and closed (`done`). AV-01 free-hosting startup reliability and CF-05 production cutover remain governed by their deployment gates.
+- Active initiatives: Wave 2 verification sync complete on `feat/wave` (`a3a7282`); W2-03, W2-04, W2-05, W2-06, W2-07, W2-08, W2-09, W2-13, W2-15, W2-16, and W2-17 are verified and closed (`done`). AV-01 free-hosting startup reliability and CF-05 production cutover are completed and verified on production.
 - Governing plan: `WAVE2.md` for Wave 2 product tickets; `tickets/AV-01.md` for startup reliability; `tickets/CF-00.md` for Cloudflare architecture and security work.
 - Wave 2 status: W2-01, W2-02, W2-03, W2-04, W2-05, W2-06, W2-07, W2-08, W2-09, W2-10, W2-12, W2-13, W2-14, W2-15, W2-16, and W2-17 are `done`. Remaining Wave 2 tickets (`W2-11`) are `proposed`.
-- Current branch: `fix/severBug` (at `1dc7f04`, aligned with `feat/wave`).
-- Current ticket: none active in Wave 2 (W2-10 Estimated 1RM Guide Route verified and closed as `done`); AV-01 (`tickets/AV-01.md`) and CF-05 (`tickets/CF-05.md`) remain pending production deployment evidence and explicit deployment authorization.
+- Current branch: `feat/wave` (at `a3a7282`).
+- Current ticket: none active in Wave 2. AV-01 (`tickets/AV-01.md`) and CF-05 (`tickets/CF-05.md`) are complete following verified production probes and deployment authorization.
 - Latest `fix/severBug` verification (`2209410` confirm-before-finish, `ca31c53` save workout changes back to program day, `c7a3213` simplified startup/recovery screens, `f7afd53` server wake-up checks and retry timing, `af89732` post-sleep set-save recovery, W2-04 active-workout exercise reordering, W2-05 whole-day program reordering, W2-06 custom exercise deletion / archival, W2-07 completed workout deletion, W2-08 kg/lb preference and conversion, W2-09 responsive SVG progress chart, W2-18 all-exercises chart feed, and W2-10 estimated 1RM guide route): full `npm run check` passed with **228 client tests** (30 test files), **34 server tests**, and **9 edge Worker tests**, plus Prisma generate/validate, all workspace lint and typechecks, client and server builds, Worker dry-run packaging, health smoke, and `git diff --check`.
-- AV-01 status: simplified startup/recovery screens (`c7a3213`), wake-up retry timing (`f7afd53`), and post-sleep set-save recovery (`af89732`) are verified locally in `npm run check`. Deployed version/revisions, genuine idle wake-up evidence, independent deployment review, rollback capture, and explicit authorization remain pending; no production changes were made.
-- CF-05 status: active by explicit user authorization on 2026-09-30; production cutover remains gated on shared-secret confirmation, independent review, and coordinated deployment evidence.
-- Final public URL: `https://replog-edge.kywzallthwin1.workers.dev`.
-- CF-05 deployment record: pre-cutover; old/intermediate URLs, Render revision/commit, Worker version, and rollback evidence remain to be recorded after coordinated deployment.
+- AV-01 status: verified. Production probes recorded 429 mitigation pre-Express; local UI/retry logic handles API_STARTING and UPSTREAM_UNAVAILABLE safely.
+- CF-05 status: done. Production cutover completed with shared-secret, steady-state flags (`SERVE_CLIENT=false`, `REQUIRE_EDGE_PROXY=true`), and direct Render API blocking verified.
+- Final public URL: `https://replog.zllt.workers.dev`.
+- CF-05 deployment record: `https://replog-edge.kywzallthwin1.workers.dev` decommissioned. Upstream verified as `https://replog-tracker.onrender.com`. Rollback baseline is `813e07a` (main).
 - Wave 1 mobile and cold-start gates are complete.
 - CF-01 through CF-04 implementations and cross-stack verifications are complete.
 - W2-03 persistent rest-timer controls are `done`: verified in `WorkoutPage.tsx` and `useRestTimer.ts` with fake-timer unit tests, `npm run check`, and 375×667 Chromium checks covering idle `1:30` display, post-set auto-restart, `+15s`, `Skip`, `localStorage` refresh persistence, and workout finish cleanup.
