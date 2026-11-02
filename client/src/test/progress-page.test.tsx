@@ -218,7 +218,8 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
     renderProgress()
     
     // Sort A to Z
-    fireEvent.change(await screen.findByRole('combobox', { name: 'Sort exercises' }), { target: { value: 'az' } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Sort exercises: Biggest gain' }))
+    fireEvent.click(screen.getByRole('option', { name: 'A to Z' }))
     const rowsAZ = screen.getAllByRole('button', { name: /Compare/ })
     expect(rowsAZ[0]).toHaveAttribute('aria-label', 'Compare Apple')
 

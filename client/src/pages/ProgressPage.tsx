@@ -7,6 +7,7 @@ import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
 import { PageLoader } from '../components/ui/PageLoader'
+import { FluidSelect } from '../components/forms/FluidSelect'
 import {
   computeExerciseRangeStats,
   formatPercentChange,
@@ -31,6 +32,13 @@ const CheckSvg = () => (
 )
 
 type SortOption = 'gain' | 'trained' | 'stalled' | 'az'
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'gain', label: 'Biggest gain' },
+  { value: 'trained', label: 'Most trained' },
+  { value: 'stalled', label: 'Stalled first' },
+  { value: 'az', label: 'A to Z' },
+]
 
 export function ProgressPage() {
   const weightUnit = useWeightUnit()
@@ -419,25 +427,22 @@ export function ProgressPage() {
 
             <section aria-label="All exercises" className="rounded-[24px] bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-3 mb-4">
-                <input
-                  type="search"
-                  placeholder="Search exercises"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500"
-                />
-                <div className="flex items-center gap-3">
-                  <select
-                    aria-label="Sort exercises"
-                    value={sort}
-                    onChange={e => setSort(e.target.value as SortOption)}
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 outline-none"
-                  >
-                    <option value="gain">Biggest gain</option>
-                    <option value="trained">Most trained</option>
-                    <option value="stalled">Stalled first</option>
-                    <option value="az">A to Z</option>
-                  </select>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <input
+                    type="search"
+                    placeholder="Search exercises"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="flex-1 min-w-0 min-h-12 rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500"
+                  />
+                  <div className="w-full sm:w-[200px]">
+                    <FluidSelect
+                      value={sort}
+                      options={SORT_OPTIONS}
+                      onValueChange={(nextSort) => setSort(nextSort as SortOption)}
+                      ariaLabel="Sort exercises"
+                    />
+                  </div>
                 </div>
                 <div role="group" aria-label="Muscle group" className="flex flex-wrap gap-2">
                   {categories.map(cat => (
