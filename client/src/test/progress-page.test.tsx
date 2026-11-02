@@ -202,8 +202,10 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
     renderProgress()
 
     // Sort A to Z
-    const sortSelect = await screen.findByRole('combobox', { name: 'Sort exercises' })
-    fireEvent.change(sortSelect, { target: { value: 'az' } })
+    const sortSelect = await screen.findByRole('button', { name: /Sort exercises:/ })
+    fireEvent.click(sortSelect)
+    const azOption = await screen.findByRole('option', { name: 'A to Z' })
+    fireEvent.click(azOption)
     const rowsAZ = screen.getAllByRole('button', { name: /Compare/ })
     expect(rowsAZ[0]).toHaveAttribute('aria-label', 'Compare Apple')
 
@@ -239,7 +241,7 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
     expect(within(dialog).getByText('116.7 kg')).toBeInTheDocument()
 
     // Raise reps to 6 => 100 * (1 + 6/30) = 120
-    fireEvent.click(within(dialog).getByRole('button', { name: 'More reps' }))
+    fireEvent.pointerDown(within(dialog).getByRole('button', { name: 'More reps' }))
     expect(within(dialog).getByText('120 kg')).toBeInTheDocument()
 
     // Close via Got It

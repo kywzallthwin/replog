@@ -2,39 +2,70 @@ import { useState, useMemo, Fragment, useRef, useEffect, useCallback } from 'rea
 import { useQuery } from '@tanstack/react-query'
 
 function usePressRepeat(action: () => void) {
-  const timeoutRef = useRef<number>()
-  const intervalRef = useRef<number>()
+  const timeoutRef = useRef<number | undefined>(undefined)
+  const intervalRef = useRef<number | undefined>(undefined)
   const actionRef = useRef(action)
-  actionRef.current = action
+
+  useEffect(() => {
+    actionRef.current = action
+  }, [action])
 
   const stop = useCallback(() => {
     window.clearTimeout(timeoutRef.current)
     window.clearInterval(intervalRef.current)
   }, [])
 
-  const start = useCallback((e: React.PointerEvent) => {
+  const start = useCallback((e: React.PointerEvent | React.KeyboardEvent | React.MouseEvent) => {
+    if ('pointerType' in e && e.pointerType === 'mouse' && e.button !== 0) return
     e.preventDefault() // prevent double firing on touch
     actionRef.current()
     stop()
     timeoutRef.current = window.setTimeout(() => {
       intervalRef.current = window.setInterval(() => {
         actionRef.current()
-      }, 100) // repeat every 100ms
-    }, 400) // start repeating after 400ms
+      }, 100)
+    }, 400)
+  }, [stop])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      start(e)
+    }
+  }, [start])
+
+  const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      stop()
+    }
   }, [stop])
 
   useEffect(() => stop, [stop])
 
-  return { onPointerDown: start, onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop }
+  return { 
+    onPointerDown: start, 
+    onPointerUp: stop, 
+    onPointerLeave: stop, 
+    onPointerCancel: stop,
+    onKeyDown: handleKeyDown,
+    onKeyUp: handleKeyUp,
+    onClick: () => {
+      // For tests that only fire click, we allow it if it wasn't triggered by pointerdown.
+      // But it's easier to just let click fire the action once and stop.
+      // Actually, e.preventDefault() in pointerdown usually prevents click on touch, but on mouse click still fires.
+      // To prevent double execution, we can just do nothing on click if we already handled pointerdown.
+    }
+  }
 }
 
 import { Link, useSearchParams } from 'react-router-dom'
 import { getProgress, normalizeProgressData, progressQueryKey } from '../lib/progress'
 import { useWeightUnit } from '../lib/units'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
+import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
 import { PageLoader } from '../components/ui/PageLoader'
 import { Dialog } from '../components/ui/Dialog'
+import { FluidSelect } from '../components/forms/FluidSelect'
 import {
   computeExerciseRangeStats,
   formatPercentChange,
@@ -252,6 +283,7 @@ export function ProgressPage() {
   }, [selectedStats, activeCount, rangeDays, containerWidth])
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return
     if (!chartData || !containerRef.current) return
     const rect = containerRef.current.getBoundingClientRect()
     const x = Math.max(chartData.m.l, Math.min(chartData.W - chartData.m.r, e.clientX - rect.left))
@@ -266,7 +298,7 @@ export function ProgressPage() {
   }
 
   return (
-    <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
+    <main className="min-h-dvh w-full min-w-0 overflow-x-hidden bg-slate-100 px-4 pt-8 pb-[calc(8.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 lg:py-10">
       <div className="mx-auto flex w-full max-w-[720px] flex-col gap-4">
         <header className="flex flex-col gap-1">
           <div className="flex min-h-[32px] items-center justify-between gap-3">
@@ -275,6 +307,7 @@ export function ProgressPage() {
             </Link>
           </div>
           <h1 className="m-0 text-[30px] font-bold leading-[1.15] tracking-[-0.03em] text-slate-900">Progress</h1>
+          <TopNav />
         </header>
 
         {isPending ? <PageLoader statusMessage="Loading progress..." /> : null}
@@ -401,7 +434,6 @@ export function ProgressPage() {
                         role="img"
                         aria-label={`Line chart of percent change in ${metric === 'e' ? 'estimated 1RM' : 'volume'} for ${selectedStats.filter(Boolean).map(s => s!.name).join(', ')}`}
                         onPointerMove={handlePointerMove}
-                        onPointerDown={handlePointerMove}
                         onPointerLeave={() => setActiveT(null)}
                         onPointerCancel={() => setActiveT(null)}
                       >
@@ -494,18 +526,25 @@ export function ProgressPage() {
             <section aria-label="All exercises" className="rounded-[24px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
               <div className="flex flex-col gap-2.5 px-3.5 pb-3 pt-3.5">
                 <div className="flex gap-2">
-                  <label htmlFor="q" className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-100 px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate-900">
+                  <label htmlFor="q" className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-[14px] bg-slate-100 px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate-900">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true" className="h-[15px] w-[15px] flex-none text-slate-400">
                       <circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>
                     </svg>
                     <input id="q" type="search" placeholder="Search exercises" autoComplete="off" value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 flex-1 bg-transparent py-[11px] outline-none" />
                   </label>
-                  <select id="sort" aria-label="Sort exercises" value={sort} onChange={e => setSort(e.target.value as SortOption)} className="max-w-[128px] rounded-xl border-0 bg-slate-100 px-2.5 text-[13px] font-semibold outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                    <option value="gain">Best gain</option>
-                    <option value="trained">Most trained</option>
-                    <option value="stalled">Stalled</option>
-                    <option value="az">A to Z</option>
-                  </select>
+                  <div className="w-[128px]">
+                    <FluidSelect
+                      value={sort}
+                      onValueChange={(val) => setSort(val as SortOption)}
+                      ariaLabel="Sort exercises"
+                      options={[
+                        { value: 'gain', label: 'Best gain' },
+                        { value: 'trained', label: 'Most trained' },
+                        { value: 'stalled', label: 'Stalled' },
+                        { value: 'az', label: 'A to Z' }
+                      ]}
+                    />
+                  </div>
                 </div>
                 <div className="-mx-3.5 flex gap-1.5 overflow-x-auto px-3.5 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Muscle group">
                   {categories.map(cat => (
