@@ -307,7 +307,7 @@ export function ProgressPage() {
                   type="button"
                   aria-pressed={rangeDays === val}
                   onClick={() => setRangeDays(val)}
-                  className={`min-h-[40px] flex-1 rounded-[10px] border-0 bg-transparent px-3 text-[14px] font-semibold transition-colors ${rangeDays === val ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)]' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`min-h-[40px] flex-1 rounded-[10px] border-0 bg-transparent px-3 text-[14px] font-semibold cursor-pointer select-none transition-all duration-150 active:scale-[0.96] ${rangeDays === val ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] active:bg-slate-50' : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 active:bg-white/85'}`}
                 >
                   {val === 30 ? '30d' : val === 90 ? '90d' : val === 180 ? '6m' : '1y'}
                 </button>
@@ -324,7 +324,7 @@ export function ProgressPage() {
                       type="button"
                       aria-pressed={metric === val}
                       onClick={() => setMetric(val)}
-                      className={`flex-none rounded-[9px] px-[11px] min-h-[30px] text-[12px] font-semibold transition-colors ${metric === val ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)]' : 'bg-transparent text-slate-600 hover:text-slate-900'}`}
+                      className={`flex-none rounded-[9px] px-[11px] min-h-[30px] text-[12px] font-semibold cursor-pointer select-none transition-all duration-150 active:scale-[0.96] ${metric === val ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)] active:bg-slate-50' : 'bg-transparent text-slate-600 hover:bg-white/60 hover:text-slate-900 active:bg-white/85'}`}
                     >
                       {val === 'e' ? 'Est. 1RM' : 'Volume'}
                     </button>
@@ -341,7 +341,7 @@ export function ProgressPage() {
                     <span key={id} className="inline-flex h-[30px] items-center gap-[7px] rounded-full bg-slate-100 pl-[10px] pr-[3px] text-[13px] font-semibold text-slate-900">
                       <i className="h-[9px] w-[9px] flex-none rounded-full" style={{ backgroundColor: SLOT_COLORS[idx] }} />
                       {s.name}
-                      <button type="button" aria-label={`Remove ${s.name} from chart`} onClick={() => toggleSlot(id)} className="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-900">
+                      <button type="button" aria-label={`Remove ${s.name} from chart`} onClick={() => toggleSlot(id)} className="flex h-6 w-6 cursor-pointer select-none items-center justify-center rounded-full text-slate-400 transition-all duration-150 hover:bg-slate-200 hover:text-slate-900 active:scale-90 active:bg-slate-300">
                         <XSvg />
                       </button>
                     </span>
