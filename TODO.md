@@ -2,7 +2,7 @@
 
 ## Deferred Guide Page
 
-- [ ] Build `/guide` in a future release.
+- [x] Build `/guide` in a future release.
 
 ### First Guide Entry: Estimated 1RM Personal Best
 

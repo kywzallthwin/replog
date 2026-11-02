@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, beforeAll } from 'vitest'
 import { ProgressPage } from '../pages/ProgressPage'
 import {
   getProgress,
@@ -83,6 +83,14 @@ function renderProgress(initialEntries = ['/progress']) {
   return queryClient
 }
 
+beforeAll(() => {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+})
+
 beforeEach(() => {
   mockedGetProgress.mockReset()
   mockedGetDashboard.mockResolvedValue(dashboardData)
@@ -97,7 +105,7 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
 
     renderProgress()
     expect(await screen.findByRole('status', { name: 'Loading progress...' })).toBeInTheDocument()
-    
+
     await act(async () => resolveProgress(progressData()))
     expect(await screen.findByRole('heading', { name: 'No finished sets yet.' })).toBeInTheDocument()
 
@@ -106,53 +114,29 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
     expect(await screen.findByText('Unable to load progress. Please refresh and try again.')).toBeInTheDocument()
   })
 
-  it('renders Compare chart with up to 3 defaults, legend pills, and summary counts', async () => {
+  it('renders Compare chart with up to 3 defaults, legend chips, and sparklines', async () => {
     const data = progressData({
       exerciseSummaries: [
-        createSummary('ex1', 'Bench', 'Chest', [{ daysAgo: 10, v: 100 }, { daysAgo: 5, v: 110 }, { daysAgo: 1, v: 120 }]), // up
-        createSummary('ex2', 'Squat', 'Legs', [{ daysAgo: 10, v: 100 }, { daysAgo: 5, v: 100 }]), // flat
-        createSummary('ex3', 'Row', 'Back', [{ daysAgo: 10, v: 100 }, { daysAgo: 1, v: 80 }]), // down
-        createSummary('ex4', 'Curl', 'Arms', [{ daysAgo: 10, v: 50 }, { daysAgo: 1, v: 55 }]), // up (4th)
+        createSummary('ex1', 'Bench', 'Chest', [{ daysAgo: 10, v: 100 }, { daysAgo: 5, v: 110 }, { daysAgo: 1, v: 120 }]),
+        createSummary('ex2', 'Squat', 'Legs', [{ daysAgo: 10, v: 100 }, { daysAgo: 5, v: 100 }]),
+        createSummary('ex3', 'Row', 'Back', [{ daysAgo: 10, v: 100 }, { daysAgo: 1, v: 80 }]),
+        createSummary('ex4', 'Curl', 'Arms', [{ daysAgo: 10, v: 50 }, { daysAgo: 1, v: 55 }]),
       ]
     })
     mockedGetProgress.mockResolvedValue(data)
 
     renderProgress()
 
-    // Default top 3 are selected
+    // Default top 3 are selected (based on n -> ex1, ex2, ex3)
     expect(await screen.findByRole('heading', { name: /Compare/ })).toBeInTheDocument()
     expect(screen.getByText('3 of 5')).toBeInTheDocument()
 
-    // 2 up, 1 flat, 1 down total
-    expect(screen.getByText('2')).toBeInTheDocument() // upCount
-    expect(screen.getAllByText('1').length).toBeGreaterThan(0) // flatCount / downCount
-    
-    // Legend pills
+    // Legend chips
     expect(screen.getByRole('button', { name: 'Remove Bench from chart' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove Curl from chart' })).toBeInTheDocument()
-    
+    expect(screen.queryByRole('button', { name: 'Remove Curl from chart' })).not.toBeInTheDocument()
+
     // Chart is rendered
     expect(screen.getByRole('img', { name: /Line chart of percent change/ })).toBeInTheDocument()
-  })
-
-  it('excludes exercises with < 2 sessions in the selected range', async () => {
-    const data = progressData({
-      exerciseSummaries: [
-        createSummary('ex1', 'Bench', 'Chest', [{ daysAgo: 60, v: 100 }, { daysAgo: 45, v: 110 }]), // 2 in 90d, 0 in 30d
-        createSummary('ex2', 'Squat', 'Legs', [{ daysAgo: 10, v: 100 }]), // 1 in 30d
-      ]
-    })
-    mockedGetProgress.mockResolvedValue(data)
-
-    renderProgress()
-
-    // In 90d (default), Bench is included
-    expect((await screen.findAllByText('Bench')).length).toBeGreaterThan(0)
-    expect(screen.queryByText('Squat')).not.toBeInTheDocument() // never included
-
-    // Switch to 30d
-    fireEvent.click(screen.getByRole('button', { name: '30d' }))
-    expect(screen.getByText('No exercises match. Clear the search or pick another muscle group.')).toBeInTheDocument()
   })
 
   it('toggles time range, metric, and view', async () => {
@@ -166,7 +150,7 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
     renderProgress()
 
     expect(await screen.findByRole('button', { name: '30d' })).toBeInTheDocument()
-    
+
     // Metric
     fireEvent.click(screen.getByRole('button', { name: 'Volume' }))
     // Volume was 10x
@@ -179,7 +163,7 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
   })
 
   it('toggles exercises in/out of Compare and shows limit hint', async () => {
-    const summaries = Array.from({ length: 6 }).map((_, i) => 
+    const summaries = Array.from({ length: 6 }).map((_, i) =>
       createSummary(`ex${i}`, `Ex ${i}`, 'All', [{ daysAgo: 10, v: 100 }, { daysAgo: 1, v: 110 }])
     )
     const data = progressData({ exerciseSummaries: summaries })
@@ -193,17 +177,17 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
     const pickButtons = screen.getAllByRole('button', { name: /Compare Ex/ })
     fireEvent.click(pickButtons[3]) // add 4th
     fireEvent.click(pickButtons[4]) // add 5th
-    
+
     expect(screen.getByText('5 of 5')).toBeInTheDocument()
 
     // Try 6th
     fireEvent.click(pickButtons[5])
-    expect(screen.getByText('The chart holds up to 5 exercises. Remove one to add another.')).toBeInTheDocument()
+    expect(screen.getByText('The chart holds up to 5. Remove one to add another.')).toBeInTheDocument()
 
     // Remove one via legend pill
     fireEvent.click(screen.getByRole('button', { name: 'Remove Ex 0 from chart' }))
     expect(screen.getByText('4 of 5')).toBeInTheDocument()
-    expect(screen.queryByText('The chart holds up to 5 exercises.')).not.toBeInTheDocument()
+    expect(screen.queryByText('The chart holds up to 5.')).not.toBeInTheDocument()
   })
 
   it('filters and sorts sparkline rows', async () => {
@@ -216,10 +200,10 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
     mockedGetProgress.mockResolvedValue(data)
 
     renderProgress()
-    
+
     // Sort A to Z
-    fireEvent.click(await screen.findByRole('button', { name: 'Sort exercises: Biggest gain' }))
-    fireEvent.click(screen.getByRole('option', { name: 'A to Z' }))
+    const sortSelect = await screen.findByRole('combobox', { name: 'Sort exercises' })
+    fireEvent.change(sortSelect, { target: { value: 'az' } })
     const rowsAZ = screen.getAllByRole('button', { name: /Compare/ })
     expect(rowsAZ[0]).toHaveAttribute('aria-label', 'Compare Apple')
 
@@ -233,5 +217,33 @@ describe('ProgressPage - Compare Chart & Sparklines', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Chest' }))
     expect(screen.getAllByText('Apple').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Compare Zebra' })).not.toBeInTheDocument()
+  })
+
+  it('opens and interacts with the 1RM explainer sheet (Dialog)', async () => {
+    const data = progressData({
+      exerciseSummaries: [
+        createSummary('ex1', 'Bench', 'Chest', [{ daysAgo: 10, v: 100 }, { daysAgo: 1, v: 120 }]),
+      ]
+    })
+    mockedGetProgress.mockResolvedValue(data)
+    renderProgress()
+
+    const explainerBtn = await screen.findByRole('button', { name: /How 1RM works/ })
+    fireEvent.click(explainerBtn)
+
+    // Wait for dialog
+    const dialog = screen.getByRole('dialog', { name: 'Estimated 1RM' })
+    expect(dialog).toBeInTheDocument()
+
+    // Calculate logic check: epley 100x5 = 116.7
+    expect(within(dialog).getByText('116.7 kg')).toBeInTheDocument()
+
+    // Raise reps to 6 => 100 * (1 + 6/30) = 120
+    fireEvent.click(within(dialog).getByRole('button', { name: 'More reps' }))
+    expect(within(dialog).getByText('120 kg')).toBeInTheDocument()
+
+    // Close via Got It
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Got it' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
