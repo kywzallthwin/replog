@@ -1,5 +1,33 @@
-import { useState, useMemo, Fragment, useRef, useEffect } from 'react'
+import { useState, useMemo, Fragment, useRef, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+
+function usePressRepeat(action: () => void) {
+  const timeoutRef = useRef<number>()
+  const intervalRef = useRef<number>()
+  const actionRef = useRef(action)
+  actionRef.current = action
+
+  const stop = useCallback(() => {
+    window.clearTimeout(timeoutRef.current)
+    window.clearInterval(intervalRef.current)
+  }, [])
+
+  const start = useCallback((e: React.PointerEvent) => {
+    e.preventDefault() // prevent double firing on touch
+    actionRef.current()
+    stop()
+    timeoutRef.current = window.setTimeout(() => {
+      intervalRef.current = window.setInterval(() => {
+        actionRef.current()
+      }, 100) // repeat every 100ms
+    }, 400) // start repeating after 400ms
+  }, [stop])
+
+  useEffect(() => stop, [stop])
+
+  return { onPointerDown: start, onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop }
+}
+
 import { Link, useSearchParams } from 'react-router-dom'
 import { getProgress, normalizeProgressData, progressQueryKey } from '../lib/progress'
 import { useWeightUnit } from '../lib/units'
@@ -67,6 +95,11 @@ export function ProgressPage() {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
+
+  const wMinus = usePressRepeat(() => setCalcW(w => Math.max(weightUnit === 'LB' ? 5 : 2.5, w - (weightUnit === 'LB' ? 5 : 2.5))))
+  const wPlus = usePressRepeat(() => setCalcW(w => Math.min(400, w + (weightUnit === 'LB' ? 5 : 2.5))))
+  const rMinus = usePressRepeat(() => setCalcR(r => Math.max(1, r - 1)))
+  const rPlus = usePressRepeat(() => setCalcR(r => Math.min(20, r + 1)))
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -541,10 +574,9 @@ export function ProgressPage() {
           labelledBy="sheetTitle"
           onClose={() => setIsSheetOpen(false)}
           restoreFocusRef={sheetTriggerRef}
-          overlayClassName="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 min-[520px]:items-center min-[520px]:p-4"
-          className="w-full max-w-[440px] animate-[up_0.22s_ease-out] rounded-t-[28px] bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)] min-[520px]:rounded-[28px]"
+          overlayClassName="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4"
+          className="w-full max-w-[400px] rounded-[28px] bg-white p-5 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]"
         >
-          <div className="mx-auto mb-3.5 h-1 w-9 rounded-full bg-slate-300 min-[520px]:hidden" aria-hidden="true" />
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 id="sheetTitle" className="m-0 text-[20px] font-bold tracking-[-0.02em] text-slate-900">
@@ -566,17 +598,17 @@ export function ProgressPage() {
                   <div className="flex flex-col items-center gap-1 rounded-[14px] bg-white p-2 shadow-sm">
                     <label htmlFor="wOut" className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-600">Weight</label>
                     <div className="flex w-full items-center justify-between gap-1">
-                      <button type="button" data-step="w-" onClick={() => setCalcW(w => Math.max(weightUnit === 'LB' ? 5 : 2.5, w - (weightUnit === 'LB' ? 5 : 2.5)))} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold hover:bg-slate-200" aria-label="Lower weight">−</button>
+                      <button type="button" data-step="w-" {...wMinus} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold hover:bg-slate-200 active:scale-95 active:bg-slate-300 touch-none select-none" aria-label="Lower weight">−</button>
                       <output id="wOut" className="flex-1 text-center text-[22px] font-extrabold tracking-[-0.03em] tabular-nums text-slate-900">{calcW}<small className="ml-0.5 text-[12px] font-semibold tracking-normal text-slate-600">{weightUnit === 'LB' ? 'lb' : 'kg'}</small></output>
-                      <button type="button" data-step="w+" onClick={() => setCalcW(w => Math.min(400, w + (weightUnit === 'LB' ? 5 : 2.5)))} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold hover:bg-slate-200" aria-label="Raise weight">+</button>
+                      <button type="button" data-step="w+" {...wPlus} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold hover:bg-slate-200 active:scale-95 active:bg-slate-300 touch-none select-none" aria-label="Raise weight">+</button>
                     </div>
                   </div>
                   <div className="flex flex-col items-center gap-1 rounded-[14px] bg-white p-2 shadow-sm">
                     <label htmlFor="rOut" className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-600">Reps</label>
                     <div className="flex w-full items-center justify-between gap-1">
-                      <button type="button" data-step="r-" onClick={() => setCalcR(r => Math.max(1, r - 1))} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold hover:bg-slate-200" aria-label="Fewer reps">−</button>
+                      <button type="button" data-step="r-" {...rMinus} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold hover:bg-slate-200 active:scale-95 active:bg-slate-300 touch-none select-none" aria-label="Fewer reps">−</button>
                       <output id="rOut" className="flex-1 text-center text-[22px] font-extrabold tracking-[-0.03em] tabular-nums text-slate-900">{calcR}</output>
-                      <button type="button" data-step="r+" onClick={() => setCalcR(r => Math.min(20, r + 1))} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold hover:bg-slate-200" aria-label="More reps">+</button>
+                      <button type="button" data-step="r+" {...rPlus} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold hover:bg-slate-200 active:scale-95 active:bg-slate-300 touch-none select-none" aria-label="More reps">+</button>
                     </div>
                   </div>
                 </div>
