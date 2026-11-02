@@ -20,6 +20,7 @@ This file is the ticket index. Read only the active ticket named in `STATUS.md`.
 - [W2-15](tickets/W2-15.md): done - program editor page
 - [W2-16](tickets/W2-16.md): done - log past workout
 - [W2-17](tickets/W2-17.md): done - custom exercise rename
+- [W2-18](tickets/W2-18.md): done - all-exercises chart feed
 
 ## Implementation Order
 

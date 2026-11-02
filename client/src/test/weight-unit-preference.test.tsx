@@ -247,11 +247,45 @@ describe('Cross-page kg/lb preference and conversion', () => {
     expect(screen.getByText('Lb Lifted')).toBeInTheDocument()
   })
 
-  it('converts ProgressPage PB, progress delta, heaviest set, session history, and trend to LB', async () => {
+  it('converts ProgressPage current metric values and Compare Table values to LB', async () => {
     const queryClient = createTestQueryClient({
       defaultOptions: { queries: { staleTime: Infinity, retry: false } },
     })
     queryClient.setQueryData(authMeQueryKey, makeUser('LB'))
+
+    const data: ProgressData = {
+      exercises: [],
+      selectedExercise: null,
+      personalBest: null,
+      stats: { sessionCount: 0, progressKg: 0, heaviestWeightKg: 0 },
+      sessionHistory: [],
+      trendEstimatedOneRepMaxKg: [],
+      exerciseSummaries: [
+        {
+          exercise: { id: 'bench', name: 'Bench Press', category: 'CHEST' },
+          personalBest: null,
+          stats: { sessionCount: 2, progressKg: 0, heaviestWeightKg: 0 },
+          sessionHistory: [
+            {
+              sessionId: 's1',
+              startedAt: '2026-09-01T08:00:00.000Z',
+              dayName: 'Day',
+              volumeKg: 1000,
+              topSet: { estimatedOneRepMaxKg: 100, weightKg: 100, reps: 1 }
+            },
+            {
+              sessionId: 's2',
+              startedAt: '2026-09-05T08:00:00.000Z',
+              dayName: 'Day',
+              volumeKg: 1100,
+              topSet: { estimatedOneRepMaxKg: 110, weightKg: 110, reps: 1 }
+            }
+          ],
+          trendEstimatedOneRepMaxKg: []
+        }
+      ]
+    }
+    mockedGetProgress.mockResolvedValue(data)
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -261,21 +295,26 @@ describe('Cross-page kg/lb preference and conversion', () => {
       </QueryClientProvider>,
     )
 
-    expect((await screen.findAllByText('223.1 lb')).length).toBeGreaterThan(0)
-    expect(screen.getByText('+16.5 lb')).toBeInTheDocument()
-    expect(screen.getByText('198.4 lb')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /From 198.4 lb x 5 reps/ })).toBeInTheDocument()
-    expect(
-      screen.getByRole('group', { name: /206.6 lb to 216.9 lb to 223.1 lb; up/ }),
-    ).toBeInTheDocument()
-    const chartFigure = screen.getByRole('figure', { name: 'Estimated 1RM chart for Bench Press' })
-    expect(within(chartFigure).getByText('Estimated 1RM (lb)')).toBeInTheDocument()
-    expect(within(chartFigure).getByText('206.6 lb – 223.1 lb')).toBeInTheDocument()
-    expect(
-      within(chartFigure).getByRole('img', {
-        name: /starts at 206.6 lb, latest 223.1 lb, range 206.6 lb to 223.1 lb, trend increasing \(\+16.5 lb\)/,
-      }),
-    ).toBeInTheDocument()
+    // Wait for the UI to load
+    expect(await screen.findByRole('heading', { name: /Compare/ })).toBeInTheDocument()
+
+    // 110 kg * 2.2046226218 = 242.508... -> 242.5 lb (Est. 1RM current value)
+    expect(screen.getByText('242.5 lb')).toBeInTheDocument()
+
+    // Switch to volume metric
+    fireEvent.click(screen.getByRole('button', { name: 'Volume' }))
+
+    // 1100 kg * 2.2046226218 = 2425.08... -> 2,425.1 lb
+    expect(screen.getByText('2,425.1 lb')).toBeInTheDocument()
+
+    // Switch to Table view
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }))
+    const table = screen.getByRole('table')
+    
+    // Start value (1050 kg average of 1000 and 1100) = 2,314.9 lb
+    expect(within(table).getByText('2,314.9 lb')).toBeInTheDocument()
+    // Now value (1100 kg volume) = 2,425.1 lb
+    expect(within(table).getByText('2,425.1 lb')).toBeInTheDocument()
   })
 
   it('converts WorkoutPage displays, converts pound inputs to kg once on submit, and avoids edit round-trip drift', async () => {

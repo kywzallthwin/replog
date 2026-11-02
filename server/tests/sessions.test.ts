@@ -108,7 +108,7 @@ test('last-time references use the latest owned earlier workout and the Progress
       })
     }
 
-    await createCompletedSession(ownerId, new Date('2026-01-01T10:00:00.000Z'), [
+    const firstTemporalSession = await createCompletedSession(ownerId, new Date('2026-01-01T10:00:00.000Z'), [
       {
         exerciseId: temporalExercise.id,
         name: temporalExercise.name,
@@ -164,7 +164,7 @@ test('last-time references use the latest owned earlier workout and the Progress
       { exerciseId: temporalExercise.id, name: temporalExercise.name, sets: [] },
     ])
 
-    await createCompletedSession(ownerId, new Date('2026-01-04T10:00:00.000Z'), [
+    const lastTemporalSession = await createCompletedSession(ownerId, new Date('2026-01-04T10:00:00.000Z'), [
       {
         exerciseId: temporalExercise.id,
         name: temporalExercise.name,
@@ -231,6 +231,74 @@ test('last-time references use the latest owned earlier workout and the Progress
     assert.equal(tieProgressResponse.status, 200, tieProgressResponse.text)
     assert.equal(tieProgressResponse.body.personalBest.weightKg, 112.5)
     assert.equal(tieProgressResponse.body.personalBest.reps, 2)
+
+    type ProgressSummary = {
+      exercise: { id: string; name: string; category: string }
+      personalBest: { sessionId: string; estimatedOneRepMaxKg: number; weightKg: number; reps: number } | null
+      stats: { sessionCount: number; progressKg: number; heaviestWeightKg: number }
+      sessionHistory: Array<{ sessionId: string; topSet: { estimatedOneRepMaxKg: number; weightKg: number; reps: number } }>
+      trendEstimatedOneRepMaxKg: number[]
+    }
+
+    const estimateOneRepMax = (weightKg: number, reps: number) => (reps === 1 ? weightKg : weightKg * (1 + reps / 30))
+    const allProgressResponse = await ownerAgent.get('/api/progress')
+    assert.equal(allProgressResponse.status, 200, allProgressResponse.text)
+
+    const summaries = allProgressResponse.body.exerciseSummaries as ProgressSummary[]
+    assert.equal(summaries.length, 3)
+    assert.deepEqual(
+      summaries.map((summary) => summary.exercise.id).sort(),
+      [oneRepExercise.id, tieExercise.id, temporalExercise.id].sort(),
+    )
+
+    const temporalSummary = summaries.find((summary) => summary.exercise.id === temporalExercise.id)
+    assert.ok(temporalSummary)
+    assert.equal(temporalSummary.exercise.name, temporalExercise.name)
+    assert.ok(temporalSummary.exercise.category.length > 0)
+    assert.equal(temporalSummary.stats.sessionCount, 3)
+    assert.equal(temporalSummary.stats.heaviestWeightKg, 200)
+    assert.equal(temporalSummary.personalBest?.sessionId, lastTemporalSession.id)
+    assert.equal(temporalSummary.personalBest?.weightKg, 200)
+    assert.equal(temporalSummary.personalBest?.reps, 10)
+    assert.ok(
+      Math.abs((temporalSummary.personalBest?.estimatedOneRepMaxKg ?? 0) - estimateOneRepMax(200, 10)) < 1e-9,
+    )
+    assert.ok(
+      Math.abs(temporalSummary.stats.progressKg - (estimateOneRepMax(200, 10) - estimateOneRepMax(80, 10))) < 1e-9,
+    )
+    assert.deepEqual(
+      temporalSummary.trendEstimatedOneRepMaxKg.map((value) => Math.round(value * 1000) / 1000),
+      [
+        Math.round(estimateOneRepMax(80, 10) * 1000) / 1000,
+        Math.round(estimateOneRepMax(50, 5) * 1000) / 1000,
+        Math.round(estimateOneRepMax(200, 10) * 1000) / 1000,
+      ],
+    )
+    assert.deepEqual(
+      temporalSummary.sessionHistory.map((session) => session.sessionId),
+      [lastTemporalSession.id, latestPreviousSession.id, firstTemporalSession.id],
+    )
+
+    const oneRepSummary = summaries.find((summary) => summary.exercise.id === oneRepExercise.id)
+    assert.ok(oneRepSummary)
+    assert.equal(oneRepSummary.stats.sessionCount, 1)
+    assert.equal(oneRepSummary.stats.heaviestWeightKg, 100)
+    assert.equal(oneRepSummary.personalBest?.weightKg, 96)
+    assert.equal(oneRepSummary.personalBest?.reps, 2)
+
+    const tieSummary = summaries.find((summary) => summary.exercise.id === tieExercise.id)
+    assert.ok(tieSummary)
+    assert.equal(tieSummary.stats.sessionCount, 1)
+    assert.equal(tieSummary.personalBest?.weightKg, 112.5)
+
+    const selectedSummary = summaries.find(
+      (summary) => summary.exercise.id === allProgressResponse.body.selectedExercise.id,
+    )
+    assert.ok(selectedSummary)
+    assert.deepEqual(allProgressResponse.body.stats, selectedSummary.stats)
+    assert.deepEqual(allProgressResponse.body.sessionHistory, selectedSummary.sessionHistory)
+    assert.deepEqual(allProgressResponse.body.trendEstimatedOneRepMaxKg, selectedSummary.trendEstimatedOneRepMaxKg)
+    assert.deepEqual(allProgressResponse.body.personalBest, selectedSummary.personalBest)
   } finally {
     await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, otherEmail] } } })
   }
