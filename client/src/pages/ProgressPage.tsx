@@ -474,7 +474,7 @@ export function ProgressPage() {
               </div>
 
               <div className="flex items-center justify-between gap-2 px-3 pb-3.5 pt-1.5">
-                <button type="button" ref={sheetTriggerRef} onClick={() => setIsSheetOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-full bg-slate-100 pl-1.5 pr-3 text-[13px] font-semibold text-slate-900 transition hover:bg-slate-200" aria-haspopup="dialog">
+                <button type="button" ref={sheetTriggerRef} onClick={() => setIsSheetOpen(true)} className="inline-flex h-10 cursor-pointer select-none items-center gap-2 rounded-full bg-slate-100 pl-1.5 pr-3 text-[13px] font-semibold text-slate-900 transition hover:bg-slate-200 active:scale-95 active:bg-slate-300" aria-haspopup="dialog">
                   <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-slate-900 text-white">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" className="h-[14px] w-[14px]">
                       <path d="M8 7.2v4.3"/><circle cx="8" cy="4.6" r="0.6" fill="currentColor"/>
@@ -485,7 +485,7 @@ export function ProgressPage() {
                     <path d="M4.5 2.5L8 6l-3.5 3.5"/>
                   </svg>
                 </button>
-                <button type="button" aria-pressed={view === 'table'} onClick={() => setView(view === 'table' ? 'chart' : 'table')} className="flex h-10 items-center justify-center rounded-[10px] px-2.5 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">
+                <button type="button" aria-pressed={view === 'table'} onClick={() => setView(view === 'table' ? 'chart' : 'table')} className="inline-flex h-10 cursor-pointer select-none items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-3.5 text-[13px] font-semibold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-150 hover:border-slate-300 hover:bg-slate-200 hover:text-slate-900 active:scale-95 active:bg-slate-300">
                   {view === 'table' ? 'Chart' : 'Table'}
                 </button>
               </div>
