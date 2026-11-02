@@ -202,9 +202,10 @@ export function ProgressPage() {
   }, [selectedStats, activeCount, rangeDays])
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return
     if (!chartData || !chartRef.current) return
     const rect = chartRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
+    const x = ((e.clientX - rect.left) / Math.max(1, rect.width)) * chartData.W
     const { m, w, tMin, tMax } = chartData
     
     if (x < m.l || x > m.l + w) {
@@ -330,10 +331,10 @@ export function ProgressPage() {
                     role="img"
                     aria-label={`Line chart of percent change in ${metric === 'e' ? 'estimated 1RM' : 'volume'} for ${selectedStats.filter(Boolean).map(s => s!.name).join(', ')}`}
                     viewBox={`0 0 ${chartData.W} ${chartData.H}`}
-                    className="w-full h-auto touch-none"
+                    className="w-full h-auto touch-pan-y"
                     onPointerMove={handlePointerMove}
-                    onPointerDown={handlePointerMove}
                     onPointerLeave={() => setActiveT(null)}
+                    onPointerCancel={() => setActiveT(null)}
                   >
                     {chartData.yTicks.map(y => (
                       <g key={y}>
