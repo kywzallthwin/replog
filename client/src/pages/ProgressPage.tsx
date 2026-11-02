@@ -532,7 +532,7 @@ export function ProgressPage() {
                     </svg>
                     <input id="q" type="search" placeholder="Search exercises" autoComplete="off" value={search} onChange={e => setSearch(e.target.value)} className="auth-field-input min-w-0 flex-1 bg-transparent py-[11px] text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus-visible:!outline-none" />
                   </label>
-                  <div className="w-[144px] shrink-0 sm:w-[154px]">
+                  <div className="w-[160px] shrink-0 sm:w-[172px]">
                     <FluidSelect
                       value={sort}
                       onValueChange={(val) => setSort(val as SortOption)}
