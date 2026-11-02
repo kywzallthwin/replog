@@ -526,13 +526,13 @@ export function ProgressPage() {
             <section aria-label="All exercises" className="rounded-[24px] bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
               <div className="flex flex-col gap-2.5 px-3.5 pb-3 pt-3.5">
                 <div className="flex gap-2">
-                  <label htmlFor="q" className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-[14px] bg-slate-100 px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate-900">
+                  <label htmlFor="q" className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-[14px] bg-slate-100 px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate-900">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true" className="h-[15px] w-[15px] flex-none text-slate-400">
                       <circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>
                     </svg>
-                    <input id="q" type="search" placeholder="Search exercises" autoComplete="off" value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 flex-1 bg-transparent py-[11px] outline-none" />
+                    <input id="q" type="search" placeholder="Search exercises" autoComplete="off" value={search} onChange={e => setSearch(e.target.value)} className="auth-field-input min-w-0 flex-1 bg-transparent py-[11px] text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus-visible:!outline-none" />
                   </label>
-                  <div className="w-[128px]">
+                  <div className="w-[144px] shrink-0 sm:w-[154px]">
                     <FluidSelect
                       value={sort}
                       onValueChange={(val) => setSort(val as SortOption)}
