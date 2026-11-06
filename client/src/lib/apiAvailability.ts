@@ -75,7 +75,7 @@ function waitWithCancellation(promise: Promise<void>, signal?: GenericAbortSigna
   })
 }
 
-export function ensureApiAvailable(getApiBaseUrl: () => string, signal?: GenericAbortSignal) {
+export function ensureApiAvailable(getApiBaseUrl: () => string, signal?: GenericAbortSignal, wakeUrl?: string) {
   if (!isApiAvailabilityStale()) return Promise.resolve()
   if (readinessFlight && (readinessFlight.controller.signal.aborted || readinessFlight.waiters === 0)) {
     const abandonedFlight = readinessFlight
@@ -89,7 +89,7 @@ export function ensureApiAvailable(getApiBaseUrl: () => string, signal?: Generic
       waiters: 0,
       promise: Promise.resolve(),
     }
-    flight.promise = waitForApiReadiness({ apiBaseUrl: getApiBaseUrl(), signal: controller.signal }).then(() => {
+    flight.promise = waitForApiReadiness({ apiBaseUrl: getApiBaseUrl(), signal: controller.signal, wakeUrl }).then(() => {
       markApiAvailable()
     }).finally(() => {
       if (readinessFlight === flight) readinessFlight = null
@@ -133,12 +133,12 @@ function isRetryableFailure(error: AxiosError) {
   return !error.response || [502, 503, 504].includes(error.response.status)
 }
 
-export function installApiAvailability(instance: AxiosInstance, getApiBaseUrl: () => string) {
+export function installApiAvailability(instance: AxiosInstance, getApiBaseUrl: () => string, wakeUrl?: string) {
   instance.interceptors.request.use(async (config) => {
     const availabilityConfig = config as AvailabilityConfig
     if (isMutation(config) && !availabilityConfig.__repLogAvailabilityChecked) {
       availabilityConfig.__repLogAvailabilityChecked = true
-      await ensureApiAvailable(getApiBaseUrl, config.signal)
+      await ensureApiAvailable(getApiBaseUrl, config.signal, wakeUrl)
     }
     return config
   })
@@ -158,7 +158,7 @@ export function installApiAvailability(instance: AxiosInstance, getApiBaseUrl: (
         throw error
       }
 
-      await ensureApiAvailable(getApiBaseUrl, config.signal)
+      await ensureApiAvailable(getApiBaseUrl, config.signal, wakeUrl)
       config.__repLogReplay = true
       return instance.request(config)
     },

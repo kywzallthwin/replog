@@ -20,6 +20,76 @@ describe('API readiness', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
+  it('starts a browser wake after a retryable failure and stops it on success', async () => {
+    const fetchImpl = vi.fn().mockRejectedValueOnce(new Error('cold start')).mockResolvedValueOnce(readyResponse())
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    const stop = vi.fn()
+    const wake = vi.fn(() => ({ stop }))
+
+    await waitForApiReadiness({
+      apiBaseUrl: '/api',
+      wakeUrl: 'https://wake.example.test/health',
+      wake,
+      fetchImpl,
+      sleep,
+      delayMs: 5,
+    })
+
+    expect(wake).toHaveBeenCalledOnce()
+    expect(wake).toHaveBeenCalledWith('https://wake.example.test/health')
+    expect(stop).toHaveBeenCalledOnce()
+  })
+
+  it('does not wake when readiness succeeds immediately', async () => {
+    const wake = vi.fn(() => ({ stop: vi.fn() }))
+
+    await waitForApiReadiness({
+      apiBaseUrl: '/api',
+      wakeUrl: 'https://wake.example.test/health',
+      wake,
+      fetchImpl: vi.fn().mockResolvedValue(readyResponse()),
+    })
+
+    expect(wake).not.toHaveBeenCalled()
+  })
+
+  it('does not wake on a non-retryable readiness failure', async () => {
+    const wake = vi.fn(() => ({ stop: vi.fn() }))
+
+    await expect(waitForApiReadiness({
+      apiBaseUrl: '/api',
+      wakeUrl: 'https://wake.example.test/health',
+      wake,
+      fetchImpl: vi.fn().mockResolvedValue({ ok: false, status: 401 }),
+    })).rejects.toThrow('API health check returned 401')
+
+    expect(wake).not.toHaveBeenCalled()
+  })
+
+  it('stops an active wake when the caller aborts', async () => {
+    const controller = new AbortController()
+    const stop = vi.fn()
+    const wake = vi.fn(() => ({ stop }))
+    let rejectSleep: (error: Error) => void = () => undefined
+    const sleep = vi.fn(() => new Promise<void>((_resolve, reject) => { rejectSleep = reject }))
+
+    const promise = waitForApiReadiness({
+      apiBaseUrl: '/api',
+      wakeUrl: 'https://wake.example.test/health',
+      wake,
+      fetchImpl: vi.fn().mockRejectedValue(new Error('cold start')),
+      sleep,
+      signal: controller.signal,
+    })
+
+    await vi.waitFor(() => expect(wake).toHaveBeenCalledOnce())
+    controller.abort()
+    rejectSleep(new DOMException('aborted', 'AbortError'))
+
+    await expect(promise).rejects.toMatchObject({ name: 'AbortError' })
+    expect(stop).toHaveBeenCalledOnce()
+  })
+
   it('retries repeated edge 504 responses until readiness succeeds', async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce({ ok: false, status: 504 })

@@ -1,3 +1,5 @@
+import { wakeUpstream, type UpstreamWakeHandle } from './wakeUpstream'
+
 export const DEFAULT_READINESS_ATTEMPTS = 12
 export const DEFAULT_READINESS_DELAY_MS = 5000
 export const DEFAULT_READINESS_TIMEOUT_MS = 15000
@@ -17,6 +19,8 @@ export type ApiReadinessOptions = {
   signal?: AbortSignal
   fetchImpl?: FetchLike
   sleep?: (delayMs: number, signal?: AbortSignal) => Promise<void>
+  wakeUrl?: string
+  wake?: (url: string) => UpstreamWakeHandle
 }
 
 export function resolveApiReadinessUrl(apiBaseUrl: string) {
@@ -135,49 +139,61 @@ export async function waitForApiReadiness({
   signal,
   fetchImpl = fetch,
   sleep: sleepImpl = sleep,
+  wakeUrl,
+  wake = wakeUpstream,
 }: ApiReadinessOptions) {
   const minimumAttempts = Math.max(1, Math.floor(attempts))
   const deadline = now() + maxWaitMs
   let lastError: unknown
   let statusFailureCount = 0
+  const wakeHandles: UpstreamWakeHandle[] = []
 
-  for (let attempt = 1; attempt <= minimumAttempts || now() < deadline; attempt += 1) {
-    if (signal?.aborted) {
-      throw abortError()
+  try {
+    for (let attempt = 1; attempt <= minimumAttempts || now() < deadline; attempt += 1) {
+      if (signal?.aborted) {
+        throw abortError()
+      }
+
+      const remainingMs = deadline - now()
+      if (remainingMs <= 0) {
+        throw new Error('API readiness check timed out')
+      }
+
+      let nextDelayMs = delayMs
+      try {
+        await checkApiHealth(resolveApiReadinessUrl(apiBaseUrl), Math.min(timeoutMs, remainingMs), signal, fetchImpl)
+        return
+      } catch (error) {
+        if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+          throw error
+        }
+        if (error instanceof ReadinessError && !error.retryable) {
+          throw error
+        }
+        if (wakeUrl) {
+          wakeHandles.push(wake(wakeUrl))
+        }
+        if (error instanceof ReadinessError && error.isGatewayStatus) {
+          statusFailureCount += 1
+          const currentDelayMs = resolveBackoffDelayMs(delayMs, statusFailureCount)
+          nextDelayMs = Math.max(currentDelayMs, error.retryAfterMs)
+        }
+        lastError = error
+      }
+
+      if (now() < deadline) {
+        const delay = Math.min(nextDelayMs, Math.max(0, deadline - now()))
+        if (delay <= 0) {
+          throw lastError ?? new Error('API readiness check timed out')
+        }
+        await sleepImpl(delay, signal)
+      }
     }
 
-    const remainingMs = deadline - now()
-    if (remainingMs <= 0) {
-      throw new Error('API readiness check timed out')
-    }
-
-    let nextDelayMs = delayMs
-    try {
-      await checkApiHealth(resolveApiReadinessUrl(apiBaseUrl), Math.min(timeoutMs, remainingMs), signal, fetchImpl)
-      return
-    } catch (error) {
-      if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
-        throw error
-      }
-      if (error instanceof ReadinessError && !error.retryable) {
-        throw error
-      }
-      if (error instanceof ReadinessError && error.isGatewayStatus) {
-        statusFailureCount += 1
-        const currentDelayMs = resolveBackoffDelayMs(delayMs, statusFailureCount)
-        nextDelayMs = Math.max(currentDelayMs, error.retryAfterMs)
-      }
-      lastError = error
-    }
-
-    if (now() < deadline) {
-      const delay = Math.min(nextDelayMs, Math.max(0, deadline - now()))
-      if (delay <= 0) {
-        throw lastError ?? new Error('API readiness check timed out')
-      }
-      await sleepImpl(delay, signal)
+    throw lastError ?? new Error('API readiness check failed')
+  } finally {
+    for (const handle of wakeHandles) {
+      handle.stop()
     }
   }
-
-  throw lastError ?? new Error('API readiness check failed')
 }
