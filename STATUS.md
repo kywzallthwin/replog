@@ -1,10 +1,11 @@
 # RepLog Status
 
+- Active incident: REL-01 browser-assisted Render wake-up (`tickets/REL-01.md`) on `fix/cold-start-browser-wake`, branched from `main` at `c546ad6`.
 - Active initiatives: Wave 2 verification sync complete on `feat/wave` (`a3a7282`); W2-03, W2-04, W2-05, W2-06, W2-07, W2-08, W2-09, W2-13, W2-15, W2-16, and W2-17 are verified and closed (`done`). AV-01 free-hosting startup reliability and CF-05 production cutover are completed and verified on production.
 - Governing plan: `WAVE2.md` for Wave 2 product tickets; `tickets/AV-01.md` for startup reliability; `tickets/CF-00.md` for Cloudflare architecture and security work.
 - Wave 2 status: W2-01, W2-02, W2-03, W2-04, W2-05, W2-06, W2-07, W2-08, W2-09, W2-10, W2-12, W2-13, W2-14, W2-15, W2-16, and W2-17 are `done`. Remaining Wave 2 tickets (`W2-11`) are `proposed`.
-- Current branch: `feat/wave` (at `a3a7282`).
-- Current ticket: none active in Wave 2. AV-01 (`tickets/AV-01.md`) and CF-05 (`tickets/CF-05.md`) are complete following verified production probes and deployment authorization.
+- Current branch: `fix/cold-start-browser-wake` (from `main` at `c546ad6`).
+- Current ticket: REL-01 (`tickets/REL-01.md`). AV-01 (`tickets/AV-01.md`) and CF-05 (`tickets/CF-05.md`) are complete following verified production probes and deployment authorization.
 - Latest `fix/severBug` verification (`2209410` confirm-before-finish, `ca31c53` save workout changes back to program day, `c7a3213` simplified startup/recovery screens, `f7afd53` server wake-up checks and retry timing, `af89732` post-sleep set-save recovery, W2-04 active-workout exercise reordering, W2-05 whole-day program reordering, W2-06 custom exercise deletion / archival, W2-07 completed workout deletion, W2-08 kg/lb preference and conversion, W2-09 responsive SVG progress chart, W2-18 all-exercises chart feed, and W2-10 estimated 1RM guide route): full `npm run check` passed with **228 client tests** (30 test files), **34 server tests**, and **9 edge Worker tests**, plus Prisma generate/validate, all workspace lint and typechecks, client and server builds, Worker dry-run packaging, health smoke, and `git diff --check`.
 - AV-01 status: verified. Production probes recorded 429 mitigation pre-Express; local UI/retry logic handles API_STARTING and UPSTREAM_UNAVAILABLE safely.
 - CF-05 status: done. Production cutover completed with shared-secret, steady-state flags (`SERVE_CLIENT=false`, `REQUIRE_EDGE_PROXY=true`), and direct Render API blocking verified.

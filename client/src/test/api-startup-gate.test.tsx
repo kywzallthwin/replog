@@ -5,6 +5,11 @@ import { waitForApiReadiness } from '../lib/apiReadiness'
 import { resetApiAvailability } from '../lib/apiAvailability'
 
 vi.mock('../lib/apiReadiness', () => ({ waitForApiReadiness: vi.fn() }))
+vi.mock('../lib/api', () => ({
+  apiBaseUrl: '/api',
+  apiConfigurationError: null,
+  apiWakeUrl: 'https://wake.example.test/health',
+}))
 const mockedReadiness = vi.mocked(waitForApiReadiness)
 
 describe('ApiStartupGate', () => {
@@ -23,7 +28,7 @@ describe('ApiStartupGate', () => {
     expect(container.querySelector('[data-loader-monogram]')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Starting RepLog')
     expect(screen.getByRole('status')).toHaveClass('sr-only')
-    expect(screen.queryByText('Starting RepLog…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Waking RepLog…')).not.toBeInTheDocument()
     expect(screen.queryByText(/Waking the service/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
     expect(screen.queryByText(/Current attempt|Total waiting|\d+s/)).not.toBeInTheDocument()
@@ -31,6 +36,15 @@ describe('ApiStartupGate', () => {
 
     resolve()
     expect(await screen.findByText('Application')).toBeInTheDocument()
+  })
+
+  it('passes the configured upstream wake URL into readiness', async () => {
+    mockedReadiness.mockResolvedValue(undefined)
+    render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
+
+    await waitFor(() => expect(mockedReadiness).toHaveBeenCalledWith(expect.objectContaining({
+      wakeUrl: 'https://wake.example.test/health',
+    })))
   })
 
   it('reveals the cold-start hint and subtle spinner after 3 seconds and keeps it visible across manual retries', async () => {
@@ -44,11 +58,11 @@ describe('ApiStartupGate', () => {
     const { container } = render(<ApiStartupGate><p>Application</p></ApiStartupGate>)
 
     await act(async () => { await vi.advanceTimersByTimeAsync(2999) })
-    expect(screen.queryByText('Starting RepLog…')).not.toBeInTheDocument()
+    expect(screen.queryByText('Waking RepLog…')).not.toBeInTheDocument()
     expect(container.querySelector('.animate-spin')).not.toBeInTheDocument()
 
     await act(async () => { await vi.advanceTimersByTimeAsync(1) })
-    expect(screen.getByText('Starting RepLog…')).toBeInTheDocument()
+    expect(screen.getByText('Waking RepLog…')).toBeInTheDocument()
     const spinner = container.querySelector('svg.animate-spin')
     expect(spinner).toBeInTheDocument()
     expect(spinner).toHaveClass('motion-reduce:animate-none')
@@ -59,7 +73,7 @@ describe('ApiStartupGate', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(screen.getByText('Starting RepLog…')).toBeInTheDocument()
+    expect(screen.getByText('Waking RepLog…')).toBeInTheDocument()
     expect(container.querySelector('svg.animate-spin')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Retrying RepLog')
 
@@ -75,9 +89,9 @@ describe('ApiStartupGate', () => {
     const retryButton = await screen.findByRole('button', { name: 'Retry' })
     expect(retryButton).toBeInTheDocument()
     expect(retryButton).toHaveClass('min-h-11', 'min-w-11')
-    expect(screen.getByRole('heading', { name: 'RepLog is starting slowly' })).toBeInTheDocument()
-    expect(screen.getByText('RepLog will retry while this page is open and online.')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('RepLog unavailable. Retrying automatically.')
+    expect(screen.getByRole('heading', { name: 'RepLog is still waking' })).toBeInTheDocument()
+    expect(screen.getByText('Waking the server can take up to a minute. Keep this page open and RepLog will connect automatically.')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('RepLog is waking. Retrying automatically.')
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
     expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
     expect(screen.queryByText('Application')).not.toBeInTheDocument()
@@ -177,14 +191,14 @@ describe('ApiStartupGate', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(7000) })
 
     await act(async () => { rejectFirst(new Error('unavailable')); await Promise.resolve() })
-    expect(screen.getByRole('heading', { name: 'RepLog is starting slowly' })).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('RepLog unavailable. Retrying automatically.')
+    expect(screen.getByRole('heading', { name: 'RepLog is still waking' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('RepLog is waking. Retrying automatically.')
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
     expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
 
     await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
     expect(mockedReadiness).toHaveBeenCalledTimes(2)
-    expect(screen.getByRole('heading', { name: 'RepLog is starting slowly' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'RepLog is still waking' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Retrying RepLog')
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
     expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()
@@ -211,7 +225,7 @@ describe('ApiStartupGate', () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
     await act(async () => { window.dispatchEvent(new Event('online')); await Promise.resolve(); await Promise.resolve() })
     expect(mockedReadiness).toHaveBeenCalledTimes(2)
-    expect(screen.getByText('RepLog will retry while this page is open and online.')).toBeInTheDocument()
+    expect(screen.getByText('Waking the server can take up to a minute. Keep this page open and RepLog will connect automatically.')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Retrying RepLog')
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
     expect(screen.queryByText(/Total waiting|Current attempt/)).not.toBeInTheDocument()

@@ -37,6 +37,28 @@ export function resolveApiBaseUrl(
   return browserApiOrigin ? normalizeConfiguredApiUrl(browserApiOrigin, false) : 'http://localhost:4000/api'
 }
 
+const productionWakeUrl = 'https://replog-tracker.onrender.com/health'
+
+export function resolveWakeUrl(configuredWakeUrl: string | undefined, isProduction: boolean) {
+  const configured = configuredWakeUrl?.trim()
+  if (configured) {
+    try {
+      const parsedUrl = new URL(configured)
+      if (
+        ['http:', 'https:'].includes(parsedUrl.protocol) &&
+        (!isProduction || parsedUrl.protocol === 'https:') &&
+        !parsedUrl.username &&
+        !parsedUrl.password
+      ) {
+        return parsedUrl.toString()
+      }
+    } catch {
+      return isProduction ? productionWakeUrl : undefined
+    }
+  }
+  return isProduction ? productionWakeUrl : undefined
+}
+
 const browserApiOrigin = typeof window !== 'undefined'
   ? `${window.location.protocol}//${window.location.hostname}:4000`
   : undefined
@@ -56,10 +78,12 @@ try {
     : new Error('The API configuration is invalid')
 }
 
+export const apiWakeUrl = resolveWakeUrl(import.meta.env.VITE_API_WAKE_URL, import.meta.env.PROD)
+
 export const api = axios.create({
   baseURL: apiBaseUrl,
   withCredentials: true,
   timeout: 30000,
 })
 
-installApiAvailability(api, () => apiBaseUrl)
+installApiAvailability(api, () => apiBaseUrl, apiWakeUrl)

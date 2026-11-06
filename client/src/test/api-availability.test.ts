@@ -62,10 +62,20 @@ describe('API availability coordination', () => {
     const instance = axios.create({ adapter: async (config) => {
       throw new axios.AxiosError('upstream unavailable', 'ERR_NETWORK', config)
     } })
-    installApiAvailability(instance, () => '/api')
+    const wakeUrl = 'https://wake.example.test/health'
+    installApiAvailability(instance, () => '/api', wakeUrl)
 
     await expect(instance.post('/write', { value: 1 })).rejects.toBeInstanceOf(axios.AxiosError)
     expect(mockedReadiness).toHaveBeenCalledTimes(1)
+    expect(mockedReadiness).toHaveBeenCalledWith(expect.objectContaining({ wakeUrl }))
+  })
+
+  it('forwards the wake URL to the shared readiness check', async () => {
+    const wakeUrl = 'https://wake.example.test/health'
+
+    await ensureApiAvailable(() => '/api', undefined, wakeUrl)
+
+    expect(mockedReadiness).toHaveBeenCalledWith(expect.objectContaining({ wakeUrl }))
   })
 
   it('does not replay a dispatched mutation after an upstream failure, but invalidates availability for the next attempt', async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { apiBaseUrl, apiConfigurationError } from '../../lib/api'
+import { apiBaseUrl, apiConfigurationError, apiWakeUrl } from '../../lib/api'
 import { ensureApiAvailable } from '../../lib/apiAvailability'
 import { BrandedLoader } from '../ui/BrandedLoader'
 
@@ -48,7 +48,7 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
       sequenceStarted = true
       const controller = new AbortController()
       currentController = controller
-      void ensureApiAvailable(() => apiBaseUrl, controller.signal).then(
+      void ensureApiAvailable(() => apiBaseUrl, controller.signal, apiWakeUrl).then(
         () => {
           if (active) {
             startupComplete = true
@@ -59,7 +59,7 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
         () => {
           if (!active || controller.signal.aborted) return
           if (!navigator.onLine) { setState('failed'); return }
-          setAnnouncement('RepLog unavailable. Retrying automatically.')
+          setAnnouncement('RepLog is waking. Retrying automatically.')
           setState('failed')
           retryTimer = setTimeout(() => retry(), 15000)
         },
@@ -147,7 +147,7 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
                   strokeWidth="2"
                 />
               </svg>
-              <span>Starting RepLog…</span>
+              <span>Waking RepLog…</span>
             </p>
           </div>
         ) : null}
@@ -159,9 +159,9 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
     return (
       <main className="grid min-h-dvh place-content-center bg-slate-100 px-6 text-center">
         <div className="mx-auto max-w-sm rounded-2xl bg-white p-6 shadow-sm">
-          <h1 className="text-lg font-semibold text-slate-900">RepLog is starting slowly</h1>
+          <h1 className="text-lg font-semibold text-slate-900">RepLog is still waking</h1>
           <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
-          <p className="mt-2 text-sm text-slate-600">{isOnline ? 'RepLog will retry while this page is open and online.' : 'You’re offline. Reconnect to continue startup.'}</p>
+          <p className="mt-2 text-sm text-slate-600">{isOnline ? 'Waking the server can take up to a minute. Keep this page open and RepLog will connect automatically.' : 'You’re offline. Reconnect to continue startup.'}</p>
           <button
             type="button"
             disabled={!isOnline}
