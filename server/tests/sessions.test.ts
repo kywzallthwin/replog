@@ -17,7 +17,6 @@ test('last-time references use the latest owned earlier workout and the Progress
   const ownerEmail = `last-time-owner-${suffix}@example.com`
   const otherEmail = `last-time-other-${suffix}@example.com`
   const ownerAgent = request.agent(app)
-  const otherAgent = request.agent(app)
 
   try {
     const ownerRegisterResponse = await ownerAgent.post('/api/auth/register').send({
@@ -27,15 +26,16 @@ test('last-time references use the latest owned earlier workout and the Progress
     })
     assert.equal(ownerRegisterResponse.status, 201, ownerRegisterResponse.text)
 
-    const otherRegisterResponse = await otherAgent.post('/api/auth/register').send({
-      email: otherEmail,
-      username: 'Last Time Other',
-      password: 'password123',
+    const otherUser = await prisma.user.create({
+      data: {
+        email: otherEmail,
+        username: 'Last Time Other',
+        avatarInitial: 'L',
+      },
     })
-    assert.equal(otherRegisterResponse.status, 201, otherRegisterResponse.text)
 
     const ownerId = ownerRegisterResponse.body.user.id as string
-    const otherUserId = otherRegisterResponse.body.user.id as string
+    const otherUserId = otherUser.id
     const exercises = await prisma.exercise.findMany({
       where: { ownerId: null },
       orderBy: { name: 'asc' },
@@ -108,7 +108,7 @@ test('last-time references use the latest owned earlier workout and the Progress
       })
     }
 
-    await createCompletedSession(ownerId, new Date('2026-01-01T10:00:00.000Z'), [
+    const firstTemporalSession = await createCompletedSession(ownerId, new Date('2026-01-01T10:00:00.000Z'), [
       {
         exerciseId: temporalExercise.id,
         name: temporalExercise.name,
@@ -164,7 +164,7 @@ test('last-time references use the latest owned earlier workout and the Progress
       { exerciseId: temporalExercise.id, name: temporalExercise.name, sets: [] },
     ])
 
-    await createCompletedSession(ownerId, new Date('2026-01-04T10:00:00.000Z'), [
+    const lastTemporalSession = await createCompletedSession(ownerId, new Date('2026-01-04T10:00:00.000Z'), [
       {
         exerciseId: temporalExercise.id,
         name: temporalExercise.name,
@@ -231,6 +231,74 @@ test('last-time references use the latest owned earlier workout and the Progress
     assert.equal(tieProgressResponse.status, 200, tieProgressResponse.text)
     assert.equal(tieProgressResponse.body.personalBest.weightKg, 112.5)
     assert.equal(tieProgressResponse.body.personalBest.reps, 2)
+
+    type ProgressSummary = {
+      exercise: { id: string; name: string; category: string }
+      personalBest: { sessionId: string; estimatedOneRepMaxKg: number; weightKg: number; reps: number } | null
+      stats: { sessionCount: number; progressKg: number; heaviestWeightKg: number }
+      sessionHistory: Array<{ sessionId: string; topSet: { estimatedOneRepMaxKg: number; weightKg: number; reps: number } }>
+      trendEstimatedOneRepMaxKg: number[]
+    }
+
+    const estimateOneRepMax = (weightKg: number, reps: number) => (reps === 1 ? weightKg : weightKg * (1 + reps / 30))
+    const allProgressResponse = await ownerAgent.get('/api/progress')
+    assert.equal(allProgressResponse.status, 200, allProgressResponse.text)
+
+    const summaries = allProgressResponse.body.exerciseSummaries as ProgressSummary[]
+    assert.equal(summaries.length, 3)
+    assert.deepEqual(
+      summaries.map((summary) => summary.exercise.id).sort(),
+      [oneRepExercise.id, tieExercise.id, temporalExercise.id].sort(),
+    )
+
+    const temporalSummary = summaries.find((summary) => summary.exercise.id === temporalExercise.id)
+    assert.ok(temporalSummary)
+    assert.equal(temporalSummary.exercise.name, temporalExercise.name)
+    assert.ok(temporalSummary.exercise.category.length > 0)
+    assert.equal(temporalSummary.stats.sessionCount, 3)
+    assert.equal(temporalSummary.stats.heaviestWeightKg, 200)
+    assert.equal(temporalSummary.personalBest?.sessionId, lastTemporalSession.id)
+    assert.equal(temporalSummary.personalBest?.weightKg, 200)
+    assert.equal(temporalSummary.personalBest?.reps, 10)
+    assert.ok(
+      Math.abs((temporalSummary.personalBest?.estimatedOneRepMaxKg ?? 0) - estimateOneRepMax(200, 10)) < 1e-9,
+    )
+    assert.ok(
+      Math.abs(temporalSummary.stats.progressKg - (estimateOneRepMax(200, 10) - estimateOneRepMax(80, 10))) < 1e-9,
+    )
+    assert.deepEqual(
+      temporalSummary.trendEstimatedOneRepMaxKg.map((value) => Math.round(value * 1000) / 1000),
+      [
+        Math.round(estimateOneRepMax(80, 10) * 1000) / 1000,
+        Math.round(estimateOneRepMax(50, 5) * 1000) / 1000,
+        Math.round(estimateOneRepMax(200, 10) * 1000) / 1000,
+      ],
+    )
+    assert.deepEqual(
+      temporalSummary.sessionHistory.map((session) => session.sessionId),
+      [lastTemporalSession.id, latestPreviousSession.id, firstTemporalSession.id],
+    )
+
+    const oneRepSummary = summaries.find((summary) => summary.exercise.id === oneRepExercise.id)
+    assert.ok(oneRepSummary)
+    assert.equal(oneRepSummary.stats.sessionCount, 1)
+    assert.equal(oneRepSummary.stats.heaviestWeightKg, 100)
+    assert.equal(oneRepSummary.personalBest?.weightKg, 96)
+    assert.equal(oneRepSummary.personalBest?.reps, 2)
+
+    const tieSummary = summaries.find((summary) => summary.exercise.id === tieExercise.id)
+    assert.ok(tieSummary)
+    assert.equal(tieSummary.stats.sessionCount, 1)
+    assert.equal(tieSummary.personalBest?.weightKg, 112.5)
+
+    const selectedSummary = summaries.find(
+      (summary) => summary.exercise.id === allProgressResponse.body.selectedExercise.id,
+    )
+    assert.ok(selectedSummary)
+    assert.deepEqual(allProgressResponse.body.stats, selectedSummary.stats)
+    assert.deepEqual(allProgressResponse.body.sessionHistory, selectedSummary.sessionHistory)
+    assert.deepEqual(allProgressResponse.body.trendEstimatedOneRepMaxKg, selectedSummary.trendEstimatedOneRepMaxKg)
+    assert.deepEqual(allProgressResponse.body.personalBest, selectedSummary.personalBest)
   } finally {
     await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, otherEmail] } } })
   }
@@ -241,4 +309,371 @@ test('the removed workout-note route returns the normal API not-found response',
 
   assert.equal(response.status, 404, response.text)
   assert.deepEqual(response.body, { error: 'API route not found' })
+})
+
+test('active session exercise reordering renumbers exercises transactionally without mutating the source program day or allowing completed-session edits', async () => {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const ownerEmail = `reorder-owner-${suffix}@example.com`
+  const otherEmail = `reorder-other-${suffix}@example.com`
+  const ownerAgent = request.agent(app)
+  const otherAgent = request.agent(app)
+
+  try {
+    const ownerRegisterResponse = await ownerAgent.post('/api/auth/register').send({
+      email: ownerEmail,
+      username: 'Reorder Owner',
+      password: 'password123',
+    })
+    assert.equal(ownerRegisterResponse.status, 201, ownerRegisterResponse.text)
+
+    const otherRegisterResponse = await otherAgent.post('/api/auth/register').send({
+      email: otherEmail,
+      username: 'Reorder Other',
+      password: 'password123',
+    })
+    assert.equal(otherRegisterResponse.status, 201, otherRegisterResponse.text)
+
+    const activeProgramResponse = await ownerAgent.get('/api/programs/active')
+    assert.equal(activeProgramResponse.status, 200, activeProgramResponse.text)
+    const sourceDay = activeProgramResponse.body.program.days[0] as {
+      id: string
+      exercises: Array<{ id: string; exerciseId: string; name: string; order: number }>
+    }
+    assert.ok(sourceDay)
+    assert.ok(sourceDay.exercises.length >= 3)
+    const originalProgramExerciseIds = sourceDay.exercises.map((exercise) => exercise.exerciseId)
+    const originalProgramOrders = sourceDay.exercises.map((exercise) => exercise.order)
+
+    const startResponse = await ownerAgent.post('/api/sessions').send({ dayId: sourceDay.id })
+    assert.equal(startResponse.status, 201, startResponse.text)
+    const sessionId = startResponse.body.session.id as string
+    const initialExercises = startResponse.body.session.exercises as Array<{
+      id: string
+      exerciseId: string
+      name: string
+      order: number
+    }>
+    assert.equal(initialExercises.length, sourceDay.exercises.length)
+    const [firstExercise, secondExercise, thirdExercise] = initialExercises
+    assert.ok(firstExercise)
+    assert.ok(secondExercise)
+    assert.ok(thirdExercise)
+
+    const addSetResponse = await ownerAgent
+      .post(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/sets`)
+      .send({ kind: 'NORMAL', weightKg: 75, reps: 8 })
+    assert.equal(addSetResponse.status, 201, addSetResponse.text)
+
+    const unauthenticatedResponse = await request(app)
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: 2 })
+    assert.equal(unauthenticatedResponse.status, 401, unauthenticatedResponse.text)
+
+    const unauthorizedResponse = await otherAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: 2 })
+    assert.equal(unauthorizedResponse.status, 404, unauthorizedResponse.text)
+
+    const invalidBodyResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: -1 })
+    assert.equal(invalidBodyResponse.status, 400, invalidBodyResponse.text)
+
+    const outOfRangeResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: initialExercises.length })
+    assert.equal(outOfRangeResponse.status, 400, outOfRangeResponse.text)
+    assert.deepEqual(outOfRangeResponse.body, { error: 'Invalid target exercise position' })
+
+    const missingExerciseResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/missing-session-exercise/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(missingExerciseResponse.status, 404, missingExerciseResponse.text)
+    assert.deepEqual(missingExerciseResponse.body, { error: 'Session exercise not found' })
+
+    const reorderResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: 2 })
+    assert.equal(reorderResponse.status, 200, reorderResponse.text)
+
+    const reorderedExercises = reorderResponse.body.exercises as Array<{
+      id: string
+      exerciseId: string
+      order: number
+      sets: Array<{ weightKg: number; reps: number }>
+    }>
+    assert.deepEqual(
+      reorderedExercises.slice(0, 3).map((exercise) => ({ id: exercise.id, order: exercise.order })),
+      [
+        { id: secondExercise.id, order: 1 },
+        { id: thirdExercise.id, order: 2 },
+        { id: firstExercise.id, order: 3 },
+      ],
+    )
+    assert.equal(reorderedExercises[2]?.sets.length, 1)
+    assert.equal(reorderedExercises[2]?.sets[0]?.weightKg, 75)
+
+    const refreshedResponse = await ownerAgent.get(`/api/sessions/${sessionId}`)
+    assert.equal(refreshedResponse.status, 200, refreshedResponse.text)
+    assert.deepEqual(
+      refreshedResponse.body.session.exercises.slice(0, 3).map((exercise: { id: string; order: number }) => ({
+        id: exercise.id,
+        order: exercise.order,
+      })),
+      [
+        { id: secondExercise.id, order: 1 },
+        { id: thirdExercise.id, order: 2 },
+        { id: firstExercise.id, order: 3 },
+      ],
+    )
+
+    const programAfterReorderResponse = await ownerAgent.get('/api/programs/active')
+    assert.equal(programAfterReorderResponse.status, 200, programAfterReorderResponse.text)
+    const dayAfterReorder = programAfterReorderResponse.body.program.days[0] as {
+      exercises: Array<{ exerciseId: string; order: number }>
+    }
+    assert.deepEqual(
+      dayAfterReorder.exercises.map((exercise) => exercise.exerciseId),
+      originalProgramExerciseIds,
+    )
+    assert.deepEqual(
+      dayAfterReorder.exercises.map((exercise) => exercise.order),
+      originalProgramOrders,
+    )
+
+    const finishResponse = await ownerAgent.patch(`/api/sessions/${sessionId}/finish`)
+    assert.equal(finishResponse.status, 200, finishResponse.text)
+    assert.deepEqual(
+      finishResponse.body.session.exercises.slice(0, 3).map((exercise: { id: string; order: number }) => ({
+        id: exercise.id,
+        order: exercise.order,
+      })),
+      [
+        { id: secondExercise.id, order: 1 },
+        { id: thirdExercise.id, order: 2 },
+        { id: firstExercise.id, order: 3 },
+      ],
+    )
+
+    const reorderCompletedResponse = await ownerAgent
+      .patch(`/api/sessions/${sessionId}/exercises/${firstExercise.id}/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(reorderCompletedResponse.status, 409, reorderCompletedResponse.text)
+    assert.deepEqual(reorderCompletedResponse.body, { error: 'Finished workouts cannot be edited' })
+  } finally {
+    await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, otherEmail] } } })
+  }
+})
+
+test('owners can permanently delete a completed workout, cascading exercises and sets and recalculating history, dashboard, progress, and previous-workout references', async () => {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const ownerEmail = `delete-completed-owner-${suffix}@example.com`
+  const otherEmail = `delete-completed-other-${suffix}@example.com`
+  const ownerAgent = request.agent(app)
+  const otherAgent = request.agent(app)
+
+  try {
+    const ownerRegisterResponse = await ownerAgent.post('/api/auth/register').send({
+      email: ownerEmail,
+      username: 'Delete Completed Owner',
+      password: 'password123',
+    })
+    assert.equal(ownerRegisterResponse.status, 201, ownerRegisterResponse.text)
+    const ownerId = ownerRegisterResponse.body.user.id as string
+
+    const otherRegisterResponse = await otherAgent.post('/api/auth/register').send({
+      email: otherEmail,
+      username: 'Delete Completed Other',
+      password: 'password123',
+    })
+    assert.equal(otherRegisterResponse.status, 201, otherRegisterResponse.text)
+
+    const programResponse = await ownerAgent.get('/api/programs/active')
+    assert.equal(programResponse.status, 200, programResponse.text)
+    const activeProgram = programResponse.body.program as {
+      id: string
+      days: Array<{ id: string; name: string; exercises: Array<{ exerciseId: string; name: string }> }>
+    }
+    const firstDay = activeProgram.days[0]
+    const secondDay = activeProgram.days[1]
+    assert.ok(firstDay)
+    assert.ok(secondDay)
+    const targetExercise = firstDay.exercises[0]
+    assert.ok(targetExercise)
+
+    const earlierSession = await prisma.session.create({
+      data: {
+        userId: ownerId,
+        programId: activeProgram.id,
+        programNameSnapshot: 'Starter Program',
+        dayId: firstDay.id,
+        dayNameSnapshot: firstDay.name,
+        badgeColorSnapshot: 'torso',
+        startedAt: new Date('2026-02-01T10:00:00.000Z'),
+        endedAt: new Date('2026-02-01T10:45:00.000Z'),
+        durationSec: 2700,
+        sessionExercises: {
+          create: [
+            {
+              exerciseId: targetExercise.exerciseId,
+              nameSnapshot: targetExercise.name,
+              order: 1,
+              setLogs: {
+                create: [
+                  {
+                    kind: 'NORMAL',
+                    weightKg: 60,
+                    reps: 10,
+                    order: 1,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    })
+
+    const laterSession = await prisma.session.create({
+      data: {
+        userId: ownerId,
+        programId: activeProgram.id,
+        programNameSnapshot: 'Starter Program',
+        dayId: secondDay.id,
+        dayNameSnapshot: secondDay.name,
+        badgeColorSnapshot: 'lower',
+        startedAt: new Date('2026-02-05T10:00:00.000Z'),
+        endedAt: new Date('2026-02-05T10:50:00.000Z'),
+        durationSec: 3000,
+        sessionExercises: {
+          create: [
+            {
+              exerciseId: targetExercise.exerciseId,
+              nameSnapshot: targetExercise.name,
+              order: 1,
+              setLogs: {
+                create: [
+                  {
+                    kind: 'WARMUP',
+                    weightKg: 40,
+                    reps: 10,
+                    order: 1,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      include: { sessionExercises: true },
+    })
+    const laterSessionExerciseId = laterSession.sessionExercises[0]!.id
+
+    const batchResponse = await prisma.$transaction(async (tx) => {
+      const rootSet = await tx.setLog.create({
+        data: {
+          sessionExerciseId: laterSessionExerciseId,
+          kind: 'NORMAL',
+          weightKg: 100,
+          reps: 5,
+          order: 2,
+        },
+      })
+      const dropSet = await tx.setLog.create({
+        data: {
+          sessionExerciseId: laterSessionExerciseId,
+          parentSetId: rootSet.id,
+          kind: 'DROP',
+          weightKg: 80,
+          reps: 6,
+          order: 3,
+        },
+      })
+      return { rootSet, dropSet }
+    })
+
+    const beforeProgress = await ownerAgent.get(`/api/progress?exerciseId=${targetExercise.exerciseId}`)
+    assert.equal(beforeProgress.status, 200, beforeProgress.text)
+    assert.equal(beforeProgress.body.stats.sessionCount, 2)
+    assert.equal(beforeProgress.body.stats.heaviestWeightKg, 100)
+    assert.equal(beforeProgress.body.personalBest?.sessionId, laterSession.id)
+
+    const beforeDashboard = await ownerAgent.get('/api/dashboard')
+    assert.equal(beforeDashboard.status, 200, beforeDashboard.text)
+    assert.equal(beforeDashboard.body.stats.workoutCount, 2)
+    assert.equal(beforeDashboard.body.stats.totalVolumeKg, 60 * 10 + 40 * 10 + 100 * 5 + 80 * 6)
+
+    const unauthenticatedDelete = await request(app).delete(`/api/sessions/${laterSession.id}`)
+    assert.equal(unauthenticatedDelete.status, 401, unauthenticatedDelete.text)
+
+    const nonOwnerDelete = await otherAgent.delete(`/api/sessions/${laterSession.id}`)
+    assert.equal(nonOwnerDelete.status, 404, nonOwnerDelete.text)
+    assert.deepEqual(nonOwnerDelete.body, { error: 'Session not found' })
+
+    const missingDelete = await ownerAgent.delete('/api/sessions/non-existent-session-id')
+    assert.equal(missingDelete.status, 404, missingDelete.text)
+    assert.deepEqual(missingDelete.body, { error: 'Session not found' })
+
+    const deleteResponse = await ownerAgent.delete(`/api/sessions/${laterSession.id}`)
+    assert.equal(deleteResponse.status, 204, deleteResponse.text)
+
+    const secondDeleteResponse = await ownerAgent.delete(`/api/sessions/${laterSession.id}`)
+    assert.equal(secondDeleteResponse.status, 404, secondDeleteResponse.text)
+
+    const deletedDetailResponse = await ownerAgent.get(`/api/sessions/${laterSession.id}`)
+    assert.equal(deletedDetailResponse.status, 404, deletedDetailResponse.text)
+
+    const remainingSessionExercises = await prisma.sessionExercise.count({
+      where: { sessionId: laterSession.id },
+    })
+    assert.equal(remainingSessionExercises, 0)
+
+    const remainingSetLogs = await prisma.setLog.count({
+      where: {
+        OR: [
+          { sessionExerciseId: laterSessionExerciseId },
+          { id: { in: [batchResponse.rootSet.id, batchResponse.dropSet.id] } },
+        ],
+      },
+    })
+    assert.equal(remainingSetLogs, 0)
+
+    const historyResponse = await ownerAgent.get('/api/sessions/history')
+    assert.equal(historyResponse.status, 200, historyResponse.text)
+    assert.deepEqual(
+      historyResponse.body.sessions.map((session: { id: string }) => session.id),
+      [earlierSession.id],
+    )
+
+    const afterDashboard = await ownerAgent.get('/api/dashboard')
+    assert.equal(afterDashboard.status, 200, afterDashboard.text)
+    assert.equal(afterDashboard.body.stats.workoutCount, 1)
+    assert.equal(afterDashboard.body.stats.totalVolumeKg, 60 * 10)
+    assert.equal(afterDashboard.body.suggestedDay?.id, secondDay.id)
+
+    const afterProgress = await ownerAgent.get(`/api/progress?exerciseId=${targetExercise.exerciseId}`)
+    assert.equal(afterProgress.status, 200, afterProgress.text)
+    assert.equal(afterProgress.body.stats.sessionCount, 1)
+    assert.equal(afterProgress.body.stats.heaviestWeightKg, 60)
+    assert.equal(afterProgress.body.personalBest?.sessionId, earlierSession.id)
+    assert.equal(afterProgress.body.personalBest?.weightKg, 60)
+    assert.equal(afterProgress.body.personalBest?.reps, 10)
+
+    const nextActiveSessionResponse = await ownerAgent.post('/api/sessions').send({ dayId: firstDay.id })
+    assert.equal(nextActiveSessionResponse.status, 201, nextActiveSessionResponse.text)
+    const nextActiveSessionId = nextActiveSessionResponse.body.session.id as string
+    const nextActiveSessionDetailResponse = await ownerAgent.get(`/api/sessions/${nextActiveSessionId}`)
+    assert.equal(nextActiveSessionDetailResponse.status, 200, nextActiveSessionDetailResponse.text)
+    const nextSessionExercise = nextActiveSessionDetailResponse.body.session.exercises.find(
+      (exercise: { exerciseId: string }) => exercise.exerciseId === targetExercise.exerciseId,
+    )
+    assert.ok(nextSessionExercise)
+    assert.equal(nextSessionExercise.lastTime?.sessionId, earlierSession.id)
+    assert.equal(nextSessionExercise.lastTime?.weightKg, 60)
+    assert.equal(nextSessionExercise.lastTime?.reps, 10)
+    assert.equal(nextSessionExercise.previousWorkout?.sessionId, earlierSession.id)
+    assert.equal(nextSessionExercise.previousWorkout?.sets.length, 1)
+  } finally {
+    await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, otherEmail] } } })
+  }
 })

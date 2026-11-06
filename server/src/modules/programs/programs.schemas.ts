@@ -38,6 +38,10 @@ export const dayExerciseSchema = z.object({
   exerciseId: z.string().min(1),
 })
 
+export const reorderDaySchema = z.object({
+  targetIndex: z.number().int().min(0),
+})
+
 export const reorderDayExerciseSchema = z.object({
   targetIndex: z.number().int().min(0),
 })

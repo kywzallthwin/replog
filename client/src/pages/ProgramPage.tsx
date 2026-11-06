@@ -1,8 +1,8 @@
 import type { FormEvent } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ArrowUpDown } from 'lucide-react'
 import {
   DndContext,
   DragOverlay,
@@ -36,6 +36,7 @@ import {
   activeProgramQueryKey,
   programsQueryKey,
   removeDayExercise,
+  reorderDay,
   reorderDayExercise,
   updateDay,
   updateProgram,
@@ -73,12 +74,136 @@ type ActiveExercise = {
   exercise: DayExerciseItem
 } | null
 
+type ActiveDragDay = {
+  day: ProgramDay
+  index: number
+} | null
+
 const restrictToVerticalAxis: Modifier = ({ transform }) => ({
   ...transform,
   x: 0,
   scaleX: 1,
   scaleY: 1,
 })
+
+function formatReorderExerciseCount(exerciseCount: number) {
+  if (exerciseCount === 0) {
+    return 'No exercises'
+  }
+
+  return `${exerciseCount} ${exerciseCount === 1 ? 'exercise' : 'exercises'}`
+}
+
+function ProgramDayDragPreview({ day, index }: { day: ProgramDay; index: number }) {
+  return (
+    <div className="flex min-h-[52px] w-full min-w-0 items-center gap-3 rounded-[14px] border border-slate-200 bg-white py-1.5 pl-3.5 pr-1.5 shadow-[0_14px_30px_rgba(15,23,42,0.18)]">
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+        {index + 1}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span
+          className={`inline-flex max-w-full truncate rounded-[10px] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(day.badgeColor)}`}
+        >
+          {day.name}
+        </span>
+      </span>
+      <span className="shrink-0 text-xs font-medium text-slate-400">
+        {formatReorderExerciseCount(day.exercises.length)}
+      </span>
+      <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18" fill="currentColor">
+          <circle cx="3" cy="2" r="1.25" />
+          <circle cx="11" cy="2" r="1.25" />
+          <circle cx="3" cy="9" r="1.25" />
+          <circle cx="11" cy="9" r="1.25" />
+          <circle cx="3" cy="16" r="1.25" />
+          <circle cx="11" cy="16" r="1.25" />
+        </svg>
+      </span>
+    </div>
+  )
+}
+
+function SortableProgramDayRow({
+  day,
+  index,
+  isReordering,
+  isKeyboardDragging,
+  onKeyboardMove,
+}: {
+  day: ProgramDay
+  index: number
+  isReordering: boolean
+  isKeyboardDragging: boolean
+  onKeyboardMove: (direction: -1 | 1) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: day.id, disabled: isReordering })
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-reorder-day-row={day.id}
+      style={{
+        transform: CSS.Transform.toString(transform ? { ...transform, x: 0, scaleX: 1, scaleY: 1 } : transform),
+        transition,
+      }}
+      className={`flex min-h-[52px] min-w-0 items-center gap-3 rounded-[14px] border border-slate-200 bg-white py-1.5 pl-3.5 pr-1.5 ${
+        isDragging ? 'relative z-10 opacity-0' : ''
+      }`}
+    >
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
+        {index + 1}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span
+          className={`inline-flex max-w-full truncate rounded-[10px] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.04em] ${getBadgeClass(day.badgeColor)}`}
+        >
+          {day.name}
+        </span>
+      </span>
+      <span className="shrink-0 text-xs font-medium text-slate-400">
+        {formatReorderExerciseCount(day.exercises.length)}
+      </span>
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        data-reorder-day-handle={day.id}
+        onKeyDown={(event) => {
+          if (!isDragging && !isKeyboardDragging && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+            event.preventDefault()
+            event.stopPropagation()
+            onKeyboardMove(event.key === 'ArrowUp' ? -1 : 1)
+            return
+          }
+          listeners?.onKeyDown?.(event)
+        }}
+        disabled={isReordering}
+        data-press="icon"
+        data-press-tone="slate"
+        title="Drag to reorder"
+        aria-label={`Drag ${day.name} to reorder`}
+        className="grid h-11 w-11 shrink-0 cursor-grab place-items-center rounded-full text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing disabled:cursor-not-allowed disabled:text-slate-200"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18" fill="currentColor" aria-hidden="true">
+          <circle cx="3" cy="2" r="1.25" />
+          <circle cx="11" cy="2" r="1.25" />
+          <circle cx="3" cy="9" r="1.25" />
+          <circle cx="11" cy="9" r="1.25" />
+          <circle cx="3" cy="16" r="1.25" />
+          <circle cx="11" cy="16" r="1.25" />
+        </svg>
+      </button>
+    </div>
+  )
+}
 
 function formatCategory(category: string) {
   return category.charAt(0) + category.slice(1).toLowerCase()
@@ -206,12 +331,22 @@ export function ProgramPage() {
   const [renameName, setRenameName] = useState('')
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
   const [duplicateName, setDuplicateName] = useState('')
+  const [isReorderDaysDialogOpen, setIsReorderDaysDialogOpen] = useState(false)
+  const [displayedDays, setDisplayedDays] = useState<ProgramDay[] | null>(null)
+  const [activeDragDay, setActiveDragDay] = useState<ActiveDragDay>(null)
+  const [reorderDayAnnouncement, setReorderDayAnnouncement] = useState('')
   const [activeExercise, setActiveExercise] = useState<ActiveExercise>(null)
   const [displayedExercises, setDisplayedExercises] = useState<Record<string, DayExerciseItem[]>>({})
   const dayModalTriggerRef = useRef<HTMLElement | null>(null)
   const exercisePickerTriggerRef = useRef<HTMLElement | null>(null)
   const deleteConfirmationTriggerRef = useRef<HTMLElement | null>(null)
   const addDayButtonRef = useRef<HTMLButtonElement>(null)
+  const reorderDaysTriggerRef = useRef<HTMLButtonElement>(null)
+  const pendingReorderDayHandleFocusRef = useRef<string | null>(null)
+  const dndAccessibilityContainer = useMemo(
+    () => (typeof document !== 'undefined' ? document.createElement('div') : undefined),
+    [],
+  )
 
   const { data: program, isError, isPending } = useQuery({
     queryKey: programQueryKey(programId),
@@ -322,6 +457,63 @@ export function ProgramPage() {
       setDeleteConfirmation(null)
     },
   })
+  const reorderDayMutation = useMutation({
+    mutationFn: reorderDay,
+    onMutate: ({ dayId, targetIndex }) => {
+      void queryClient.cancelQueries({ queryKey: programQueryKey(programId) })
+      const previousProgram = queryClient.getQueryData<Program | null>(programQueryKey(programId))
+
+      queryClient.setQueryData<Program | null>(programQueryKey(programId), (currentProgram) => {
+        if (!currentProgram) {
+          return currentProgram
+        }
+
+        const sourceIndex = currentProgram.days.findIndex((day) => day.id === dayId)
+        if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= currentProgram.days.length) {
+          return currentProgram
+        }
+
+        return {
+          ...currentProgram,
+          days: arrayMove(currentProgram.days, sourceIndex, targetIndex).map((day, index) => ({
+            ...day,
+            order: index + 1,
+          })),
+        }
+      })
+
+      return { previousProgram }
+    },
+    onError: (_error, _variables, context) => {
+      setReorderDayAnnouncement('')
+      if (context?.previousProgram !== undefined) {
+        queryClient.setQueryData(programQueryKey(programId), context.previousProgram)
+      }
+      setDisplayedDays(null)
+    },
+    onSuccess: (reorderedDays) => {
+      queryClient.setQueryData<Program | null>(programQueryKey(programId), (currentProgram) => {
+        if (!currentProgram) {
+          return currentProgram
+        }
+
+        const existingById = new Map(currentProgram.days.map((day) => [day.id, day]))
+        return {
+          ...currentProgram,
+          days: reorderedDays.map((day, index) => {
+            const existing = existingById.get(day.id)
+            return {
+              ...existing,
+              ...day,
+              order: index + 1,
+            }
+          }),
+        }
+      })
+      setDisplayedDays(null)
+      void invalidateProgramData()
+    },
+  })
   const reorderDayExerciseMutation = useMutation({
     mutationFn: reorderDayExercise,
       onMutate: async ({ dayId, dayExerciseId, targetIndex }) => {
@@ -396,7 +588,23 @@ export function ProgramPage() {
     || dayFormIsSaving
     || deleteConfirmationIsPending
     || addDayExerciseMutation.isPending
+    || reorderDayMutation.isPending
     || reorderDayExerciseMutation.isPending
+  const renderedDays = displayedDays ?? program?.days ?? []
+
+  useEffect(() => {
+    if (editorMutationIsPending || !pendingReorderDayHandleFocusRef.current) {
+      return
+    }
+
+    const dayId = pendingReorderDayHandleFocusRef.current
+    pendingReorderDayHandleFocusRef.current = null
+
+    const targetHandle = document.querySelector<HTMLButtonElement>(
+      `[data-reorder-day-handle="${dayId}"]`,
+    )
+    targetHandle?.focus({ preventScroll: true })
+  }, [displayedDays, program?.days, editorMutationIsPending])
 
   useEffect(() => {
     const displayedEntries = Object.entries(displayedExercises)
@@ -573,6 +781,96 @@ export function ProgramPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
+  function commitDayReorder(dayId: string, targetIndex: number, focusHandleAfter = false) {
+    if (!program || editorMutationIsPending) {
+      return
+    }
+
+    const currentDays = displayedDays ?? program.days
+    const sourceIndex = currentDays.findIndex((day) => day.id === dayId)
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= currentDays.length || sourceIndex === targetIndex) {
+      return
+    }
+
+    const movedDay = currentDays[sourceIndex]
+    const reorderedDays = arrayMove(currentDays, sourceIndex, targetIndex).map((day, index) => ({
+      ...day,
+      order: index + 1,
+    }))
+
+    if (focusHandleAfter) {
+      pendingReorderDayHandleFocusRef.current = dayId
+    }
+    setDisplayedDays(reorderedDays)
+    if (movedDay) {
+      setReorderDayAnnouncement(`Moved ${movedDay.name} to position ${targetIndex + 1} of ${currentDays.length}.`)
+    }
+    reorderDayMutation.reset()
+    reorderDayMutation.mutate({
+      programId,
+      dayId,
+      targetIndex,
+    })
+  }
+
+  function handleMoveDay(dayId: string, direction: -1 | 1) {
+    if (!program) {
+      return
+    }
+
+    const currentDays = displayedDays ?? program.days
+    const sourceIndex = currentDays.findIndex((day) => day.id === dayId)
+    if (sourceIndex < 0) {
+      return
+    }
+
+    commitDayReorder(dayId, sourceIndex + direction, true)
+  }
+
+  function handleDayDragStart(event: DragStartEvent) {
+    const currentDays = displayedDays ?? program?.days ?? []
+    const index = currentDays.findIndex((item) => item.id === String(event.active.id))
+    const day = currentDays[index]
+    if (day) {
+      setActiveDragDay({ day, index })
+    }
+  }
+
+  function handleDayDragEnd(event: DragEndEvent) {
+    setActiveDragDay(null)
+    if (!program || editorMutationIsPending || !event.over || event.active.id === event.over.id) {
+      return
+    }
+
+    const currentDays = displayedDays ?? program.days
+    const targetIndex = currentDays.findIndex((day) => day.id === String(event.over?.id))
+    if (targetIndex < 0) {
+      return
+    }
+
+    commitDayReorder(String(event.active.id), targetIndex, true)
+  }
+
+  function openReorderDaysDialog() {
+    if (!program || renderedDays.length <= 1 || editorMutationIsPending) {
+      return
+    }
+
+    reorderDayMutation.reset()
+    setReorderDayAnnouncement('')
+    setIsReorderDaysDialogOpen(true)
+  }
+
+  function closeReorderDaysDialog() {
+    if (reorderDayMutation.isPending) {
+      return
+    }
+
+    setActiveDragDay(null)
+    reorderDayMutation.reset()
+    setIsReorderDaysDialogOpen(false)
+  }
+
   function handleDragStart(day: ProgramDay, event: DragStartEvent) {
     const exercise = day.exercises.find((item) => item.id === String(event.active.id))
     if (exercise) {
@@ -710,6 +1008,19 @@ export function ProgramPage() {
           >
             + Add Day
           </button>
+          {renderedDays.length > 1 ? (
+            <button
+              ref={reorderDaysTriggerRef}
+              type="button"
+              onClick={openReorderDaysDialog}
+              disabled={editorMutationIsPending}
+              aria-label="Reorder Days"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-[13px] border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              <ArrowUpDown aria-hidden="true" size={16} strokeWidth={2} />
+              <span>Reorder</span>
+            </button>
+          ) : null}
           {program && !program.isActive ? (
             <button
               type="button"
@@ -744,7 +1055,7 @@ export function ProgramPage() {
           </section>
         ) : null}
 
-        {program && program.days.length === 0 ? (
+        {program && renderedDays.length === 0 ? (
           <section className="rounded-[28px] bg-white p-6 text-center shadow-[0_4px_6px_-1px_rgba(0,0,0,0.07),0_10px_40px_-4px_rgba(0,0,0,0.12)]">
             <p className="text-lg font-bold text-slate-900">No days yet</p>
             <p className="mt-2 text-sm text-slate-500">Add your first day to start building your routine.</p>
@@ -753,7 +1064,7 @@ export function ProgramPage() {
 
         {program ? (
           <div className="space-y-3">
-            {program.days.map((day) => (
+            {renderedDays.map((day) => (
               <article
                 key={day.id}
                 className="rounded-[18px] border border-slate-100 bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
@@ -796,6 +1107,7 @@ export function ProgramPage() {
 
                 {day.exercises.length ? (
                   <DndContext
+                    accessibility={{ container: dndAccessibilityContainer }}
                     sensors={sensors}
                     modifiers={[restrictToVerticalAxis]}
                     collisionDetection={closestCenter}
@@ -843,6 +1155,30 @@ export function ProgramPage() {
           </div>
         ) : null}
 
+        {!isReorderDaysDialogOpen && (reorderDayMutation.isPending || reorderDayAnnouncement) ? (
+          <p
+            role="status"
+            aria-live="polite"
+            className={
+              reorderDayMutation.isPending
+                ? 'mt-4 rounded-[10px] bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600'
+                : 'sr-only'
+            }
+          >
+            {reorderDayMutation.isPending
+              ? reorderDayAnnouncement
+                ? `Reordering day... ${reorderDayAnnouncement}`
+                : 'Reordering day...'
+              : reorderDayAnnouncement}
+          </p>
+        ) : null}
+
+        {!isReorderDaysDialogOpen && reorderDayMutation.isError ? (
+          <p role="alert" className="mt-4 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            Unable to reorder the day. Please try again.
+          </p>
+        ) : null}
+
         {reorderDayExerciseMutation.isPending ? (
           <p role="status" aria-live="polite" className="mt-4 rounded-[10px] bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
             Reordering exercise...
@@ -856,6 +1192,104 @@ export function ProgramPage() {
         ) : null}
       </div>
       <BottomTabBar />
+
+      {isReorderDaysDialogOpen && program && renderedDays.length > 1 ? (
+        <Dialog
+          labelledBy="program-reorder-days-dialog-title"
+          onClose={closeReorderDaysDialog}
+          closeOnEscape={!reorderDayMutation.isPending}
+          restoreFocusRef={reorderDaysTriggerRef}
+          fallbackFocusRef={reorderDaysTriggerRef}
+          preventScrollFocus
+          overlayClassName="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-3 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-6"
+          className="flex h-[min(640px,85dvh)] max-h-full min-h-0 w-full max-w-[480px] flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_12px_50px_rgba(15,23,42,0.2)]"
+        >
+          <header className="shrink-0 border-b border-slate-100 px-5 py-4">
+            <div className="min-w-0 py-1">
+              <p className="truncate text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                {program.name}
+              </p>
+              <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                <h2
+                  id="program-reorder-days-dialog-title"
+                  className="min-w-0 flex-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900"
+                >
+                  Reorder days
+                </h2>
+              </div>
+            </div>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50 px-5 py-4">
+            <DndContext
+              accessibility={{ container: dndAccessibilityContainer }}
+              sensors={sensors}
+              modifiers={[restrictToVerticalAxis]}
+              collisionDetection={closestCenter}
+              onDragStart={handleDayDragStart}
+              onDragEnd={handleDayDragEnd}
+              onDragCancel={() => setActiveDragDay(null)}
+            >
+              <SortableContext
+                items={renderedDays.map((day) => day.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2.5">
+                  {renderedDays.map((day, index) => (
+                    <SortableProgramDayRow
+                      key={day.id}
+                      day={day}
+                      index={index}
+                      isReordering={editorMutationIsPending}
+                      isKeyboardDragging={Boolean(activeDragDay)}
+                      onKeyboardMove={(direction) => handleMoveDay(day.id, direction)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+              <DragOverlay
+                adjustScale={false}
+                modifiers={[restrictToVerticalAxis]}
+                dropAnimation={null}
+              >
+                {activeDragDay ? (
+                  <ProgramDayDragPreview
+                    day={activeDragDay.day}
+                    index={activeDragDay.index}
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
+
+          {reorderDayMutation.isPending || reorderDayAnnouncement ? (
+            <p role="status" aria-live="polite" className="sr-only">
+              {reorderDayMutation.isPending
+                ? reorderDayAnnouncement
+                  ? `Reordering day... ${reorderDayAnnouncement}`
+                  : 'Reordering day...'
+                : reorderDayAnnouncement}
+            </p>
+          ) : null}
+
+          {reorderDayMutation.isError ? (
+            <p role="alert" className="mx-4 mb-3 shrink-0 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700 sm:mx-5">
+              Unable to reorder the day. Please try again.
+            </p>
+          ) : null}
+
+          <footer className="shrink-0 border-t border-slate-100 bg-white p-4 sm:px-5">
+            <button
+              type="button"
+              onClick={closeReorderDaysDialog}
+              disabled={reorderDayMutation.isPending}
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Done
+            </button>
+          </footer>
+        </Dialog>
+      ) : null}
 
       {dayModal ? (
         <Dialog
@@ -961,7 +1395,7 @@ export function ProgramPage() {
           programIsPending={isPending}
           programIsError={isError}
           targetDayId={exercisePicker.dayId}
-          existingExerciseIds={program?.days.find((day) => day.id === exercisePicker.dayId)?.exercises.map((exercise) => exercise.exerciseId) ?? []}
+          existingExerciseIds={renderedDays.find((day) => day.id === exercisePicker.dayId)?.exercises.map((exercise) => exercise.exerciseId) ?? []}
           selectedExerciseId={selectedExerciseId}
           isOptionsPending={isExerciseOptionsPending}
           isOptionsError={isExerciseOptionsError}
@@ -1042,8 +1476,8 @@ export function ProgramPage() {
             id: program.id,
             name: program.name,
             isActive: program.isActive,
-            dayCount: program.days.length,
-            exerciseCount: program.days.reduce((count, day) => count + day.exercises.length, 0),
+            dayCount: renderedDays.length,
+            exerciseCount: renderedDays.reduce((count, day) => count + day.exercises.length, 0),
           }}
           isDeleting={deleteProgramMutation.isPending}
           error={deleteProgramMutation.isError ? 'Unable to delete this program. Please try again.' : undefined}

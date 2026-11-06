@@ -16,6 +16,7 @@ function toPublicUser(user: User) {
     email: user.email,
     username: user.username,
     avatarInitial: user.avatarInitial,
+    weightUnit: user.weightUnit,
     createdAt: user.createdAt,
   }
 }
@@ -39,26 +40,34 @@ usersRouter.patch('/me', requireAuth, async (req, res) => {
     return
   }
 
-  const email = parsedBody.data.email.toLowerCase()
-  const { username } = parsedBody.data
-  const existingUser = await prisma.user.findFirst({
-    where: {
-      email,
-      NOT: { id: userId },
-    },
-  })
+  const email = parsedBody.data.email?.toLowerCase()
+  const { username, weightUnit } = parsedBody.data
 
-  if (existingUser) {
-    res.status(409).json({ error: 'Email is already registered' })
-    return
+  if (email !== undefined && username !== undefined) {
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email,
+        NOT: { id: userId },
+      },
+    })
+
+    if (existingUser) {
+      res.status(409).json({ error: 'Email is already registered' })
+      return
+    }
   }
 
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
-      email,
-      username,
-      avatarInitial: getAvatarInitial(username, email),
+      ...(email !== undefined && username !== undefined
+        ? {
+            email,
+            username,
+            avatarInitial: getAvatarInitial(username, email),
+          }
+        : {}),
+      ...(weightUnit !== undefined ? { weightUnit } : {}),
     },
   })
 

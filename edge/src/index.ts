@@ -13,8 +13,8 @@ export function isProxyPath(pathname: string): boolean {
   return pathname === '/api' || pathname.startsWith('/api/') || pathname === '/ready'
 }
 
-function readinessFailure(status = 503): Response {
-  return json(status, { ok: false, code: 'API_STARTING' }, { 'Retry-After': '5' })
+function readinessFailure(status = 503, retryAfter = '5'): Response {
+  return json(status, { ok: false, code: 'API_STARTING' }, { 'Retry-After': retryAfter })
 }
 
 export function parseOrigin(value: string | undefined): URL | null {
@@ -70,6 +70,7 @@ function upstreamRequest(request: Request, origin: URL, env: Env): Request {
     const lower = key.toLowerCase()
     if (!HOP_BY_HOP.has(lower) && !SPOOFABLE.has(lower)) headers.set(key, value)
   })
+  if (incoming.pathname === '/ready') headers.set('Accept', 'application/json')
   headers.set('X-Edge-Proxy-Secret', env.EDGE_PROXY_SECRET ?? '')
   headers.set('X-Request-ID', requestId(request))
   headers.set('X-Forwarded-Host', incoming.host)
@@ -96,6 +97,7 @@ async function proxy(request: Request, env: Env): Promise<Response> {
   const timer = setTimeout(() => timeout.abort(), new URL(request.url).pathname === '/ready' ? 12000 : 30000)
   try {
     const upstream = await fetch(upstreamRequest(request, origin, env), { signal: timeout.signal, redirect: 'manual' })
+    if (pathname === '/ready' && upstream.status === 429) { report(429, 'upstream_rate_limited'); return readinessFailure(503, '15') }
     const contentType = upstream.headers.get('content-type')?.toLowerCase() ?? ''
     if (contentType.includes('text/html')) { report(503, 'unexpected_html'); return pathname === '/ready' ? readinessFailure() : unavailable(503) }
     if (pathname === '/ready') {

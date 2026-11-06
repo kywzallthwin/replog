@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolveApiReadinessUrl, waitForApiReadiness } from '../lib/apiReadiness'
+import { DEFAULT_READINESS_TIMEOUT_MS, resolveApiReadinessUrl, waitForApiReadiness } from '../lib/apiReadiness'
 
 const readyResponse = () => ({ ok: true, status: 200, json: async () => ({ ok: true }) })
 
 describe('API readiness', () => {
   it('resolves the database-backed readiness endpoint', () => {
+    expect(DEFAULT_READINESS_TIMEOUT_MS).toBe(15000)
     expect(resolveApiReadinessUrl('/api')).toBe('/ready')
     expect(resolveApiReadinessUrl('https://api.example.com/service/api')).toBe('https://api.example.com/service/ready')
   })
@@ -81,6 +82,34 @@ describe('API readiness', () => {
     })).rejects.toThrow('still starting')
 
     expect(fetchImpl).toHaveBeenCalledTimes(5)
+  })
+
+  it('respects Retry-After headers on 503 responses and remains bounded by maxWaitMs', async () => {
+    let elapsed = 0
+    const delays: number[] = []
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(new Response('{"ok":false}', { status: 503, headers: { 'Retry-After': '5' } }))
+      .mockResolvedValueOnce(new Response('{"ok":false}', { status: 503, headers: { 'Retry-After': '5' } }))
+      .mockResolvedValueOnce(new Response('{"ok":false}', { status: 503, headers: { 'Retry-After': '15' } }))
+      .mockResolvedValueOnce(new Response('{"ok":false}', { status: 503, headers: { 'Retry-After': '15' } }))
+    const sleep = vi.fn(async (delayMs: number) => {
+      delays.push(delayMs)
+      elapsed += delayMs
+    })
+
+    await expect(waitForApiReadiness({
+      apiBaseUrl: '/api',
+      attempts: 1,
+      delayMs: 5000,
+      maxWaitMs: 32000,
+      now: () => elapsed,
+      fetchImpl,
+      sleep,
+    })).rejects.toThrow('API health check returned 503')
+
+    expect(delays).toEqual([5000, 8000, 15000, 4000])
+    expect(elapsed).toBe(32000)
+    expect(fetchImpl).toHaveBeenCalledTimes(4)
   })
 
   it('propagates caller cancellation', async () => {

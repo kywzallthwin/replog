@@ -241,7 +241,7 @@ export function FluidSelect({
           aria-activedescendant={isOpen && activeIndex >= 0 ? `${selectId}-option-${activeIndex}` : undefined}
           onClick={() => (isOpen ? setIsOpen(false) : openMenu())}
           onKeyDown={handleKeyDown}
-           className="flex min-h-12 h-auto w-full items-center justify-between gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] outline-none transition-[border-color,box-shadow] duration-200 hover:border-slate-300 focus-visible:border-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+           className="flex min-h-12 h-auto w-full cursor-pointer select-none items-center justify-between gap-3 rounded-[14px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08)] outline-none transition-[border-color,box-shadow,transform,background-color] duration-150 hover:border-slate-300 focus-visible:border-slate-900 active:scale-[0.98] active:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
         >
            <span className="min-w-0 break-words [overflow-wrap:anywhere]">{selectedOption?.label ?? placeholder}</span>
           <svg

@@ -176,3 +176,146 @@ test('users can create, switch, copy, and safely edit multiple programs', async 
     await prisma.user.deleteMany({ where: { email } })
   }
 })
+
+test('owners can reorder days within a program while preserving contents and rejecting invalid or unauthorized requests', async () => {
+  const ownerEmail = `program-reorder-owner-${Date.now()}@example.com`
+  const otherEmail = `program-reorder-other-${Date.now()}@example.com`
+  const ownerAgent = request.agent(app)
+  const otherAgent = request.agent(app)
+
+  try {
+    const ownerRegister = await ownerAgent.post('/api/auth/register').send({
+      email: ownerEmail,
+      username: 'Reorder Owner',
+      password: 'password123',
+    })
+    assert.equal(ownerRegister.status, 201, ownerRegister.text)
+
+    const otherRegister = await otherAgent.post('/api/auth/register').send({
+      email: otherEmail,
+      username: 'Other User',
+      password: 'password123',
+    })
+    assert.equal(otherRegister.status, 201, otherRegister.text)
+
+    const programsResponse = await ownerAgent.get('/api/programs')
+    assert.equal(programsResponse.status, 200, programsResponse.text)
+    const starterProgramId = programsResponse.body.programs[0].id as string
+
+    const initialProgramResponse = await ownerAgent.get(`/api/programs/${starterProgramId}`)
+    assert.equal(initialProgramResponse.status, 200, initialProgramResponse.text)
+    const initialDays = initialProgramResponse.body.program.days as Array<{
+      id: string
+      name: string
+      badgeColor: string
+      order: number
+      exercises: Array<{ id: string; exerciseId: string; name: string; order: number }>
+    }>
+    assert.equal(initialDays.length, 3)
+
+    const [dayA, dayB, dayC] = initialDays
+    assert.ok(dayA && dayB && dayC)
+
+    // Move first day (index 0) to last position (index 2)
+    const reorderResponse = await ownerAgent
+      .patch(`/api/programs/${starterProgramId}/days/${dayA.id}/reorder`)
+      .send({ targetIndex: 2 })
+    assert.equal(reorderResponse.status, 200, reorderResponse.text)
+    assert.deepEqual(
+      reorderResponse.body.days.map((day: { id: string; name: string; badgeColor: string; order: number }) => ({
+        id: day.id,
+        name: day.name,
+        badgeColor: day.badgeColor,
+        order: day.order,
+      })),
+      [
+        { id: dayB.id, name: dayB.name, badgeColor: dayB.badgeColor, order: 1 },
+        { id: dayC.id, name: dayC.name, badgeColor: dayC.badgeColor, order: 2 },
+        { id: dayA.id, name: dayA.name, badgeColor: dayA.badgeColor, order: 3 },
+      ],
+    )
+    assert.deepEqual(reorderResponse.body.days[2].exercises, dayA.exercises)
+
+    // Verify order persists across GET /api/programs/:programId and GET /api/programs/active
+    const reloadedResponse = await ownerAgent.get(`/api/programs/${starterProgramId}`)
+    assert.equal(reloadedResponse.status, 200, reloadedResponse.text)
+    assert.deepEqual(
+      reloadedResponse.body.program.days.map((day: { id: string; order: number }) => ({ id: day.id, order: day.order })),
+      [
+        { id: dayB.id, order: 1 },
+        { id: dayC.id, order: 2 },
+        { id: dayA.id, order: 3 },
+      ],
+    )
+    assert.deepEqual(reloadedResponse.body.program.days[0].exercises, dayB.exercises)
+    assert.deepEqual(reloadedResponse.body.program.days[1].exercises, dayC.exercises)
+    assert.deepEqual(reloadedResponse.body.program.days[2].exercises, dayA.exercises)
+
+    // Reorder via 'active' program alias (move dayC from index 1 to index 0)
+    const reorderActiveAliasResponse = await ownerAgent
+      .patch(`/api/programs/active/days/${dayC.id}/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(reorderActiveAliasResponse.status, 200, reorderActiveAliasResponse.text)
+    assert.deepEqual(
+      reorderActiveAliasResponse.body.days.map((day: { id: string; order: number }) => ({ id: day.id, order: day.order })),
+      [
+        { id: dayC.id, order: 1 },
+        { id: dayB.id, order: 2 },
+        { id: dayA.id, order: 3 },
+      ],
+    )
+
+    // Create a second program to test cross-program rejection
+    const secondProgramResponse = await ownerAgent.post('/api/programs').send({
+      name: 'Second Program',
+      source: 'template',
+      templateId: 'upper-lower',
+    })
+    assert.equal(secondProgramResponse.status, 201, secondProgramResponse.text)
+    const secondProgramDayId = secondProgramResponse.body.program.days[0].id as string
+
+    // Unauthenticated request -> 401
+    const unauthResponse = await request(app)
+      .patch(`/api/programs/${starterProgramId}/days/${dayA.id}/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(unauthResponse.status, 401, unauthResponse.text)
+
+    // Non-owner request -> 404
+    const nonOwnerResponse = await otherAgent
+      .patch(`/api/programs/${starterProgramId}/days/${dayA.id}/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(nonOwnerResponse.status, 404, nonOwnerResponse.text)
+
+    // Unknown program -> 404
+    const unknownProgramResponse = await ownerAgent
+      .patch(`/api/programs/unknown-program-id/days/${dayA.id}/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(unknownProgramResponse.status, 404, unknownProgramResponse.text)
+
+    // Unknown day -> 404
+    const unknownDayResponse = await ownerAgent
+      .patch(`/api/programs/${starterProgramId}/days/unknown-day-id/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(unknownDayResponse.status, 404, unknownDayResponse.text)
+
+    // Cross-program day -> 404
+    const crossProgramDayResponse = await ownerAgent
+      .patch(`/api/programs/${starterProgramId}/days/${secondProgramDayId}/reorder`)
+      .send({ targetIndex: 0 })
+    assert.equal(crossProgramDayResponse.status, 404, crossProgramDayResponse.text)
+
+    // Negative targetIndex -> 400
+    const negativeIndexResponse = await ownerAgent
+      .patch(`/api/programs/${starterProgramId}/days/${dayA.id}/reorder`)
+      .send({ targetIndex: -1 })
+    assert.equal(negativeIndexResponse.status, 400, negativeIndexResponse.text)
+
+    // Out-of-range targetIndex -> 400
+    const outOfRangeIndexResponse = await ownerAgent
+      .patch(`/api/programs/${starterProgramId}/days/${dayA.id}/reorder`)
+      .send({ targetIndex: 3 })
+    assert.equal(outOfRangeIndexResponse.status, 400, outOfRangeIndexResponse.text)
+  } finally {
+    await prisma.user.deleteMany({ where: { email: { in: [ownerEmail, otherEmail] } } })
+  }
+})

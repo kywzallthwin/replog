@@ -46,3 +46,7 @@ export const updateSetSchema = z.object({
 export const sessionExerciseSchema = z.object({
   exerciseId: z.string().min(1),
 })
+
+export const reorderSessionExerciseSchema = z.object({
+  targetIndex: z.number().int().min(0),
+})

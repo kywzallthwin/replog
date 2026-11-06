@@ -63,6 +63,7 @@ function toPublicUser(user: User) {
     email: user.email,
     username: user.username,
     avatarInitial: user.avatarInitial,
+    weightUnit: user.weightUnit,
     createdAt: user.createdAt,
   }
 }

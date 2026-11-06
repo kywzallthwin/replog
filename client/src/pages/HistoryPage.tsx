@@ -6,6 +6,7 @@ import {
   type WorkoutHistorySession,
 } from '../lib/sessions'
 import { getBadgeClass } from '../lib/badgeColors'
+import { formatVolumeSummary, useWeightUnit } from '../lib/units'
 import { BottomTabBar } from '../components/nav/BottomTabBar'
 import { TopNav } from '../components/nav/TopNav'
 import { BrandLogo } from '../components/BrandLogo'
@@ -60,6 +61,7 @@ function groupSessionsByMonth(sessions: WorkoutHistorySession[]) {
 
 export function HistoryPage() {
   const navigate = useNavigate()
+  const weightUnit = useWeightUnit()
   const { data: sessions, isError, isPending } = useQuery({
     queryKey: sessionHistoryQueryKey,
     queryFn: getSessionHistory,
@@ -146,7 +148,7 @@ export function HistoryPage() {
                         {formatSessionDate(session)}
                       </time>
                       <p className="mt-2 min-w-0 break-words text-sm text-slate-500 [overflow-wrap:anywhere]">
-                        {session.programName ? `${session.programName} · ` : ''}{session.exerciseCount} exercises · {session.setCount} sets · {formatDuration(session.durationSec)}
+                        {session.programName ? `${session.programName} · ` : ''}{session.exerciseCount} exercises · {session.setCount} sets{typeof session.totalVolumeKg === 'number' ? ` · ${formatVolumeSummary(session.totalVolumeKg, weightUnit)}` : ''} · {formatDuration(session.durationSec)}
                       </p>
                     </Link>
                   ))}

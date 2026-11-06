@@ -70,6 +70,10 @@ type DayResponse = {
   day: ProgramDay
 }
 
+type DaysResponse = {
+  days: ProgramDay[]
+}
+
 type DayExerciseResponse = {
   exercise: DayExerciseItem
 }
@@ -94,6 +98,12 @@ export type UpdateDayInput = {
 export type DeleteDayInput = {
   programId: string
   dayId: string
+}
+
+export type ReorderDayInput = {
+  programId: string
+  dayId: string
+  targetIndex: number
 }
 
 export type AddDayExerciseInput = {
@@ -205,6 +215,15 @@ export async function updateDay(input: UpdateDayInput) {
 
 export async function deleteDay(input: DeleteDayInput) {
   await api.delete(`/programs/${input.programId}/days/${input.dayId}`)
+}
+
+export async function reorderDay(input: ReorderDayInput) {
+  const response = await api.patch<DaysResponse>(
+    `/programs/${input.programId}/days/${input.dayId}/reorder`,
+    { targetIndex: input.targetIndex },
+  )
+
+  return response.data.days
 }
 
 export async function addDayExercise(input: AddDayExerciseInput) {

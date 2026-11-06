@@ -44,9 +44,24 @@ describe('edge routing and validation', () => {
     vi.restoreAllMocks()
   })
   it('accepts compatible readiness responses with optional fields', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"ok":true,"runId":"test-run"}', { headers: { 'Content-Type': 'application/json' } }))
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"ok":true,"runId":"test-run"}', { headers: { 'Content-Type': 'application/json' } }))
     const response = await worker.fetch(new Request('https://app.example.com/ready'), env)
     expect(response.status).toBe(200)
+    expect((fetcher.mock.calls[0][0] as Request).headers.get('Accept')).toBe('application/json')
+    vi.restoreAllMocks()
+  })
+  it('returns 503 with Retry-After 15 and sanitized diagnostics for upstream 429 HTML challenges on /ready', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('<!DOCTYPE html><html>challenge</html>', { status: 429, headers: { 'Content-Type': 'text/html; charset=UTF-8' } }))
+    const response = await worker.fetch(new Request('https://app.example.com/ready', { headers: { Accept: 'text/html', 'CF-Ray': 'rate-id', Cookie: 'session=secret' } }), env)
+    expect((fetcher.mock.calls[0][0] as Request).headers.get('Accept')).toBe('application/json')
+    expect(response.status).toBe(503)
+    expect(response.headers.get('Retry-After')).toBe('15')
+    expect(await response.json()).toEqual({ ok: false, code: 'API_STARTING' })
+    const record = JSON.parse(String(warn.mock.calls[0][0])) as Record<string, unknown>
+    expect(record).toMatchObject({ event: 'upstream_failure', requestId: 'cf-rate-id', status: 429, category: 'upstream_rate_limited' })
+    expect(record).toHaveProperty('durationMs')
+    expect(JSON.stringify(record)).not.toMatch(/secret|cookie|challenge/i)
     vi.restoreAllMocks()
   })
   it('logs sanitized upstream diagnostics for a timeout', async () => {

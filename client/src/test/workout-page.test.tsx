@@ -8,12 +8,16 @@ import {
   addSet,
   addSetChain,
   cancelSession,
+  deleteSession,
   deleteSet,
   finishSession,
   getSession,
   manualDraftQueryKey,
   removeSessionExercise,
+  reorderSessionExercise,
   saveSessionToProgram,
+  sessionHistoryQueryKey,
+  sessionQueryKey,
   swapSessionExercise,
   updateSet,
   updateManualMetadata,
@@ -21,6 +25,8 @@ import {
   type WorkoutSession,
   type WorkoutSet,
 } from '../lib/sessions'
+import { dashboardQueryKey } from '../lib/dashboard'
+import { progressQueryKey } from '../lib/progress'
 import { getExercises, type ExerciseOption } from '../lib/exercises'
 import { getActiveProgram, activeProgramQueryKey, type Program, type ProgramDay } from '../lib/programs'
 import { createTestQueryClient } from './query-client'
@@ -38,8 +44,10 @@ vi.mock('../lib/sessions', async (importOriginal) => {
     addSessionExercise: vi.fn(),
     swapSessionExercise: vi.fn(),
     removeSessionExercise: vi.fn(),
+    reorderSessionExercise: vi.fn(),
     finishSession: vi.fn(),
     cancelSession: vi.fn(),
+    deleteSession: vi.fn(),
     updateManualMetadata: vi.fn(),
     saveSessionToProgram: vi.fn(),
   }
@@ -63,8 +71,10 @@ const mockedDeleteSet = vi.mocked(deleteSet)
 const mockedAddSessionExercise = vi.mocked(addSessionExercise)
 const mockedSwapSessionExercise = vi.mocked(swapSessionExercise)
 const mockedRemoveSessionExercise = vi.mocked(removeSessionExercise)
+const mockedReorderSessionExercise = vi.mocked(reorderSessionExercise)
 const mockedFinishSession = vi.mocked(finishSession)
 const mockedCancelSession = vi.mocked(cancelSession)
+const mockedDeleteSession = vi.mocked(deleteSession)
 const mockedUpdateManualMetadata = vi.mocked(updateManualMetadata)
 const mockedSaveSessionToProgram = vi.mocked(saveSessionToProgram)
 const mockedGetExercises = vi.mocked(getExercises)
@@ -186,6 +196,7 @@ function renderWorkout(session: WorkoutSession = workoutSession()) {
         <Routes>
           <Route path="/workout/:sessionId" element={<WorkoutPage />} />
           <Route path="/dashboard" element={<h1>Dashboard destination</h1>} />
+          <Route path="/history" element={<h1>History destination</h1>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -226,8 +237,10 @@ beforeEach(() => {
   mockedAddSessionExercise.mockResolvedValue(workoutExercise({ id: 'added-exercise', exerciseId: 'row', name: 'Barbell Row', sets: [] }))
   mockedSwapSessionExercise.mockResolvedValue(workoutExercise({ exerciseId: 'row', name: 'Barbell Row', sets: [] }))
   mockedRemoveSessionExercise.mockResolvedValue(undefined)
+  mockedReorderSessionExercise.mockResolvedValue([workoutExercise()])
   mockedFinishSession.mockResolvedValue(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
   mockedCancelSession.mockResolvedValue(undefined)
+  mockedDeleteSession.mockResolvedValue(undefined)
   mockedUpdateManualMetadata.mockImplementation(async (_sessionId, metadata) => workoutSession({
     source: 'MANUAL',
     workoutDate: metadata.workoutDate ?? '2026-09-06',
@@ -384,6 +397,39 @@ describe('WorkoutPage regression coverage', () => {
       ],
     }))
     expect(mockedAddSet).not.toHaveBeenCalled()
+  })
+
+  it('immediately renders a saved set or drop chain in the exercise card even if the background session refetch rejects', async () => {
+    renderWorkout()
+    const { card, form } = await openAddSetForm()
+
+    mockedGetSession.mockRejectedValue(new Error('refetch failed'))
+    mockedAddSet.mockResolvedValueOnce(workoutSet({ id: 'set-2', weightKg: 85, reps: 6, order: 1 }))
+
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '85' } })
+    fireEvent.change(within(form).getAllByRole('spinbutton')[1], { target: { value: '6' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+
+    expect(await within(card).findByText('85 kg')).toBeInTheDocument()
+    expect(within(card).getByText('2 sets logged')).toBeInTheDocument()
+    expect(within(form).queryByText('Unable to add set. Please try again.')).not.toBeInTheDocument()
+
+    mockedAddSetChain.mockResolvedValueOnce([
+      workoutSet({ id: 'set-3', weightKg: 90, reps: 5, order: 2 }),
+      workoutSet({ id: 'set-4', kind: 'DROP', parentSetId: 'set-3', weightKg: 70, reps: 8, order: 3 }),
+    ])
+
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '90' } })
+    fireEvent.change(within(form).getAllByRole('spinbutton')[1], { target: { value: '5' } })
+    fireEvent.click(within(form).getByRole('button', { name: /Add drop set/ }))
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Drop 1 weight kg' }), { target: { value: '70' } })
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Drop 1 reps' }), { target: { value: '8' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+
+    expect(await within(card).findByText('90 kg')).toBeInTheDocument()
+    expect(within(card).getByText('70 kg')).toBeInTheDocument()
+    expect(within(card).getByText('4 sets logged')).toBeInTheDocument()
+    expect(within(form).queryByText('Unable to add set. Please try again.')).not.toBeInTheDocument()
   })
 
   it('repeats a simple set and promotes a warm-up to normal', async () => {
@@ -827,6 +873,71 @@ describe('WorkoutPage regression coverage', () => {
     expect(await screen.findByRole('heading', { name: 'Dashboard destination' })).toBeInTheDocument()
   })
 
+  it('restores focus when completed workout deletion is cancelled or dismissed with Escape', async () => {
+    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 }))
+
+    const trigger = await screen.findByRole('button', { name: 'Delete workout' })
+    expect(trigger).toHaveClass('min-h-11', 'w-full')
+    expect(screen.queryByRole('button', { name: 'Cancel Workout' })).not.toBeInTheDocument()
+
+    trigger.focus()
+    fireEvent.click(trigger)
+    let dialog = screen.getByRole('alertdialog', { name: 'Delete workout?' })
+    expect(within(dialog).getByText(/permanently deletes this Upper A workout and its logged sets/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog', { name: 'Delete workout?' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(mockedDeleteSession).not.toHaveBeenCalled()
+
+    fireEvent.click(trigger)
+    dialog = screen.getByRole('alertdialog', { name: 'Delete workout?' })
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('alertdialog', { name: 'Delete workout?' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(mockedDeleteSession).not.toHaveBeenCalled()
+  })
+
+  it('locks completed workout deletion while pending, reports errors, and on success removes the detail cache, invalidates derived caches, and navigates to History', async () => {
+    const firstAttempt = deferred<void>()
+    mockedDeleteSession.mockReturnValueOnce(firstAttempt.promise).mockResolvedValueOnce(undefined)
+
+    const completed = workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600 })
+    const queryClient = renderWorkout(completed)
+    queryClient.setQueryData(sessionHistoryQueryKey, [])
+    queryClient.setQueryData(dashboardQueryKey, { activeSession: null })
+    queryClient.setQueryData(progressQueryKey('bench'), { exercises: [] })
+    queryClient.setQueryData(sessionQueryKey('session-2'), workoutSession({ id: 'session-2' }))
+
+    const trigger = await screen.findByRole('button', { name: 'Delete workout' })
+    fireEvent.click(trigger)
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete workout?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete workout' }))
+
+    await waitFor(() => {
+      expect(mockedDeleteSession).toHaveBeenCalledTimes(1)
+      expect(mockedDeleteSession.mock.calls[0]?.[0]).toBe('session-1')
+      expect(within(dialog).getByRole('button', { name: 'Deleting...' })).toBeDisabled()
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    })
+
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.getByRole('alertdialog', { name: 'Delete workout?' })).toBeInTheDocument()
+
+    firstAttempt.reject(new Error('offline'))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to delete workout. Please try again.')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete workout' }))
+    expect(await screen.findByRole('heading', { name: 'History destination' })).toBeInTheDocument()
+    expect(mockedDeleteSession).toHaveBeenCalledTimes(2)
+    expect(queryClient.getQueryData(sessionQueryKey('session-1'))).toBeUndefined()
+    expect(queryClient.getQueryState(sessionHistoryQueryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(dashboardQueryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(progressQueryKey('bench'))?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(sessionQueryKey('session-2'))?.isInvalidated).toBe(true)
+  })
+
   it('invalidates Resume Draft data after a manual draft is discarded', async () => {
     const draft = workoutSession({ source: 'MANUAL', workoutDate: '2026-09-06' })
     const queryClient = createTestQueryClient({
@@ -852,6 +963,225 @@ describe('WorkoutPage regression coverage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Log Workout setup' })).toBeInTheDocument()
     expect(queryClient.getQueryState(manualDraftQueryKey)?.isInvalidated).toBe(true)
+  })
+
+  it('opens and closes the Reorder Exercises dialog with compact rows, focus restoration, optimistic reordering, and status announcements', async () => {
+    const first = workoutExercise({
+      id: 'session-exercise-1',
+      exerciseId: 'bench',
+      name: 'Bench Press',
+      order: 1,
+      sets: [workoutSet({ id: 'set-1' }), workoutSet({ id: 'set-2', order: 1 })],
+    })
+    const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
+    const third = workoutExercise({
+      id: 'session-exercise-3',
+      exerciseId: 'squat',
+      name: 'Back Squat',
+      order: 3,
+      sets: [workoutSet({ id: 'set-3' })],
+    })
+    const reorderDownRequest = deferred<WorkoutExercise[]>()
+    mockedReorderSessionExercise.mockReturnValueOnce(reorderDownRequest.promise)
+
+    renderWorkout(workoutSession({ exercises: [first, second, third] }))
+
+    const addExerciseTrigger = await screen.findByRole('button', { name: '+ Add Exercise' })
+    const reorderTrigger = await screen.findByRole('button', { name: 'Reorder Exercises' })
+    const saveToProgramTrigger = screen.getByRole('button', { name: 'Save to Program' })
+    const cancelTrigger = screen.getByRole('button', { name: 'Cancel Workout' })
+    const finishTrigger = screen.getByRole('button', { name: 'Finish Workout' })
+
+    expect(screen.getByText('Active workout').closest('.rounded-\\[20px\\]')).not.toContainElement(reorderTrigger)
+    expect(addExerciseTrigger.parentElement).toHaveClass('mt-5', 'space-y-2.5')
+    expect(addExerciseTrigger).toHaveClass('min-h-11', 'w-full', 'rounded-[14px]', 'border-slate-200', 'bg-white', 'px-4', 'py-3', 'text-sm', 'font-bold', 'text-slate-600')
+    expect(reorderTrigger.parentElement).toHaveClass('grid', 'grid-cols-2', 'gap-2')
+    expect(within(reorderTrigger.parentElement as HTMLElement).getAllByRole('button')).toEqual([reorderTrigger, saveToProgramTrigger])
+    expect(reorderTrigger).toHaveClass('min-h-11', 'w-full', 'rounded-[14px]', 'border-slate-200', 'bg-white', 'px-3', 'py-2.5', 'text-sm', 'font-bold', 'text-slate-700')
+    expect(reorderTrigger).toHaveTextContent('Reorder')
+    expect(saveToProgramTrigger).toHaveClass('min-h-11', 'w-full', 'rounded-[14px]', 'border-slate-200', 'bg-white', 'px-3', 'py-2.5', 'text-sm', 'font-bold', 'text-slate-700')
+    expect(cancelTrigger.parentElement).toHaveClass('grid', 'grid-cols-2', 'gap-2')
+    expect(within(cancelTrigger.parentElement as HTMLElement).getAllByRole('button')).toEqual([cancelTrigger, finishTrigger])
+    expect(cancelTrigger).toHaveClass('min-h-11', 'rounded-[14px]', 'border-red-200', 'bg-white', 'px-3', 'py-2.5', 'text-sm', 'font-bold', 'text-red-600')
+    expect(finishTrigger).toHaveClass('min-h-11', 'rounded-[14px]', 'bg-green-100', 'px-3', 'py-2.5', 'text-sm', 'font-bold', 'text-green-700')
+    expect(screen.queryByRole('button', { name: /Move .* (up|down)/ })).not.toBeInTheDocument()
+
+    reorderTrigger.focus()
+    fireEvent.click(reorderTrigger)
+
+    let dialog = await screen.findByRole('dialog', { name: 'Reorder exercises' })
+    expect(within(dialog).getByText('Active Workout')).toBeInTheDocument()
+
+    // Dismiss with Escape and verify focus restores to the trigger button
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Reorder exercises' })).not.toBeInTheDocument()
+    expect(reorderTrigger).toHaveFocus()
+
+    // Reopen and verify compact row structure, step badges, set counts, and 44x44px drag handles
+    fireEvent.click(reorderTrigger)
+    dialog = await screen.findByRole('dialog', { name: 'Reorder exercises' })
+
+    const benchHandle = within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })
+    const rowHandle = within(dialog).getByRole('button', { name: 'Drag Barbell Row to reorder' })
+    const squatHandle = within(dialog).getByRole('button', { name: 'Drag Back Squat to reorder' })
+
+    expect(benchHandle).toHaveClass('h-11', 'w-11')
+    expect(rowHandle).toHaveClass('h-11', 'w-11')
+    expect(squatHandle).toHaveClass('h-11', 'w-11')
+    expect(benchHandle).toHaveFocus()
+    expect(within(dialog).getByText('2 sets')).toBeInTheDocument()
+    expect(within(dialog).getByText('No sets')).toBeInTheDocument()
+    expect(within(dialog).getByText('1 set')).toBeInTheDocument()
+    expect(within(dialog).getByText('Bench Press')).toHaveClass('truncate', 'text-sm', 'font-semibold', 'text-slate-900')
+    expect(within(dialog).getByRole('button', { name: 'Done' })).toHaveClass('min-h-11', 'w-full')
+
+    // Reorder Bench Press down via ArrowDown on its drag handle
+    fireEvent.keyDown(benchHandle, { key: 'ArrowDown' })
+
+    await waitFor(() => {
+      expect(mockedReorderSessionExercise.mock.calls[0]?.[0]).toEqual({
+        sessionId: 'session-1',
+        sessionExerciseId: 'session-exercise-1',
+        targetIndex: 1,
+      })
+    })
+
+    // Both popup rows and background workout cards update optimistically
+    const popupHandlesWhilePending = within(dialog)
+      .getAllByRole('button', { name: /Drag .* to reorder/ })
+      .map((button) => button.getAttribute('aria-label'))
+    expect(popupHandlesWhilePending).toEqual([
+      'Drag Barbell Row to reorder',
+      'Drag Bench Press to reorder',
+      'Drag Back Squat to reorder',
+    ])
+
+    const headingsWhilePending = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
+    expect(headingsWhilePending).toEqual(['Barbell Row', 'Bench Press', 'Back Squat'])
+    expect(within(await getExerciseCard('Barbell Row')).getByText('Exercise 1')).toBeInTheDocument()
+    expect(within(await getExerciseCard('Bench Press')).getByText('Exercise 2')).toBeInTheDocument()
+    expect(within(await getExerciseCard('Back Squat')).getByText('Exercise 3')).toBeInTheDocument()
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
+
+    // Pending mutation locks drag handles, Done button, and Escape dismissal
+    expect(within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Done' })).toBeDisabled()
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(dialog).toBeInTheDocument()
+
+    reorderDownRequest.resolve([
+      { ...second, order: 1 },
+      { ...first, order: 2 },
+      { ...third, order: 3 },
+    ])
+
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })).not.toBeDisabled())
+    expect(within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })).toHaveFocus()
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Moved Bench Press to position 2 of 3.')
+
+    // Move Back Squat up via ArrowUp on its drag handle
+    mockedReorderSessionExercise.mockResolvedValueOnce([
+      { ...second, order: 1 },
+      { ...third, order: 2 },
+      { ...first, order: 3 },
+    ])
+    const updatedSquatHandle = within(dialog).getByRole('button', { name: 'Drag Back Squat to reorder' })
+    updatedSquatHandle.focus()
+    fireEvent.keyDown(updatedSquatHandle, { key: 'ArrowUp' })
+
+    await waitFor(() => {
+      expect(mockedReorderSessionExercise.mock.calls[1]?.[0]).toEqual({
+        sessionId: 'session-1',
+        sessionExerciseId: 'session-exercise-3',
+        targetIndex: 1,
+      })
+    })
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Drag Back Squat to reorder' })).toHaveFocus())
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Moved Back Squat to position 2 of 3.')
+
+    // Clicking Done closes the dialog and restores focus to the Reorder Exercises button
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('dialog', { name: 'Reorder exercises' })).not.toBeInTheDocument()
+    expect(reorderTrigger).toHaveFocus()
+  })
+
+  it('restores the previous exercise order and shows an accessible alert when reordering fails', async () => {
+    const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
+    const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
+    const reorderRequest = deferred<WorkoutExercise[]>()
+    mockedReorderSessionExercise.mockReturnValueOnce(reorderRequest.promise)
+
+    renderWorkout(workoutSession({ exercises: [first, second] }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reorder Exercises' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Reorder exercises' })
+    const benchHandle = within(dialog).getByRole('button', { name: 'Drag Bench Press to reorder' })
+    fireEvent.keyDown(benchHandle, { key: 'ArrowDown' })
+
+    await waitFor(() => {
+      expect(mockedReorderSessionExercise.mock.calls[0]?.[0]).toEqual({
+        sessionId: 'session-1',
+        sessionExerciseId: 'session-exercise-1',
+        targetIndex: 1,
+      })
+    })
+    expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      'Barbell Row',
+      'Bench Press',
+    ])
+
+    reorderRequest.reject(new Error('offline'))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Unable to reorder the exercise. Please try again.')
+    expect(
+      within(dialog)
+        .getAllByRole('button', { name: /Drag .* to reorder/ })
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual([
+      'Drag Bench Press to reorder',
+      'Drag Barbell Row to reorder',
+    ])
+    expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      'Bench Press',
+      'Barbell Row',
+    ])
+    expect(within(await getExerciseCard('Bench Press')).getByText('Exercise 1')).toBeInTheDocument()
+    expect(within(await getExerciseCard('Barbell Row')).getByText('Exercise 2')).toBeInTheDocument()
+  })
+
+  it('disables the Reorder Exercises trigger button while a conflicting set mutation is in flight', async () => {
+    const setSaveRequest = deferred<WorkoutSet>()
+    mockedAddSet.mockReturnValueOnce(setSaveRequest.promise)
+    const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
+    const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
+
+    renderWorkout(workoutSession({ exercises: [first, second] }))
+
+    const { form } = await openAddSetForm()
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Set' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reorder Exercises' })).toBeDisabled()
+    })
+
+    setSaveRequest.resolve(workoutSet({ id: 'set-2', order: 2 }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reorder Exercises' })).not.toBeDisabled()
+    })
+  })
+
+  it('hides Reorder Exercises on completed workouts and single-exercise workouts', async () => {
+    const first = workoutExercise({ id: 'session-exercise-1', exerciseId: 'bench', name: 'Bench Press', order: 1 })
+    const second = workoutExercise({ id: 'session-exercise-2', exerciseId: 'row', name: 'Barbell Row', order: 2, sets: [] })
+
+    renderWorkout(workoutSession({ endedAt: '2026-09-06T09:00:00.000Z', durationSec: 3600, exercises: [first, second] }))
+    await screen.findByText('Completed workout')
+    expect(screen.queryByRole('button', { name: 'Reorder Exercises' })).not.toBeInTheDocument()
+
+    renderWorkout(workoutSession({ exercises: [first] }))
+    await screen.findByText('Active workout')
+    expect(screen.queryByRole('button', { name: 'Reorder Exercises' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save to Program' }).parentElement?.className ?? '').not.toContain('grid-cols-2')
   })
 })
 

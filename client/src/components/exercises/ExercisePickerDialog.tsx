@@ -3,7 +3,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { Check, GitMerge, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
-import { createCategory, createExercise, deleteCategory, exercisesQueryKey, categoriesQueryKey, getCategories, mergeExercise, renameCategory, resetCategoryLabel, updateExercise, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
+import { createCategory, createExercise, deleteCategory, deleteExercise, exercisesQueryKey, categoriesQueryKey, getCategories, mergeExercise, renameCategory, resetCategoryLabel, updateExercise, type CategorySummary, type ExerciseOption } from '../../lib/exercises'
 import { dashboardQueryKey } from '../../lib/dashboard'
 import { programsQueryKey } from '../../lib/programs'
 import type { Program } from '../../lib/programs'
@@ -170,6 +170,8 @@ export function ExercisePickerDialog({
   const allExercisesTabRef = useRef<HTMLButtonElement>(null)
   const exerciseEditButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const exerciseNameInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const exerciseDeleteButtonRef = useRef<HTMLButtonElement>(null)
+  const editingFocusFrameRef = useRef<number | null>(null)
   const mergeActionRef = useRef<HTMLButtonElement>(null)
   const mergeInstructionRef = useRef<HTMLParagraphElement>(null)
   const pickerSearchInputRef = useRef<HTMLInputElement>(null)
@@ -185,6 +187,8 @@ export function ExercisePickerDialog({
   const [renameDraft, setRenameDraft] = useState('')
   const [replacementId, setReplacementId] = useState('')
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null)
+  const [deletingExerciseId, setDeletingExerciseId] = useState<string | null>(null)
+  const [deletedExerciseIds, setDeletedExerciseIds] = useState<string[]>([])
   const [nameDraft, setNameDraft] = useState('')
   const [categoryDraft, setCategoryDraft] = useState('')
   const [mutationError, setMutationError] = useState('')
@@ -237,17 +241,46 @@ export function ExercisePickerDialog({
     const input = exerciseNameInputRefs.current[editingExerciseId]
     if (!input) return
 
-    window.requestAnimationFrame(() => input.focus())
+    const frame = window.requestAnimationFrame(() => {
+      editingFocusFrameRef.current = null
+      input.focus()
+    })
+    editingFocusFrameRef.current = frame
+    return () => {
+      window.cancelAnimationFrame(frame)
+      editingFocusFrameRef.current = null
+    }
   }, [editingExerciseId])
   const categoryMutation = useMutation({ mutationFn: ({ name, id }: { name: string; id?: string }) => id ? renameCategory(id, name) : createCategory(name), onSuccess: (category, variables) => { queryClient.setQueryData<CategorySummary[]>(categoriesQueryKey, (current = []) => variables.id ? current.map((item) => item.id === category.id ? category : item) : [...current, category]); setCategoryName(''); setRenameDraft(''); setMutationError(''); refreshLibrary(); setSelectedCategoryId(null); setCategoryManagerMode(null); if (variables.id) window.requestAnimationFrame(() => categoryRenameButtonRefs.current[variables.id!]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save category.')) })
   const deleteMutation = useMutation({ mutationFn: ({ id, replacement }: { id: string; replacement: string }) => deleteCategory(id, replacement), onSuccess: () => { setIsDeleteConfirmationOpen(false); setReplacementId(''); setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryManagerTriggerRef.current?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to delete category.')) })
   const resetLabelMutation = useMutation({ mutationFn: resetCategoryLabel, onSuccess: (_data, categoryId) => { setSelectedCategoryId(null); setCategoryManagerMode(null); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => categoryRenameButtonRefs.current[categoryId]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to reset category name.')) })
   const updateExerciseMutation = useMutation({ mutationFn: ({ exerciseId, name, categoryId }: { exerciseId: string; name?: string; categoryId?: string }) => updateExercise(exerciseId, { ...(name !== undefined ? { name } : {}), ...(categoryId !== undefined ? { categoryId } : {}) }), onSuccess: (exercise) => { queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) => current.map((item) => item.id === exercise.id ? exercise : item)); setEditingExerciseId(null); setNameDraft(''); setCategoryDraft(''); setMutationError(''); refreshLibrary(); window.requestAnimationFrame(() => exerciseEditButtonRefs.current[exercise.id]?.focus()) }, onError: (error) => setMutationError(getErrorMessage(error, 'Unable to save exercise.')) })
+  const deleteExerciseMutation = useMutation({
+    mutationFn: (exerciseId: string) => deleteExercise(exerciseId),
+    onSuccess: (_data, exerciseId) => {
+      setDeletedExerciseIds((current) => (current.includes(exerciseId) ? current : [...current, exerciseId]))
+      queryClient.setQueryData<ExerciseOption[]>(exercisesQueryKey, (current = []) =>
+        current.filter((item) => item.id !== exerciseId),
+      )
+      if (selectedExerciseId === exerciseId) {
+        onSelectedExercise('')
+      }
+      setDeletingExerciseId(null)
+      setEditingExerciseId(null)
+      setNameDraft('')
+      setCategoryDraft('')
+      setMutationError('')
+      refreshLibrary()
+      window.requestAnimationFrame(() => pickerSearchInputRef.current?.focus())
+    },
+  })
   const cancelExerciseEdit = (exerciseId: string) => {
     setEditingExerciseId(null)
+    setDeletingExerciseId(null)
     setNameDraft('')
     setCategoryDraft('')
     updateExerciseMutation.reset()
+    deleteExerciseMutation.reset()
     setMutationError('')
     window.requestAnimationFrame(() => exerciseEditButtonRefs.current[exerciseId]?.focus())
   }
@@ -268,6 +301,8 @@ export function ExercisePickerDialog({
     },
   })
 
+  const deletedSet = new Set(deletedExerciseIds)
+  const activeExerciseOptions = exerciseOptions.filter((exercise) => !deletedSet.has(exercise.id))
   const existingIds = new Set(existingExerciseIds)
   const programGroups = [...(program?.days ?? [])]
     .sort((left, right) => {
@@ -279,7 +314,7 @@ export function ExercisePickerDialog({
       const seen = new Set<string>()
       const exercises = day.exercises
         .filter((exercise) => {
-          if (seen.has(exercise.exerciseId)) {
+          if (deletedSet.has(exercise.exerciseId) || seen.has(exercise.exerciseId)) {
             return false
           }
 
@@ -298,7 +333,7 @@ export function ExercisePickerDialog({
   const allGroups = categories.map((category) => ({
     id: category.id,
     label: category.name,
-    exercises: exerciseOptions.filter((exercise) => exercise.category.id === category.id),
+    exercises: activeExerciseOptions.filter((exercise) => exercise.category.id === category.id),
   }))
   const groups = source === 'program' ? programGroups : allGroups
   const normalizedSearch = search.trim().toLowerCase()
@@ -314,11 +349,16 @@ export function ExercisePickerDialog({
   const isSourceError = source === 'program' ? programIsError : isOptionsError
   const hasSourceExercises = groups.some((group) => group.exercises.length > 0)
   const updateExerciseIsPending = updateExerciseMutation.isPending
-  const pickerIsBusy = isSaving || createMutation.isPending || updateExerciseIsPending || mergeMutation.isPending
+  const deleteExerciseIsPending = deleteExerciseMutation.isPending
+  const exerciseEditorIsPending = updateExerciseIsPending || deleteExerciseIsPending
+  const pickerIsBusy = isSaving || createMutation.isPending || exerciseEditorIsPending || mergeMutation.isPending
   const isMerging = source === 'all' && mergeStep !== null
+  const deletingExercise = deletingExerciseId
+    ? activeExerciseOptions.find((exercise) => exercise.id === deletingExerciseId) ?? null
+    : null
 
-  const mergeSource = mergeSourceId ? exerciseOptions.find((exercise) => exercise.id === mergeSourceId) ?? null : null
-  const mergeTarget = exerciseOptions.find((exercise) => exercise.id === mergeTargetId) ?? null
+  const mergeSource = mergeSourceId ? activeExerciseOptions.find((exercise) => exercise.id === mergeSourceId) ?? null : null
+  const mergeTarget = activeExerciseOptions.find((exercise) => exercise.id === mergeTargetId) ?? null
   const resultCount = visibleGroups.reduce((count, group) => count + group.exercises.length, 0)
 
   useLayoutEffect(() => {
@@ -350,9 +390,11 @@ export function ExercisePickerDialog({
     setSource(nextSource)
     setSearch('')
     setEditingExerciseId(null)
+    setDeletingExerciseId(null)
     setNameDraft('')
     setCategoryDraft('')
     updateExerciseMutation.reset()
+    deleteExerciseMutation.reset()
     setMutationError('')
     onSelectedExercise('')
   }
@@ -385,9 +427,11 @@ export function ExercisePickerDialog({
   function handleExerciseSelect(exerciseId: string) {
     if (editingExerciseId && editingExerciseId !== exerciseId) {
       setEditingExerciseId(null)
+      setDeletingExerciseId(null)
       setNameDraft('')
       setCategoryDraft('')
       updateExerciseMutation.reset()
+      deleteExerciseMutation.reset()
     }
     onSelectedExercise(exerciseId)
   }
@@ -409,7 +453,11 @@ export function ExercisePickerDialog({
     setMergeTargetId('')
     setMergeStep('source')
     setEditingExerciseId(null)
+    setDeletingExerciseId(null)
+    setNameDraft('')
     setCategoryDraft('')
+    updateExerciseMutation.reset()
+    deleteExerciseMutation.reset()
     setMutationError('')
     mergeMutation.reset()
   }
@@ -472,10 +520,19 @@ export function ExercisePickerDialog({
     }
 
     setEditingExerciseId(null)
+    setDeletingExerciseId(null)
     setNameDraft('')
     setCategoryDraft('')
     updateExerciseMutation.reset()
+    deleteExerciseMutation.reset()
     onClose()
+  }
+
+  function closeExerciseDeleteConfirmation() {
+    if (deleteExerciseIsPending) return
+    setDeletingExerciseId(null)
+    deleteExerciseMutation.reset()
+    window.requestAnimationFrame(() => exerciseDeleteButtonRef.current?.focus())
   }
 
   function closeCategoryEditor() {
@@ -742,7 +799,7 @@ export function ExercisePickerDialog({
                              {isCurrent ? <span className={`shrink-0 text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>Current</span> : null}
                              {!isMerging && isAdded ? <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400"><Check size={14} aria-hidden="true" /> In use</span> : null}
                           </button>
-                          {!isMerging && source === 'all' && exercise.isCustom && !isAdded ? <button ref={(button) => { exerciseEditButtonRefs.current[exercise.id] = button }} type="button" data-press="icon" className={`absolute right-1 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center transition-[color,opacity] duration-150 motion-reduce:transition-none hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 ${isEditing && isSelected ? 'text-white' : isEditing ? 'text-slate-700' : isSelected ? 'text-white' : 'text-slate-400'} ${pickerIsBusy ? 'cursor-not-allowed opacity-50' : ''}`} aria-label={`Edit exercise ${exercise.name}`} title={`Edit exercise ${exercise.name}`} aria-expanded={isEditing} aria-controls={`${pickerId}-${exercise.id}-exercise-editor`} disabled={pickerIsBusy} onClick={(event) => { event.stopPropagation(); if (updateExerciseIsPending) return; updateExerciseMutation.reset(); setEditingExerciseId(isEditing ? null : exercise.id); setNameDraft(isEditing ? '' : exercise.name); setCategoryDraft(isEditing ? '' : exercise.category.id); setMutationError('') }}><span className={`inline-flex transition-[color,opacity,transform] duration-150 motion-reduce:transition-none active:scale-95 ${isEditing ? 'opacity-100' : 'opacity-90'}`}><Pencil size={16} aria-hidden="true" /></span></button> : null}
+                          {!isMerging && source === 'all' && exercise.isCustom && !isAdded ? <button ref={(button) => { exerciseEditButtonRefs.current[exercise.id] = button }} type="button" data-press="icon" className={`absolute right-1 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center transition-[color,opacity] duration-150 motion-reduce:transition-none hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 ${isEditing && isSelected ? 'text-white' : isEditing ? 'text-slate-700' : isSelected ? 'text-white' : 'text-slate-400'} ${pickerIsBusy ? 'cursor-not-allowed opacity-50' : ''}`} aria-label={`Edit exercise ${exercise.name}`} title={`Edit exercise ${exercise.name}`} aria-expanded={isEditing} aria-controls={`${pickerId}-${exercise.id}-exercise-editor`} disabled={pickerIsBusy} onClick={(event) => { event.stopPropagation(); if (exerciseEditorIsPending) return; updateExerciseMutation.reset(); deleteExerciseMutation.reset(); setDeletingExerciseId(null); setEditingExerciseId(isEditing ? null : exercise.id); setNameDraft(isEditing ? '' : exercise.name); setCategoryDraft(isEditing ? '' : exercise.category.id); setMutationError('') }}><span className={`inline-flex transition-[color,opacity,transform] duration-150 motion-reduce:transition-none active:scale-95 ${isEditing ? 'opacity-100' : 'opacity-90'}`}><Pencil size={16} aria-hidden="true" /></span></button> : null}
                           </div>
                           {isEditing ? (
                             <div
@@ -762,7 +819,7 @@ export function ExercisePickerDialog({
                                 <input
                                   ref={(element) => { exerciseNameInputRefs.current[exercise.id] = element }}
                                   value={nameDraft}
-                                  disabled={updateExerciseIsPending}
+                                  disabled={exerciseEditorIsPending}
                                   onChange={(event) => setNameDraft(event.target.value)}
                                   maxLength={80}
                                   placeholder="e.g. Cable Fly"
@@ -775,13 +832,13 @@ export function ExercisePickerDialog({
                                   options={categories.map((category) => ({ value: category.id, label: category.name }))}
                                   onValueChange={setCategoryDraft}
                                   ariaLabel={`Category for ${exercise.name}`}
-                                  disabled={updateExerciseIsPending}
+                                  disabled={exerciseEditorIsPending}
                                 />
                               </div>
                               <div className="mt-3 flex gap-2">
                                 <button
                                   type="button"
-                                  disabled={updateExerciseIsPending || !canSaveExercise}
+                                  disabled={exerciseEditorIsPending || !canSaveExercise}
                                   onClick={() => updateExerciseMutation.mutate({
                                     exerciseId: exercise.id,
                                     ...(nameChanged ? { name: trimmedNameDraft } : {}),
@@ -793,13 +850,31 @@ export function ExercisePickerDialog({
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={updateExerciseIsPending}
+                                  disabled={exerciseEditorIsPending}
                                   onClick={() => cancelExerciseEdit(exercise.id)}
                                   className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 disabled:cursor-not-allowed disabled:text-slate-300"
                                 >
                                   Cancel
                                 </button>
                               </div>
+                              <button
+                                ref={exerciseDeleteButtonRef}
+                                type="button"
+                                disabled={exerciseEditorIsPending}
+                                onClick={() => {
+                                  if (exerciseEditorIsPending) return
+                                  if (editingFocusFrameRef.current !== null) {
+                                    window.cancelAnimationFrame(editingFocusFrameRef.current)
+                                    editingFocusFrameRef.current = null
+                                  }
+                                  deleteExerciseMutation.reset()
+                                  setDeletingExerciseId(exercise.id)
+                                }}
+                                className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                              >
+                                <Trash2 size={15} aria-hidden="true" />
+                                Delete exercise
+                              </button>
                               {updateExerciseMutation.isError ? (
                                 <p role="alert" className="mt-3 text-sm font-medium text-red-700">
                                   {getErrorMessage(updateExerciseMutation.error, 'Unable to save exercise.')}
@@ -882,6 +957,57 @@ export function ExercisePickerDialog({
           </Dialog>
         )
       })() : null}
+      {deletingExercise ? (
+        <Dialog
+          role="alertdialog"
+          labelledBy="delete-exercise-dialog-title"
+          describedBy="delete-exercise-dialog-description"
+          onClose={closeExerciseDeleteConfirmation}
+          closeOnEscape={!deleteExerciseIsPending}
+          restoreFocusRef={exerciseDeleteButtonRef}
+          fallbackFocusRef={pickerSearchInputRef}
+          overlayClassName="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          className="max-h-[calc(100dvh-3rem)] w-full max-w-md overflow-y-auto rounded-[24px] bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.35)]"
+        >
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-400">Exercise library</p>
+          <h2 id="delete-exercise-dialog-title" className="mt-1 break-words text-2xl font-extrabold text-slate-900 [overflow-wrap:anywhere]">
+            Delete {deletingExercise.name}?
+          </h2>
+          <p id="delete-exercise-dialog-description" className="mt-3 break-words text-sm leading-6 text-slate-500 [overflow-wrap:anywhere]">
+            This removes {deletingExercise.name} from your exercise library and any program days. Completed workout history and progress will remain preserved.
+          </p>
+          <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold leading-5 text-red-700">
+            This action cannot be undone.
+          </p>
+          {deleteExerciseMutation.isError ? (
+            <p role="alert" className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {getErrorMessage(deleteExerciseMutation.error, 'Unable to delete exercise.')}
+            </p>
+          ) : null}
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={closeExerciseDeleteConfirmation}
+              disabled={deleteExerciseIsPending}
+              className="min-h-11 flex-1 rounded-[13px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!deleteExerciseIsPending) {
+                  deleteExerciseMutation.mutate(deletingExercise.id)
+                }
+              }}
+              disabled={deleteExerciseIsPending}
+              className="min-h-11 flex-1 rounded-[13px] border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+            >
+              {deleteExerciseIsPending ? 'Deleting…' : 'Delete exercise'}
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
     </Dialog>
   )
 }

@@ -9,6 +9,7 @@ import {
   createProgramSchema,
   dayExerciseSchema,
   reorderDayExerciseSchema,
+  reorderDaySchema,
   updateDaySchema,
   updateProgramSchema,
 } from './programs.schemas.js'
@@ -192,7 +193,7 @@ programsRouter.post('/', requireAuth, async (req, res) => {
           days: {
             orderBy: { order: 'asc' },
             include: {
-              dayExercises: { orderBy: { order: 'asc' } },
+              dayExercises: { where: { exercise: { archivedAt: null } }, orderBy: { order: 'asc' } },
             },
           },
         },
@@ -238,9 +239,9 @@ programsRouter.post('/', requireAuth, async (req, res) => {
                 badgeColor: day.badgeColor,
                 order: day.order,
                 dayExercises: {
-                  create: day.dayExercises.map((exercise) => ({
+                  create: day.dayExercises.map((exercise, index) => ({
                     exerciseId: exercise.exerciseId,
-                    order: exercise.order,
+                    order: index + 1,
                   })),
                 },
               })),
@@ -507,6 +508,86 @@ programsRouter.patch('/:programId/days/:dayId', requireAuth, async (req, res) =>
   res.json({ day: toDayPayload(updatedDay as FullProgram['days'][number], labels) })
 })
 
+programsRouter.patch('/:programId/days/:dayId/reorder', requireAuth, async (req, res) => {
+  const userId = req.userId
+  const programId = typeof req.params.programId === 'string' ? req.params.programId : null
+  const dayId = typeof req.params.dayId === 'string' ? req.params.dayId : null
+
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' })
+    return
+  }
+
+  if (!programId || !dayId) {
+    res.status(400).json({ error: 'Invalid program or day id' })
+    return
+  }
+
+  const parsedBody = reorderDaySchema.safeParse(req.body)
+
+  if (!parsedBody.success) {
+    res.status(400).json({ error: 'Invalid request body', fields: parsedBody.error.flatten().fieldErrors })
+    return
+  }
+
+  const program = await getOwnedProgram(programId, userId)
+
+  if (!program) {
+    res.status(404).json({ error: 'Program not found' })
+    return
+  }
+
+  const daysInProgram = await prisma.day.findMany({
+    where: { programId: program.id },
+    orderBy: { order: 'asc' },
+    include: {
+      dayExercises: {
+        orderBy: { order: 'asc' },
+        include: { exercise: { include: { category: true } } },
+      },
+    },
+  })
+  const sourceIndex = daysInProgram.findIndex((day) => day.id === dayId)
+  const targetIndex = parsedBody.data.targetIndex
+
+  if (sourceIndex < 0) {
+    res.status(404).json({ error: 'Day not found' })
+    return
+  }
+
+  if (targetIndex >= daysInProgram.length) {
+    res.status(400).json({ error: 'Invalid target day position' })
+    return
+  }
+
+  const reordered = [...daysInProgram]
+
+  if (sourceIndex !== targetIndex) {
+    const [movedDay] = reordered.splice(sourceIndex, 1)
+
+    if (!movedDay) {
+      res.status(400).json({ error: 'Invalid target day position' })
+      return
+    }
+
+    reordered.splice(targetIndex, 0, movedDay)
+    await prisma.$transaction(async (tx) => {
+      for (const [index, day] of reordered.entries()) {
+        await tx.day.update({ where: { id: day.id }, data: { order: -(index + 1) } })
+      }
+
+      for (const [index, day] of reordered.entries()) {
+        await tx.day.update({ where: { id: day.id }, data: { order: index + 1 } })
+      }
+    })
+  }
+
+  const labels = await loadCategoryLabels(userId)
+  res.json({
+    days: reordered.map((day, index) => toDayPayload({ ...day, order: index + 1 }, labels)),
+  })
+})
+
 programsRouter.delete('/:programId/days/:dayId', requireAuth, async (req, res) => {
   const userId = req.userId
   const programId = typeof req.params.programId === 'string' ? req.params.programId : null
@@ -583,7 +664,7 @@ programsRouter.post('/:programId/days/:dayId/exercises', requireAuth, async (req
   }
 
   const exercise = await prisma.exercise.findFirst({
-    where: { id: parsedBody.data.exerciseId, OR: [{ ownerId: null }, { ownerId: userId }] },
+    where: { id: parsedBody.data.exerciseId, archivedAt: null, OR: [{ ownerId: null }, { ownerId: userId }] },
   })
 
   if (!exercise) {

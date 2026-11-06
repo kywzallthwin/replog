@@ -59,7 +59,7 @@ try {
 export const api = axios.create({
   baseURL: apiBaseUrl,
   withCredentials: true,
-  timeout: 10000,
+  timeout: 30000,
 })
 
 installApiAvailability(api, () => apiBaseUrl)

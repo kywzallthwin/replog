@@ -33,6 +33,7 @@ exercisesRouter.get('/', requireAuth, async (req, res) => {
 
   const exercises = await prisma.exercise.findMany({
     where: {
+      archivedAt: null,
       OR: [{ ownerId: null }, { ownerId: userId }],
     },
     include: { category: true },
@@ -63,6 +64,7 @@ exercisesRouter.post('/', requireAuth, async (req, res) => {
   const normalizedName = normalizeExerciseName(parsedBody.data.name)
   const visibleExercises = await prisma.exercise.findMany({
     where: {
+      archivedAt: null,
       OR: [{ ownerId: null }, { ownerId: userId }],
     },
     select: { name: true },
@@ -93,7 +95,7 @@ exercisesRouter.patch('/:exerciseId/category', requireAuth, async (req, res) => 
   const exerciseId = Array.isArray(req.params.exerciseId) ? req.params.exerciseId[0] : req.params.exerciseId
   const parsed = createExerciseSchema.shape.categoryId.safeParse(req.body?.categoryId)
   if (!exerciseId || !parsed.success) { res.status(400).json({ error: 'Invalid category' }); return }
-  const exercise = await prisma.exercise.findFirst({ where: { id: exerciseId, ownerId: userId } })
+  const exercise = await prisma.exercise.findFirst({ where: { id: exerciseId, ownerId: userId, archivedAt: null } })
   if (!exercise) { res.status(404).json({ error: 'Exercise not found' }); return }
   const category = await prisma.exerciseCategory.findFirst({ where: { id: parsed.data, OR: [{ ownerId: null }, { ownerId: userId }] } })
   if (!category) { res.status(400).json({ error: 'Invalid category' }); return }
@@ -109,7 +111,7 @@ exercisesRouter.patch('/:exerciseId', requireAuth, async (req, res) => {
   if (!exerciseId) { res.status(400).json({ error: 'Invalid exercise' }); return }
   const parsed = updateExerciseSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: 'Invalid request body', fields: parsed.error.flatten().fieldErrors }); return }
-  const exercise = await prisma.exercise.findFirst({ where: { id: exerciseId, ownerId: userId } })
+  const exercise = await prisma.exercise.findFirst({ where: { id: exerciseId, ownerId: userId, archivedAt: null } })
   if (!exercise) { res.status(404).json({ error: 'Exercise not found' }); return }
   const data: { name?: string; categoryId?: string } = {}
 
@@ -118,6 +120,7 @@ exercisesRouter.patch('/:exerciseId', requireAuth, async (req, res) => {
     const visibleExercises = await prisma.exercise.findMany({
       where: {
         id: { not: exercise.id },
+        archivedAt: null,
         OR: [{ ownerId: null }, { ownerId: userId }],
       },
       select: { name: true },
@@ -140,6 +143,49 @@ exercisesRouter.patch('/:exerciseId', requireAuth, async (req, res) => {
   const updated = await prisma.exercise.update({ where: { id: exercise.id }, data, include: { category: true } })
   const labels = await loadCategoryLabels(userId)
   res.json({ exercise: toExercisePayload(updated, labels) })
+})
+
+exercisesRouter.delete('/:exerciseId', requireAuth, async (req, res) => {
+  const userId = req.userId
+  if (!userId) { res.status(401).json({ error: 'Authentication required' }); return }
+  const exerciseId = Array.isArray(req.params.exerciseId) ? req.params.exerciseId[0] : req.params.exerciseId
+  if (!exerciseId) { res.status(400).json({ error: 'Invalid exercise' }); return }
+  const exercise = await prisma.exercise.findFirst({ where: { id: exerciseId, ownerId: userId, archivedAt: null } })
+  if (!exercise) { res.status(404).json({ error: 'Exercise not found' }); return }
+
+  const archived = await prisma.$transaction(async (tx) => {
+    const updated = await tx.exercise.updateMany({
+      where: { id: exercise.id, ownerId: userId, archivedAt: null },
+      data: { archivedAt: new Date() },
+    })
+    if (updated.count === 0) return false
+
+    const programDayReferences = await tx.dayExercise.findMany({
+      where: { exerciseId: exercise.id, day: { program: { ownerId: userId } } },
+      select: { dayId: true },
+    })
+    const dayIds = [...new Set(programDayReferences.map((reference) => reference.dayId))]
+
+    for (const dayId of dayIds) {
+      await tx.dayExercise.deleteMany({ where: { dayId, exerciseId: exercise.id } })
+      const remaining = await tx.dayExercise.findMany({ where: { dayId }, orderBy: { order: 'asc' }, select: { id: true } })
+      for (const [index, entry] of remaining.entries()) {
+        await tx.dayExercise.update({ where: { id: entry.id }, data: { order: -(index + 1) } })
+      }
+      for (const [index, entry] of remaining.entries()) {
+        await tx.dayExercise.update({ where: { id: entry.id }, data: { order: index + 1 } })
+      }
+    }
+
+    return true
+  })
+
+  if (!archived) {
+    res.status(404).json({ error: 'Exercise not found' })
+    return
+  }
+
+  res.status(204).send()
 })
 
 class MergeConflictError extends Error {}
@@ -167,8 +213,8 @@ exercisesRouter.post('/:sourceId/merge', requireAuth, async (req, res) => {
   }
 
   const [source, target] = await Promise.all([
-    prisma.exercise.findFirst({ where: { id: sourceId, OR: [{ ownerId: null }, { ownerId: userId }] } }),
-    prisma.exercise.findFirst({ where: { id: targetId, ownerId: userId } }),
+    prisma.exercise.findFirst({ where: { id: sourceId, archivedAt: null, OR: [{ ownerId: null }, { ownerId: userId }] } }),
+    prisma.exercise.findFirst({ where: { id: targetId, ownerId: userId, archivedAt: null } }),
   ])
 
   if (!source || !target) {

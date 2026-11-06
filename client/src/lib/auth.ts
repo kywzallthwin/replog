@@ -1,11 +1,13 @@
 import { api } from './api'
 import type { QueryClient } from '@tanstack/react-query'
+import type { WeightUnit } from './units'
 
 export type AuthUser = {
   id: string
   email: string
   username: string
   avatarInitial: string
+  weightUnit?: WeightUnit
   createdAt: string
 }
 
@@ -14,8 +16,9 @@ export type AuthResponse = {
 }
 
 export type UpdateCurrentUserInput = {
-  email: string
-  username: string
+  email?: string
+  username?: string
+  weightUnit?: WeightUnit
 }
 
 export type ChangePasswordInput = {

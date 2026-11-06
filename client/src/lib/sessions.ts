@@ -64,6 +64,7 @@ export type WorkoutHistorySession = {
   durationSec: number | null
   exerciseCount: number
   setCount: number
+  totalVolumeKg?: number
   source?: 'LIVE' | 'MANUAL'
   workoutDate?: string | null
   notes?: string | null
@@ -88,6 +89,10 @@ type SetChainResponse = {
 
 type SessionExerciseResponse = {
   exercise: WorkoutExercise
+}
+
+type SessionExercisesResponse = {
+  exercises: WorkoutExercise[]
 }
 
 export type AddSetInput = {
@@ -141,6 +146,12 @@ export type SwapSessionExerciseInput = {
 export type RemoveSessionExerciseInput = {
   sessionId: string
   sessionExerciseId: string
+}
+
+export type ReorderSessionExerciseInput = {
+  sessionId: string
+  sessionExerciseId: string
+  targetIndex: number
 }
 
 export function sessionQueryKey(sessionId: string) {
@@ -210,6 +221,15 @@ export async function removeSessionExercise(input: RemoveSessionExerciseInput) {
   await api.delete(`/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}`)
 }
 
+export async function reorderSessionExercise(input: ReorderSessionExerciseInput) {
+  const response = await api.patch<SessionExercisesResponse>(
+    `/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}/reorder`,
+    { targetIndex: input.targetIndex },
+  )
+
+  return response.data.exercises
+}
+
 export async function addSet(input: AddSetInput) {
   const response = await api.post<SetResponse>(
     `/sessions/${input.sessionId}/exercises/${input.sessionExerciseId}/sets`,
@@ -261,6 +281,10 @@ export async function finishSession(sessionId: string) {
 }
 
 export async function cancelSession(sessionId: string) {
+  await api.delete(`/sessions/${sessionId}`)
+}
+
+export async function deleteSession(sessionId: string) {
   await api.delete(`/sessions/${sessionId}`)
 }
 
