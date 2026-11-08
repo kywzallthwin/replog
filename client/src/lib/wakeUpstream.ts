@@ -1,5 +1,4 @@
 const WAKE_LIFETIME_MS = 60_000
-const WAKE_IFRAME_ATTRIBUTE = 'data-replog-wake-upstream'
 
 export type UpstreamWakeHandle = {
   stop: () => void
@@ -7,7 +6,7 @@ export type UpstreamWakeHandle = {
 
 type WakeUpstreamOptions = {
   fetchImpl?: typeof fetch
-  documentImpl?: Document
+  webSocketImpl?: typeof WebSocket
   setTimeoutImpl?: typeof setTimeout
   clearTimeoutImpl?: typeof clearTimeout
 }
@@ -23,6 +22,22 @@ function noop() {
   return undefined
 }
 
+function resolveWebSocketUrl(url: string) {
+  try {
+    const parsedUrl = new URL(url)
+    if (parsedUrl.protocol === 'https:') {
+      parsedUrl.protocol = 'wss:'
+    } else if (parsedUrl.protocol === 'http:') {
+      parsedUrl.protocol = 'ws:'
+    } else {
+      return undefined
+    }
+    return parsedUrl.toString()
+  } catch {
+    return undefined
+  }
+}
+
 export function wakeUpstream(url: string | undefined, options: WakeUpstreamOptions = {}): UpstreamWakeHandle {
   if (!url) {
     return { stop: noop }
@@ -33,15 +48,12 @@ export function wakeUpstream(url: string | undefined, options: WakeUpstreamOptio
   }
   activeWake?.handle.stop()
 
-  const documentImpl = options.documentImpl ?? (typeof document !== 'undefined' ? document : undefined)
-  if (!documentImpl?.body) {
-    return { stop: noop }
-  }
-
   const fetchImpl = options.fetchImpl ?? fetch
+  const WebSocketImpl = options.webSocketImpl ?? (typeof WebSocket !== 'undefined' ? WebSocket : undefined)
   const setTimeoutImpl = options.setTimeoutImpl ?? setTimeout
   const clearTimeoutImpl = options.clearTimeoutImpl ?? clearTimeout
   const controller = new AbortController()
+  let socket: WebSocket | undefined
   let stopped = false
 
   const handle: UpstreamWakeHandle = {
@@ -50,29 +62,34 @@ export function wakeUpstream(url: string | undefined, options: WakeUpstreamOptio
       stopped = true
       clearTimeoutImpl(timer)
       controller.abort()
-      iframe.remove()
+      socket?.close()
       if (activeWake?.handle === handle) activeWake = null
     },
   }
 
-  const iframe = documentImpl.createElement('iframe')
-  iframe.src = url
-  iframe.title = 'RepLog server wake-up'
-  iframe.tabIndex = -1
-  iframe.setAttribute('aria-hidden', 'true')
-  iframe.setAttribute('referrerpolicy', 'no-referrer')
-  iframe.setAttribute(WAKE_IFRAME_ATTRIBUTE, 'true')
-  iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden'
-  documentImpl.body.appendChild(iframe)
+  const webSocketUrl = resolveWebSocketUrl(url)
+  if (webSocketUrl && WebSocketImpl) {
+    try {
+      socket = new WebSocketImpl(webSocketUrl)
+      socket.addEventListener('open', () => socket?.close())
+      socket.addEventListener('error', () => socket?.close())
+    } catch {
+      socket = undefined
+    }
+  }
 
   const timer = setTimeoutImpl(handle.stop, WAKE_LIFETIME_MS)
 
-  void fetchImpl(url, {
-    mode: 'no-cors',
-    cache: 'no-store',
-    credentials: 'omit',
-    signal: controller.signal,
-  }).catch(noop)
+  try {
+    void fetchImpl(url, {
+      mode: 'no-cors',
+      cache: 'no-store',
+      credentials: 'omit',
+      signal: controller.signal,
+    }).catch(noop)
+  } catch {
+    noop()
+  }
 
   activeWake = { url, handle }
   return handle
