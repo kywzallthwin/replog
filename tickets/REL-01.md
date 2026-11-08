@@ -14,7 +14,7 @@ Recover production startup when the free Render API is asleep and the Cloudflare
 - Trigger the browser wake only after a retryable readiness failure; stop it on success, abort, or completion.
 - Thread an optional `VITE_API_WAKE_URL` from build configuration through the startup gate and axios availability layer.
 - Add a one-click `Wake server` link on the recovery card that opens the public wake URL in a new tab.
-- Add optional Worker-side Render wake support: on browser `/ready` challenges, call Render's restart API, then a deploy-only deploy if restart fails.
+- Add optional Worker-side Render wake support: on browser `/ready` challenges, deploy the last successful build with Render's `deploy_only` mode, then fall back to a restart if the deploy call fails.
 - Dedupe Worker wakes with a short-lived `replog_wake` cookie and browser Fetch Metadata checks; skip silently when the Worker secrets are absent.
 - Sync the existing `RENDER_API_KEY` and `RENDER_SERVICE_ID` GitHub values into Cloudflare Worker secrets during the deploy job without printing them.
 - Update startup recovery copy to describe the wake behavior.
@@ -35,7 +35,7 @@ Recover production startup when the free Render API is asleep and the Cloudflare
 - No browser wake is started for an immediate success, a non-retryable readiness response, or offline startup.
 - The WebSocket and fetch are cleaned up after success, abort, replacement, or 60 seconds.
 - WebSocket construction failures or unsupported browsers still attempt the fetch and never break startup.
-- On a browser `/ready` 429, HTML challenge, or upstream timeout, the Worker calls `POST /v1/services/{id}/restart` when `RENDER_API_KEY` and `RENDER_SERVICE_ID` are configured, falls back to `POST /v1/services/{id}/deploys` with `deployMode: deploy_only`, and sets a 2-minute `replog_wake` cookie.
+- On a browser `/ready` 429, HTML challenge, or upstream timeout, the Worker calls `POST /v1/services/{id}/deploys` with `deployMode: deploy_only` when `RENDER_API_KEY` and `RENDER_SERVICE_ID` are configured, falls back to `POST /v1/services/{id}/restart`, and sets a 2-minute `replog_wake` cookie.
 - The Worker does not wake for non-browser requests, cookie-bearing retries, preview origins, or missing secrets, and never logs the Render key or service ID.
 - The recovery card offers a `Wake server` link with the configured wake URL when online.
 - Production bundles use `https://replog-tracker.onrender.com/health` when `VITE_API_WAKE_URL` is absent.

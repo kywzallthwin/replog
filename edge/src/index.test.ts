@@ -79,13 +79,13 @@ describe('edge routing and validation', () => {
   const wakeEnv = { ...env, RENDER_API_KEY: 'render-key', RENDER_SERVICE_ID: 'srv-test' }
   const browserHeaders = { 'Sec-Fetch-Site': 'same-origin', 'CF-Ray': 'wake-id' }
 
-  it('requests a Render restart and sets a dedupe cookie on /ready challenges', async () => {
+  it('requests a Render deploy-only wake and sets a dedupe cookie on /ready challenges', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const calls: Array<{ url: string; init?: RequestInit }> = []
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = input instanceof Request ? input.url : String(input)
       calls.push({ url, init })
-      if (url.startsWith('https://api.render.com/')) return new Response('{}', { status: 200 })
+      if (url.startsWith('https://api.render.com/')) return new Response('{}', { status: 202 })
       return new Response('<!DOCTYPE html><html>challenge</html>', { status: 429, headers: { 'Content-Type': 'text/html; charset=UTF-8' } })
     })
     const response = await worker.fetch(new Request('https://app.example.com/ready', { headers: browserHeaders }), wakeEnv)
@@ -94,10 +94,12 @@ describe('edge routing and validation', () => {
     expect(response.headers.get('Set-Cookie')).toContain('replog_wake=1')
     expect(calls.map((call) => call.url)).toEqual([
       'https://api.example.com/ready',
-      'https://api.render.com/v1/services/srv-test/restart',
+      'https://api.render.com/v1/services/srv-test/deploys',
     ])
     expect(calls[1].init?.method).toBe('POST')
     expect(new Headers(calls[1].init?.headers).get('Authorization')).toBe('Bearer render-key')
+    expect(new Headers(calls[1].init?.headers).get('Content-Type')).toBe('application/json')
+    expect(JSON.parse(String(calls[1].init?.body))).toEqual({ deployMode: 'deploy_only' })
     expect(await response.json()).toEqual({ ok: false, code: 'API_STARTING' })
     const record = JSON.parse(String(warn.mock.calls[0][0])) as Record<string, unknown>
     expect(record).toMatchObject({ event: 'upstream_failure', requestId: 'cf-wake-id', status: 429, category: 'upstream_rate_limited' })
@@ -105,7 +107,7 @@ describe('edge routing and validation', () => {
     vi.restoreAllMocks()
   })
 
-  it('skips the Render restart when the wake cookie is present', async () => {
+  it('skips the Render wake when the wake cookie is present', async () => {
     const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('challenge', { status: 429, headers: { 'Content-Type': 'text/html' } }))
     const response = await worker.fetch(new Request('https://app.example.com/ready', {
       headers: { ...browserHeaders, Cookie: 'replog_wake=1' },
@@ -117,13 +119,13 @@ describe('edge routing and validation', () => {
     vi.restoreAllMocks()
   })
 
-  it('falls back to a deploy-only Render wake when restart fails', async () => {
+  it('falls back to a Render restart when the deploy-only wake fails', async () => {
     const calls: Array<{ url: string; init?: RequestInit }> = []
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = input instanceof Request ? input.url : String(input)
       calls.push({ url, init })
-      if (url.endsWith('/restart')) return new Response('{}', { status: 503 })
-      if (url.startsWith('https://api.render.com/')) return new Response('{}', { status: 202 })
+      if (url.endsWith('/deploys')) return new Response('{}', { status: 503 })
+      if (url.startsWith('https://api.render.com/')) return new Response('{}', { status: 200 })
       return new Response('<!DOCTYPE html><html>challenge</html>', { status: 429, headers: { 'Content-Type': 'text/html; charset=UTF-8' } })
     })
     const response = await worker.fetch(new Request('https://app.example.com/ready', { headers: browserHeaders }), wakeEnv)
@@ -131,12 +133,15 @@ describe('edge routing and validation', () => {
     expect(response.headers.get('Set-Cookie')).toContain('replog_wake=1')
     expect(calls.map((call) => call.url)).toEqual([
       'https://api.example.com/ready',
-      'https://api.render.com/v1/services/srv-test/restart',
       'https://api.render.com/v1/services/srv-test/deploys',
+      'https://api.render.com/v1/services/srv-test/restart',
     ])
+    expect(calls[1].init?.method).toBe('POST')
+    expect(new Headers(calls[1].init?.headers).get('Content-Type')).toBe('application/json')
+    expect(JSON.parse(String(calls[1].init?.body))).toEqual({ deployMode: 'deploy_only' })
     expect(calls[2].init?.method).toBe('POST')
-    expect(new Headers(calls[2].init?.headers).get('Content-Type')).toBe('application/json')
-    expect(JSON.parse(String(calls[2].init?.body))).toEqual({ deployMode: 'deploy_only' })
+    expect(new Headers(calls[2].init?.headers).get('Content-Type')).toBeNull()
+    expect(new Headers(calls[2].init?.headers).get('Authorization')).toBe('Bearer render-key')
     vi.restoreAllMocks()
   })
 
@@ -172,7 +177,7 @@ describe('edge routing and validation', () => {
     expect(response.headers.get('Set-Cookie')).toContain('replog_wake=1')
     expect(calls.map((call) => call.url)).toEqual([
       'https://api.example.com/ready',
-      'https://api.render.com/v1/services/srv-test/restart',
+      'https://api.render.com/v1/services/srv-test/deploys',
     ])
     const record = JSON.parse(String(warn.mock.calls[0][0])) as Record<string, unknown>
     expect(record).toMatchObject({ event: 'upstream_failure', requestId: 'cf-wake-id', status: 504, category: 'timeout' })
@@ -192,7 +197,7 @@ describe('edge routing and validation', () => {
     expect(response.headers.get('Set-Cookie')).toContain('replog_wake=1')
     expect(calls.map((call) => call.url)).toEqual([
       'https://api.example.com/ready',
-      'https://api.render.com/v1/services/srv-test/restart',
+      'https://api.render.com/v1/services/srv-test/deploys',
     ])
     vi.restoreAllMocks()
   })

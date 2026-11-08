@@ -62,8 +62,8 @@ async function wakeRender(env: Env) {
   const serviceId = env.RENDER_SERVICE_ID
   if (!apiKey || !serviceId) return false
   const serviceUrl = `${RENDER_API_ORIGIN}/services/${encodeURIComponent(serviceId)}`
-  if (await postRender(apiKey, `${serviceUrl}/restart`)) return true
-  return postRender(apiKey, `${serviceUrl}/deploys`, { deployMode: 'deploy_only' })
+  if (await postRender(apiKey, `${serviceUrl}/deploys`, { deployMode: 'deploy_only' })) return true
+  return postRender(apiKey, `${serviceUrl}/restart`)
 }
 
 async function maybeWakeRender(request: Request, env: Env) {
