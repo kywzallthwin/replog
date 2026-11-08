@@ -182,6 +182,15 @@ jobs:
           VITE_API_WAKE_URL: https://replog-tracker.onrender.com/health
         run: npm run build -w client
 
+      - name: Configure Worker Render wake secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${RENDER_API_KEY:?Render API key is missing}"
+          : "${RENDER_SERVICE_ID:?Render service ID is missing}"
+          printf '%s' "${RENDER_API_KEY}" | npx wrangler secret put RENDER_API_KEY --config edge/wrangler.toml
+          printf '%s' "${RENDER_SERVICE_ID}" | npx wrangler secret put RENDER_SERVICE_ID --config edge/wrangler.toml
+
       - name: Deploy Cloudflare Worker
         id: cloudflare
         shell: bash
