@@ -174,6 +174,16 @@ export function ApiStartupGate({ children, configurationError = apiConfiguration
           >
             Retry
           </button>
+          {isOnline && apiWakeUrl ? (
+            <a
+              href={apiWakeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700"
+            >
+              Wake server
+            </a>
+          ) : null}
         </div>
       </main>
     )
