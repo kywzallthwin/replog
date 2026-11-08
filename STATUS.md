@@ -1,6 +1,6 @@
 # RepLog Status
 
-- Active incident: REL-01 Render cold-start recovery (`tickets/REL-01.md`) on `fix/cold-start-ws-wake`, branched from `main` at `abd6bfe`. The deployed iframe/fetch wake and a real-browser WebSocket cold-start probe did not start Render; Worker-side Render restart/deploy support (optional secrets) and a one-click wake link are now implemented and awaiting verification.
+- Active incident: REL-01 Render cold-start recovery (`tickets/REL-01.md`) on `fix/cold-start-ws-wake`, branched from `main` at `abd6bfe`. The deployed iframe/fetch wake and a real-browser WebSocket cold-start probe did not start Render; Worker-side Render restart/deploy support (Worker secrets synced from the existing CI Render credentials) and a one-click wake link are now implemented and awaiting verification.
 - Active initiatives: Wave 2 verification sync complete on `feat/wave` (`a3a7282`); W2-03, W2-04, W2-05, W2-06, W2-07, W2-08, W2-09, W2-13, W2-15, W2-16, and W2-17 are verified and closed (`done`). AV-01 free-hosting startup reliability and CF-05 production cutover are completed and verified on production.
 - Governing plan: `WAVE2.md` for Wave 2 product tickets; `tickets/AV-01.md` for startup reliability; `tickets/CF-00.md` for Cloudflare architecture and security work.
 - Wave 2 status: W2-01, W2-02, W2-03, W2-04, W2-05, W2-06, W2-07, W2-08, W2-09, W2-10, W2-12, W2-13, W2-14, W2-15, W2-16, and W2-17 are `done`. Remaining Wave 2 tickets (`W2-11`) are `proposed`.

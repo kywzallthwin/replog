@@ -16,6 +16,7 @@ Recover production startup when the free Render API is asleep and the Cloudflare
 - Add a one-click `Wake server` link on the recovery card that opens the public wake URL in a new tab.
 - Add optional Worker-side Render wake support: on browser `/ready` challenges, call Render's restart API, then a deploy-only deploy if restart fails.
 - Dedupe Worker wakes with a short-lived `replog_wake` cookie and browser Fetch Metadata checks; skip silently when the Worker secrets are absent.
+- Sync the existing `RENDER_API_KEY` and `RENDER_SERVICE_ID` GitHub values into Cloudflare Worker secrets during the deploy job without printing them.
 - Update startup recovery copy to describe the wake behavior.
 - Add focused tests for the wake helper, readiness integration, availability pass-through, URL resolution, gate wiring, and Worker wake behavior.
 - Add `VITE_API_WAKE_URL` to the production client build.
@@ -24,7 +25,7 @@ Recover production startup when the free Render API is asleep and the Cloudflare
 
 - Render plan, region, or instance changes.
 - Keep-warm cron jobs or synthetic traffic schedules.
-- Committing or exposing Render API keys; secrets are set by the operator in Cloudflare.
+- Committing or exposing Render API keys; the deploy job copies the existing GitHub secret into a Cloudflare Worker secret.
 - Authentication, database, or migration changes.
 - Deployment or production configuration changes without explicit authorization.
 
@@ -46,8 +47,8 @@ Recover production startup when the free Render API is asleep and the Cloudflare
 - `npm test -w client -- wake-upstream api-readiness api-availability api-url api-startup-gate`
 - `npm test -w edge`
 - `npm run check`
-- Operator sets `RENDER_API_KEY` and `RENDER_SERVICE_ID` as Cloudflare Worker secrets, or confirms the one-click fallback only.
-- Production cold-start probe: leave Render idle for 15+ minutes, then open `https://replog.zllt.workers.dev/`. With secrets configured, confirm automatic recovery without a manual Render visit or redeploy. Without secrets, confirm the `Wake server` link wakes Render and the app recovers.
+- Confirm the deploy job sets the `RENDER_API_KEY` and `RENDER_SERVICE_ID` Worker secrets without printing their values.
+- Production cold-start probe: leave Render idle for 15+ minutes, then open `https://replog.zllt.workers.dev/`. Confirm automatic recovery without a manual Render visit or redeploy. If automatic recovery fails, confirm the `Wake server` link wakes Render and the app recovers.
 
 ## Stop conditions
 
